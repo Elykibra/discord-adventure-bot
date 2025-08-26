@@ -1,0 +1,404 @@
+# --- cogs/utils/views_combat.py (Final Version with all mechanics) ---
+import discord, random, asyncio, math, traceback
+from . import effects
+from cogs.utils.constants import XP_REWARD_BY_RARITY
+from data.skills import PET_SKILLS
+from data.pets import PET_DATABASE
+from cogs.utils.effects import apply_effect
+from cogs.utils.helpers import get_pet_image_url, get_status_bar, get_ai_move, _create_progress_bar, \
+    get_type_multiplier, _pet_tuple_to_dict
+
+
+# --- VIEW FOR PET SWITCHING ---
+class SwitchPetView(discord.ui.View):
+    def __init__(self, bot, user_id, available_pets, parent_view):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.user_id = user_id
+        self.parent_view = parent_view  # The CombatView that opened this
+
+        options = [
+            discord.SelectOption(
+                label=f"{pet['name']} (Lvl {pet['level']})",
+                description=f"HP: {pet['current_hp']}/{pet['max_hp']}",
+                value=str(pet['pet_id'])
+            ) for pet in available_pets
+        ]
+
+        if not options:
+            self.add_item(discord.ui.Button(label="No other pets available to switch!", disabled=True))
+        else:
+            select = discord.ui.Select(placeholder="Choose a pet to switch to...", options=options)
+            select.callback = self.select_callback
+            self.add_item(select)
+
+    async def select_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        selected_pet_id = int(interaction.data['values'][0])
+        db_cog = self.bot.get_cog('Database')
+
+        new_pet = await db_cog.get_pet(selected_pet_id)
+
+        if any(eff.get('status_effect') == 'spirit_blessing_active' for eff in self.parent_view.player_pet_effects):
+            heal_amount = new_pet['max_hp']
+            new_pet['current_hp'] = heal_amount
+            await db_cog.update_pet(new_pet['pet_id'], current_hp=heal_amount)
+            for effect in self.parent_view.player_pet_effects[:]:
+                if effect.get('status_effect') == 'spirit_blessing_active':
+                    self.parent_view.player_pet_effects.remove(effect)
+
+        self.parent_view.player_pet = _pet_tuple_to_dict(new_pet)
+
+        switch_log = f"› You sent out **{new_pet['name']}**!"
+
+        original_interaction = self.parent_view.last_interaction
+        if original_interaction:
+            await self.parent_view.handle_ai_turn(original_interaction, switch_log)
+
+        await interaction.delete_original_response()
+        self.stop()
+
+
+class CombatView(discord.ui.View):
+    def __init__(self, bot, user_id, player_pet, wild_pet, message, parent_view=None):
+        super().__init__(timeout=300)
+        self.bot, self.user_id = bot, user_id
+        self.player_pet = _pet_tuple_to_dict(player_pet)
+        self.wild_pet = _pet_tuple_to_dict(wild_pet)
+        self.message, self.parent_view = message, parent_view
+        self.in_progress = True
+        self.player_pet_effects, self.wild_pet_effects = [], []
+        self.gloom_meter, self.purify_charges = 0, 1
+        self.player_gloom_channeled = False
+        self.turn_log = []
+        self.last_interaction = None
+        self.rebuild_ui_for_player_turn()
+
+    def rebuild_ui_for_player_turn(self):
+        self.clear_items()
+        is_gloom_touched = any(eff.get('name') == 'gloom_touched' for eff in self.player_pet_effects)
+        for skill_id in self.player_pet.get("skills", ["scratch"])[:4]:
+            skill_info = PET_SKILLS.get(skill_id, {})
+            skill_button = discord.ui.Button(label=skill_info.get('name', 'Unknown'), style=discord.ButtonStyle.primary,
+                                             custom_id=f"skill_{skill_id}")
+            skill_button.callback = self.skill_button_callback
+            self.add_item(skill_button)
+
+        switch_button = discord.ui.Button(label="Switch Pet", style=discord.ButtonStyle.secondary, emoji="🔄", row=1)
+        switch_button.callback = self.switch_pet_callback
+        self.add_item(switch_button)
+
+        capture_button = discord.ui.Button(label="Capture", style=discord.ButtonStyle.green, custom_id="capture", row=1)
+        capture_button.callback = self.capture_button_callback
+        self.add_item(capture_button)
+
+        flee_button = discord.ui.Button(label="Flee", style=discord.ButtonStyle.secondary, custom_id="flee", row=1)
+        flee_button.callback = self.flee_button_callback
+        self.add_item(flee_button)
+
+        channel_button = discord.ui.Button(label="Channel Gloom", style=discord.ButtonStyle.danger,
+                                           custom_id="channel_gloom", row=2,
+                                           disabled=(self.gloom_meter < 50 or is_gloom_touched))
+        channel_button.callback = self.channel_gloom_callback
+        self.add_item(channel_button)
+
+        purify_button = discord.ui.Button(label=f"Purify ({self.purify_charges})", style=discord.ButtonStyle.secondary,
+                                          custom_id="purify", row=2,
+                                          disabled=(not is_gloom_touched or self.purify_charges <= 0))
+        purify_button.callback = self.purify_callback
+        self.add_item(purify_button)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your battle!", ephemeral=True)
+            return False
+        return True
+
+    async def on_timeout(self):
+        if self.in_progress:
+            self.in_progress = False
+            for item in self.children: item.disabled = True
+            db_cog = self.bot.get_cog('Database')
+            if db_cog:
+                await db_cog.update_pet(self.player_pet['pet_id'], current_hp=max(0, self.player_pet['current_hp']))
+            embed = await self.get_battle_embed("The battle timed out due to inactivity.")
+            if self.message:
+                try:
+                    await self.message.edit(embed=embed, view=self)
+                except discord.errors.NotFound:
+                    pass
+
+    async def get_battle_embed(self, description):
+        gloom_bar = '🟪' * math.floor(self.gloom_meter / 10) + '⬛' * (10 - math.floor(self.gloom_meter / 10))
+        embed = discord.Embed(title=f"A wild {self.wild_pet['species']} appeared!", description=description,
+                              color=discord.Color.blue())
+        player_effects_str = ", ".join(
+            [eff.get('status_effect', eff.get('name', 'Unknown')).replace('_', ' ').title() for eff in
+             self.player_pet_effects]) or "None"
+        wild_effects_str = ", ".join(
+            [eff.get('status_effect', eff.get('name', 'Unknown')).replace('_', ' ').title() for eff in
+             self.wild_pet_effects]) or "None"
+        player_hp_bar = _create_progress_bar(self.player_pet['current_hp'], self.player_pet['max_hp'])
+        wild_hp_bar = _create_progress_bar(self.wild_pet['current_hp'], self.wild_pet['max_hp'])
+        embed.add_field(name=f"{self.player_pet['name']} (Lvl {self.player_pet['level']})", value=(
+            f"❤️ {player_hp_bar} {self.player_pet['current_hp']}/{self.player_pet['max_hp']}\n*Effects: {player_effects_str}*"),
+                        inline=True)
+        embed.add_field(name=f"{self.wild_pet['species']} (Lvl {self.wild_pet['level']})", value=(
+            f"❤️ {wild_hp_bar} {self.wild_pet['current_hp']}/{self.wild_pet['max_hp']}\n*Effects: {wild_effects_str}*"),
+                        inline=True)
+        embed.add_field(name="Gloom Meter", value=f"{gloom_bar} `{self.gloom_meter}%`", inline=False)
+        embed.set_thumbnail(url=get_pet_image_url(self.wild_pet['species']))
+        return embed
+
+    async def perform_attack(self, attacker, defender, skill_id, is_player, is_empowered=False):
+        skill_info = PET_SKILLS.get(skill_id,
+                                    {"name": "Struggle", "power": 35, "type": "Normal", "category": "Physical"})
+        attacker_name = f"Your **{attacker['name']}**" if is_player else f"The wild **{attacker['species']}**"
+        turn_log_lines = [f"› {attacker_name} used **{skill_info['name']}**!"]
+
+        # --- PRE-ATTACK PHASE ---
+        # Get passive ability data
+        attacker_passive_data = PET_DATABASE.get(attacker['species'], {}).get('passive_ability')
+        defender_passive_data = PET_DATABASE.get(defender.get('species'), {}).get('passive_ability')
+
+        # Check for attacker passives that trigger on attack
+        if attacker_passive_data:
+            if attacker_passive_data['name'] == "Singeing Fury" and skill_info['type'] == 'Fire':
+                # This is where you would add a stacking "Singe" status effect to the attacker
+                turn_log_lines.append(f"› {attacker_name}'s Singeing Fury intensifies!")
+
+        final_damage = 0
+        # --- DAMAGE CALCULATION PHASE ---
+        if skill_info.get("category") != "Status":
+            skill_power = skill_info.get("power", 0)
+            attack_stat = attacker['attack'] if skill_info["category"] == "Physical" else attacker['special_attack']
+            defense_stat = defender['defense'] if skill_info["category"] == "Physical" else defender['special_defense']
+
+            # (Damage formula remains the same)
+            defender_types = defender.get('pet_type', []) if isinstance(defender.get('pet_type'), list) else [
+                defender.get('pet_type')]
+            type_multiplier = get_type_multiplier(skill_info['type'], defender_types)
+            base_damage = (skill_power / 10) + (attack_stat / 2 - defense_stat / 4)
+            final_damage = max(1, int(base_damage * type_multiplier * random.uniform(0.9, 1.1)))
+
+            # Check for defender passives that affect incoming damage
+            if defender_passive_data:
+                if defender_passive_data['name'] == "Solid Rock" and defender['current_hp'] == defender['max_hp']:
+                    final_damage = min(final_damage, defender['max_hp'] - 1)
+                    turn_log_lines.append(f"› {defender['name']}'s Solid Rock allowed it to endure the hit!")
+
+            defender['current_hp'] -= final_damage
+            turn_log_lines.append(f"› It dealt **{final_damage}** damage!")
+            if type_multiplier > 1.0: turn_log_lines.append("› It's super effective!")
+            if type_multiplier < 1.0: turn_log_lines.append("› It's not very effective...")
+
+        # --- POST-ATTACK PHASE ---
+        if 'effect' in skill_info:
+            effects_list = skill_info['effect'] if isinstance(skill_info['effect'], list) else [skill_info['effect']]
+            for effect_data in effects_list:
+                # We now let the master apply_effect handler do ALL the work.
+                target = attacker if effect_data.get('target') == 'self' else defender
+                target_effects_list = self.player_pet_effects if target == self.player_pet else self.wild_pet_effects
+                await effects.apply_effect(
+                    handler_type=effect_data.get('type'),
+                    target=target,
+                    target_effects_list=target_effects_list,
+                    effect_data=effect_data,
+                    turn_log_lines=turn_log_lines,
+                    attacker=attacker,
+                    damage_dealt=final_damage
+                )
+
+        # --- NEW FUTURE-PROOF PASSIVE ABILITY LOGIC ---
+        defender_base_data = PET_DATABASE.get(defender.get('species'))
+        if defender_base_data:
+            passive_name = defender_base_data.get('passive_ability', {}).get('name')
+            if passive_name in effects.PASSIVE_HANDLERS_ON_HIT:
+                handler = effects.PASSIVE_HANDLERS_ON_HIT[passive_name]
+                await handler(
+                    attacker=attacker,
+                    defender=defender,
+                    turn_log_lines=turn_log_lines,
+                    skill_info=skill_info,
+                    attacker_effects_list=self.player_pet_effects if attacker == self.player_pet else self.wild_pet_effects
+                )
+        # --- END OF NEW PASSIVE LOGIC ---
+
+        did_faint = defender['current_hp'] <= 0
+        # --- CORRECTED RETURN STATEMENT ---
+        return did_faint, "\n".join(turn_log_lines) # Note: The return value might need adjustment based on your function signature
+
+
+
+    async def skill_button_callback(self, interaction: discord.Interaction):
+        await self.handle_turn(interaction,
+                               {'type': 'skill', 'skill_id': interaction.data['custom_id'].replace('skill_', '')})
+
+    async def switch_pet_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        self.last_interaction = interaction
+        db_cog = self.bot.get_cog('Database')
+        all_pets = await db_cog.get_all_pets(self.user_id)
+        available_pets = [_pet_tuple_to_dict(pet) for pet in all_pets if
+                          _pet_tuple_to_dict(pet).get('is_in_party') and _pet_tuple_to_dict(pet)['pet_id'] !=
+                          self.player_pet['pet_id'] and _pet_tuple_to_dict(pet)['current_hp'] > 0]
+        if not available_pets:
+            return await interaction.followup.send("You have no other healthy pets in your party to switch to!",
+                                                   ephemeral=True)
+        for item in self.children: item.disabled = True
+        await self.message.edit(view=self)
+        switch_view = SwitchPetView(self.bot, self.user_id, available_pets, self)
+        await interaction.followup.send("Choose your next pet:", view=switch_view, ephemeral=True)
+
+    async def handle_turn(self, interaction: discord.Interaction, player_action: dict):
+        if not self.in_progress: return
+        self.last_interaction = interaction
+        await interaction.response.defer()
+        for item in self.children: item.disabled = True
+        await interaction.edit_original_response(view=self)
+        player_fainted, player_log = await self.perform_attack(self.player_pet, self.wild_pet,
+                                                               player_action['skill_id'], True,
+                                                               self.player_gloom_channeled)
+        await self.handle_ai_turn(interaction, player_log)
+
+    async def handle_ai_turn(self, interaction: discord.Interaction, initial_log: str):
+        self.turn_log.clear()
+        self.turn_log.append(initial_log)
+        embed = await self.get_battle_embed("\n".join(self.turn_log))
+        await interaction.edit_original_response(embed=embed)
+        if self.wild_pet['current_hp'] <= 0:
+            await asyncio.sleep(2);
+            await self._handle_win(interaction);
+            return
+        await asyncio.sleep(2)
+        if self.wild_pet['current_hp'] > 0:
+            if await self._process_effects(self.wild_pet, self.wild_pet_effects, self.turn_log, False):
+                await self._handle_win(interaction);
+                return
+            ai_move = get_ai_move(self.wild_pet, self.player_pet, self.gloom_meter)
+            ai_fainted, ai_log = await self.perform_attack(self.wild_pet, self.player_pet, ai_move['skill_id'], False,
+                                                           ai_move.get('action') == 'channel_and_attack')
+            self.turn_log.append(ai_log)
+            embed = await self.get_battle_embed("\n".join(self.turn_log))
+            await interaction.edit_original_response(embed=embed)
+            if ai_fainted:
+                await asyncio.sleep(2);
+                await self._handle_loss(interaction);
+                return
+        await asyncio.sleep(2)
+        if await self._process_effects(self.player_pet, self.player_pet_effects, self.turn_log, True):
+            await self._handle_loss(interaction);
+            return
+        db_cog = self.bot.get_cog('Database')
+        await db_cog.update_pet(self.player_pet['pet_id'], current_hp=self.player_pet['current_hp'])
+        self.rebuild_ui_for_player_turn()
+        self.turn_log.append("\n**It's your turn!**")
+        embed = await self.get_battle_embed("\n".join(self.turn_log))
+        await interaction.edit_original_response(embed=embed, view=self)
+
+    async def flee_button_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        result_embed = await self.get_battle_embed("You successfully fled from the battle!")
+        await self._show_end_of_battle_ui(interaction, result_embed)
+
+    async def capture_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Capture logic not yet implemented.", ephemeral=True)
+
+    async def channel_gloom_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Channel Gloom logic not yet implemented.", ephemeral=True)
+
+    async def purify_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Purify logic not yet implemented.", ephemeral=True)
+
+    async def _process_effects(self, pet, effects_list, turn_log, is_player):
+        pet_name = f"Your **{pet['name']}**" if is_player else f"The wild **{pet['species']}**"
+        fainted = False
+
+        # Use a copy of the list to iterate over, allowing us to safely remove items
+        for effect in effects_list[:]:
+
+            # --- NEW: Check for end-of-turn damage sequences ---
+            on_turn_end_data = effect.get('on_turn_end', {})
+            if on_turn_end_data.get('type') == 'damage_sequence':
+                damage_array = on_turn_end_data.get('damage', [])
+                turn_index = effect.get('turn_index', 0)
+
+                if turn_index < len(damage_array):
+                    dot_damage = damage_array[turn_index]
+                    pet['current_hp'] -= dot_damage
+                    turn_log.append(f"› {pet_name} took **{dot_damage}** damage from {effect.get('status_effect')}!")
+                    effect['turn_index'] += 1  # Advance the index for the next turn
+
+            # --- EXISTING: Handle standard poison/burn ---
+            elif effect.get('status_effect') in ['poison', 'burn']:
+                dot_damage = effect.get('damage_per_turn', 5)
+                pet['current_hp'] -= dot_damage
+                turn_log.append(f"› {pet_name} took **{dot_damage}** damage from its {effect.get('status_effect')}!")
+
+            # Check for fainting after any damage is applied
+            if pet['current_hp'] <= 0:
+                pet['current_hp'] = 0
+                fainted = True
+                break  # Stop processing further effects if the pet faints
+
+            # --- EXISTING: Countdown duration ---
+            if 'duration' in effect:
+                effect['duration'] -= 1
+                if effect['duration'] <= 0:
+                    effects_list.remove(effect)
+                    status_name = effect.get('status_effect', 'an effect').replace('_', ' ')
+                    if effect.get('type') == 'stat_change':
+                        turn_log.append(f"› {pet_name}'s {effect.get('stat')} change wore off.")
+                    else:
+                        turn_log.append(f"› {pet_name} is no longer afflicted with {status_name}.")
+
+        return fainted
+
+    async def _show_end_of_battle_ui(self, interaction: discord.Interaction, embed: discord.Embed):
+        self.in_progress = False
+        for item in self.children: item.disabled = True
+        return_view = discord.ui.View(timeout=180)
+        return_button = discord.ui.Button(label="Return to Menu", style=discord.ButtonStyle.secondary)
+
+        async def return_callback(cb_interaction: discord.Interaction):
+            await cb_interaction.response.defer()
+            if self.parent_view and self.parent_view.message:
+                for item in self.parent_view.children: item.disabled = False
+                await self.parent_view.message.edit(view=self.parent_view)
+                await cb_interaction.delete_original_response()
+            else:
+                await cb_interaction.edit_original_response(content="Battle finished.", embed=None, view=None)
+
+        return_button.callback = return_callback
+        return_view.add_item(return_button)
+        await interaction.edit_original_response(embed=embed, view=return_view)
+
+    async def _handle_win(self, interaction: discord.Interaction):
+        self.in_progress = False
+        db_cog = self.bot.get_cog('Database')
+        if not db_cog: return
+        base_xp = XP_REWARD_BY_RARITY.get(self.wild_pet['rarity'], 20)
+        xp_gain = math.floor(base_xp * (self.wild_pet['level'] / self.player_pet['level']) * 1.5)
+        xp_gain = max(5, xp_gain)
+        coin_gain = random.randint(5, 15) * self.wild_pet['level']
+        updated_pet, leveled_up = await db_cog.add_xp(self.player_pet['pet_id'], xp_gain)
+        await db_cog.add_coins(self.user_id, coin_gain)
+        self.player_pet = updated_pet
+        victory_desc = f"You defeated the wild **{self.wild_pet['species']}**!"
+        victory_embed = discord.Embed(title="🏆 Victory! 🏆", description=victory_desc, color=discord.Color.gold())
+        rewards_text = f"💰 **{coin_gain}** Coins\n✨ **{xp_gain}** EXP"
+        victory_embed.add_field(name="Rewards", value=rewards_text)
+        if leveled_up:
+            victory_embed.add_field(name="Level Up!",
+                                    value=f"**{self.player_pet['name']}** grew to **Level {self.player_pet['level']}**!",
+                                    inline=False)
+        victory_embed.set_thumbnail(url=get_pet_image_url(self.player_pet['species']))
+        await self._show_end_of_battle_ui(interaction, victory_embed)
+
+    async def _handle_loss(self, interaction: discord.Interaction):
+        self.in_progress = False
+        db_cog = self.bot.get_cog('Database')
+        if db_cog:
+            await db_cog.update_pet(self.player_pet['pet_id'], current_hp=max(0, self.player_pet['current_hp']))
+        result_embed = await self.get_battle_embed(f"Your pet was defeated by the wild {self.wild_pet['species']}.")
+        await self._show_end_of_battle_ui(interaction, result_embed)

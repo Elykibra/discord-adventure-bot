@@ -1,0 +1,8 @@
+# Discord Bot Library
+discord.py
+
+# For loading the .env file
+python-dotenv
+
+# For creating the welcome images
+easy_pil
