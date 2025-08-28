@@ -9,26 +9,29 @@ from data.skills import PET_SKILLS
 # =================================================================================
 # Each function handles a specific "type" of effect defined in your skills.py data.
 
-async def handle_apply_status(target, target_effects_list, effect_data, turn_log_lines, attacker=None):
+async def handle_apply_status(target, target_effects_list, effect_data, turn_log_lines, attacker=None, **kwargs):
     """Handles applying status effects like poison, burn, flinch, etc."""
     status = effect_data.get('status_effect')
+    chance = effect_data.get('chance', 1.0) # Get the chance, default to 100% if not specified
+
+    # --- NEW: Check if the effect successfully triggers based on its chance ---
+    if random.random() > chance:
+        return False # The effect failed to apply
+
     # Prevent stacking the same status effect
     if not any(e.get('status_effect') == status for e in target_effects_list):
         new_effect = effect_data.copy()
 
-        # --- FIX: ADD THIS BLOCK ---
-        # If this is a damage sequence, initialize its turn counter.
         if new_effect.get('on_turn_end', {}).get('type') == 'damage_sequence':
             new_effect['turn_index'] = 0
-        # --- END OF FIX ---
 
         target_effects_list.append(new_effect)
         target_name = target.get('name', 'The wild pet')
         turn_log_lines.append(f"› {target_name} was afflicted with {status}!")
         return True
-    return False # Return false if the status was not applied
+    return False
 
-async def handle_stat_change(target, target_effects_list, effect_data, turn_log_lines, attacker=None):
+async def handle_stat_change(target, target_effects_list, effect_data, turn_log_lines, attacker=None, **kwargs):
     """Handles applying temporary stat changes."""
     new_effect = effect_data.copy()
     target_effects_list.append(new_effect)

@@ -251,6 +251,11 @@ PET_DATABASE = {
 # This solves the data duplication problem.
 
 ENCOUNTER_TABLES = {
+
+    "oakhavenWilds": {
+        "day": ["Pineling"],
+        "night": ["Pineling"]
+    },
     "oakhavenOutpost_rottingPits": {
         "day": ["Corroder"],
         "night": ["Corroder"]  # No need to duplicate the whole pet object

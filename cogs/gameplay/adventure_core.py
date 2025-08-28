@@ -43,15 +43,16 @@ class Adventure(commands.Cog):
         if view:
             view.message = message
 
-    async def explore(self, interaction: discord.Interaction, location_id: str):
+    async def explore(self, interaction: discord.Interaction, location_id: str, message_to_edit: discord.Message):
         """Handles the logic for what happens when a player explores a wilds area."""
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer() # Acknowledge the button click immediately
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(interaction.user.id)
 
         energy_cost = 10
         if player_data['current_energy'] < energy_cost:
-            return await interaction.followup.send("You don't have enough energy to explore.", ephemeral=True)
+            await interaction.followup.send("You don't have enough energy to explore.", ephemeral=True)
+            return
 
         await db_cog.update_player(interaction.user.id, current_energy=player_data['current_energy'] - energy_cost)
 
@@ -64,26 +65,37 @@ class Adventure(commands.Cog):
             outcome = "tutorial_pet"
         else:
             outcome = random.choices(["item", "pet", "nothing"], weights=[45, 35, 20], k=1)[0]
+        activity_log_text = ""
 
         if outcome == "item":
             item_id = "sun_kissed_berries"
             quantity = 1
             item_data = ITEMS.get(item_id)
             await db_cog.add_item_to_inventory(interaction.user.id, item_id, quantity)
-            await interaction.followup.send(f"🌲 You searched the area and found **{quantity}x {item_data['name']}**!",
-                                            ephemeral=True)
-            quest_updates = await check_quest_progress(self.bot, interaction.user.id, "item_pickup",
-                                                       {"item_id": item_id})
+            activity_log_text = f"🌲 You searched the area and found **{quantity}x {item_data['name']}**!"
+            # We will send quest updates separately for now to ensure they are seen
+            quest_updates = await check_quest_progress(self.bot, interaction.user.id, "item_pickup", {"item_id": item_id})
             if quest_updates:
                 full_description = "\n\n".join(quest_updates)
                 quest_embed = discord.Embed(description=full_description, color=discord.Color.gold())
                 await interaction.followup.send(embed=quest_embed, ephemeral=True)
 
+        elif outcome == "nothing":
+            activity_log_text = "You searched the area but found nothing of interest."
+
+        # If the outcome was simple, we edit the main UI.
+        if activity_log_text:
+            new_embed = message_to_edit.embeds[0]
+            new_embed.description = f"**Activity Log:** *{activity_log_text}*"
+            await message_to_edit.edit(embed=new_embed)
+            return # End the function here for simple outcomes
+
         elif outcome == "tutorial_pet" or outcome == "pet":
             player_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
             if not player_pet_data or player_pet_data['current_hp'] <= 0:
-                return await interaction.followup.send("Your main pet is unable to battle! Heal it before exploring.",
-                                                       ephemeral=True)
+                await interaction.followup.send("Your main pet is unable to battle! Heal it before exploring.",
+                                                ephemeral=True)
+                return
 
             if outcome == "tutorial_pet":
                 chosen_species_name = "Pineling"
@@ -92,16 +104,20 @@ class Adventure(commands.Cog):
                 time_of_day = player_data.get('day_of_cycle', 'day')
                 possible_pet_names = ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day, [])
                 if not possible_pet_names:
-                    return await interaction.followup.send("You searched the area but didn't encounter any wild pets.",
-                                                           ephemeral=True)
+                    await interaction.followup.send("You searched the area but didn't encounter any wild pets.",
+                                                    ephemeral=True)
+                    return
+
                 chosen_species_name = random.choice(possible_pet_names)
                 level = random.randint(3, 5)
 
             wild_pet_base = PET_DATABASE.get(chosen_species_name)
             if not wild_pet_base:
-                return await interaction.followup.send(f"Error: Pet data for {chosen_species_name} not found.",
-                                                       ephemeral=True)
+                await interaction.followup.send(f"Error: Pet data for {chosen_species_name} not found.", ephemeral=True)
+                return
 
+
+            # --- DYNAMIC PASSIVE ABILITY LOGIC ---
             assigned_passive = None
             if wild_pet_base['rarity'] in ["Common", "Uncommon"]:
                 pet_type = wild_pet_base['pet_type']
@@ -111,39 +127,34 @@ class Adventure(commands.Cog):
             else:
                 assigned_passive = wild_pet_base.get('passive_ability')
 
-            base_stats = {stat: random.randint(val[0], val[1]) for stat, val in
-                          wild_pet_base["base_stat_ranges"].items()}
+            # --- STAT AND SKILL CALCULATION ---
+            base_stats = {stat: random.randint(val[0], val[1]) for stat, val in wild_pet_base["base_stat_ranges"].items()}
             growth_rates = wild_pet_base["growth_rates"]
-            calculated_stats = {stat: math.floor(base_stats[stat] + (level - 1) * growth_rates[stat]) for stat in
-                                base_stats}
+            calculated_stats = {stat: math.floor(base_stats[stat] + (level - 1) * growth_rates[stat]) for stat in base_stats}
 
             skill_learn_data = wild_pet_base.get('skill_tree', {})
             all_learnable_skills = []
             for lvl, skills in skill_learn_data.items():
                 if level >= int(lvl):
-                    if isinstance(skills, list):
-                        all_learnable_skills.extend(skills)
-                    elif isinstance(skills, dict) and "choice" in skills:
-                        all_learnable_skills.append(random.choice(skills['choice']))
-
+                    if isinstance(skills, list): all_learnable_skills.extend(skills)
+                    elif isinstance(skills, dict) and "choice" in skills: all_learnable_skills.append(random.choice(skills['choice']))
             active_skills = all_learnable_skills[-4:] if all_learnable_skills else ["pound"]
 
             wild_pet_instance = {
-                "species": wild_pet_base['species'], "rarity": wild_pet_base['rarity'],
-                "pet_type": wild_pet_base['pet_type'],
+                "species": wild_pet_base['species'], "rarity": wild_pet_base['rarity'], "pet_type": wild_pet_base['pet_type'],
                 "level": level, "current_hp": calculated_stats['hp'], "max_hp": calculated_stats['hp'],
                 "attack": calculated_stats['attack'], "defense": calculated_stats['defense'],
-                "special_attack": calculated_stats['special_attack'],
-                "special_defense": calculated_stats['special_defense'],
-                "speed": calculated_stats['speed'], "skills": active_skills,
-                "passive_ability": assigned_passive
+                "special_attack": calculated_stats['special_attack'], "special_defense": calculated_stats['special_defense'],
+                "speed": calculated_stats['speed'], "skills": active_skills, "passive_ability": assigned_passive
             }
 
             combat_view = CombatView(self.bot, interaction.user.id, player_pet_data, wild_pet_instance, None)
             embed = await combat_view.get_battle_embed(
                 f"A wild Level {level} **{wild_pet_instance['species']}** appeared!")
+
+            # We send the message AND store the message object in one line
             message = await interaction.followup.send(embed=embed, view=combat_view, ephemeral=True)
-            combat_view.message = message
+            combat_view.message = message  # Set the message on the view so it can be controlled later
 
         else:  # outcome == "nothing"
             await interaction.followup.send("You searched the area but found nothing of interest.", ephemeral=True)

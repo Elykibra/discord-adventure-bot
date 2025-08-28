@@ -5,8 +5,8 @@ from cogs.utils.constants import XP_REWARD_BY_RARITY
 from data.skills import PET_SKILLS
 from data.pets import PET_DATABASE
 from cogs.utils.effects import apply_effect
-from cogs.utils.helpers import get_pet_image_url, get_status_bar, get_ai_move, _create_progress_bar, \
-    get_type_multiplier, _pet_tuple_to_dict
+from cogs.utils.helpers import get_pet_image_url, get_status_bar, get_ai_move, _create_progress_bar, get_type_multiplier, _pet_tuple_to_dict, check_quest_progress
+
 
 
 # --- VIEW FOR PET SWITCHING ---
@@ -129,24 +129,122 @@ class CombatView(discord.ui.View):
                     pass
 
     async def get_battle_embed(self, description):
-        gloom_bar = '🟪' * math.floor(self.gloom_meter / 10) + '⬛' * (10 - math.floor(self.gloom_meter / 10))
-        embed = discord.Embed(title=f"A wild {self.wild_pet['species']} appeared!", description=description,
-                              color=discord.Color.blue())
-        player_effects_str = ", ".join(
-            [eff.get('status_effect', eff.get('name', 'Unknown')).replace('_', ' ').title() for eff in
-             self.player_pet_effects]) or "None"
-        wild_effects_str = ", ".join(
-            [eff.get('status_effect', eff.get('name', 'Unknown')).replace('_', ' ').title() for eff in
-             self.wild_pet_effects]) or "None"
+        """Generates the main battle embed with a color-changing HP bar."""
+
+        turn_log_display = description if description else "\n".join(self.turn_log)
+
+        # --- DYNAMIC COLOR LOGIC ---
+        hp_percent = self.player_pet['current_hp'] / self.player_pet['max_hp']
+        if hp_percent > 0.6:
+            embed_color = discord.Color.green()
+        elif hp_percent > 0.25:
+            embed_color = discord.Color.gold()
+        else:
+            embed_color = discord.Color.red()
+        # --- END OF DYNAMIC COLOR LOGIC ---
+
+        # The embed is created only ONCE, using the dynamic color.
+        embed = discord.Embed(
+            title="⚔️ Wild Encounter! ⚔️",
+            description=turn_log_display,
+            color=embed_color
+        )
+
+        # --- TYPE EFFECTIVENESS LOGIC ---
+        player_primary_type = self.player_pet['pet_type'] if isinstance(self.player_pet['pet_type'], str) else \
+        self.player_pet['pet_type'][0]
+        opponent_types = [self.wild_pet['pet_type']] if isinstance(self.wild_pet['pet_type'], str) else self.wild_pet[
+            'pet_type']
+        multiplier = get_type_multiplier(player_primary_type, opponent_types)
+
+        if multiplier > 1.0:
+            advantage_text = "Super Effective!"
+        elif multiplier < 1.0 and multiplier > 0:
+            advantage_text = "Not Very Effective"
+        elif multiplier == 0:
+            advantage_text = "No Effect!"
+        else:
+            advantage_text = "Neutral"
+        # --- END OF TYPE EFFECTIVENESS LOGIC ---
+
+        # --- Player Pet Field ---
         player_hp_bar = _create_progress_bar(self.player_pet['current_hp'], self.player_pet['max_hp'])
+        player_effects_str = ", ".join(
+            [e.get('status_effect', 'effect').title() for e in self.player_pet_effects]) or "None"
+        player_passive = self.player_pet.get('passive_ability')
+        if isinstance(player_passive, dict):
+            player_passive_name = player_passive.get('name', 'None')
+        elif isinstance(player_passive, str):
+            player_passive_name = player_passive
+        else:
+            player_passive_name = "None"
+
+        player_display = (f"```\n"
+                          f"❤️ {player_hp_bar} {self.player_pet['current_hp']}/{self.player_pet['max_hp']}\n"
+                          f"└─ Passive: {player_passive_name}\n"
+                          f"└─ Status:  {player_effects_str}\n"
+                          f"```")
+        embed.add_field(name=f"Your {self.player_pet['name']} (Lvl {self.player_pet['level']})", value=player_display,
+                        inline=True)
+
+        # --- Wild Pet Field ---
         wild_hp_bar = _create_progress_bar(self.wild_pet['current_hp'], self.wild_pet['max_hp'])
-        embed.add_field(name=f"{self.player_pet['name']} (Lvl {self.player_pet['level']})", value=(
-            f"❤️ {player_hp_bar} {self.player_pet['current_hp']}/{self.player_pet['max_hp']}\n*Effects: {player_effects_str}*"),
+        wild_effects_str = ", ".join(
+            [e.get('status_effect', 'effect').title() for e in self.wild_pet_effects]) or "None"
+        wild_passive = self.wild_pet.get('passive_ability')
+        if isinstance(wild_passive, dict):
+            wild_passive_name = wild_passive.get('name', 'None')
+        elif isinstance(wild_passive, str):
+            wild_passive_name = wild_passive
+        else:
+            wild_passive_name = "None"
+
+        # --- Wild Pet Field ---
+        wild_hp_bar = _create_progress_bar(self.wild_pet['current_hp'], self.wild_pet['max_hp'])
+        wild_effects_str = ", ".join(
+            [e.get('status_effect', 'effect').title() for e in self.wild_pet_effects]) or "None"
+        w_passive = self.wild_pet.get('passive_ability')
+        if isinstance(w_passive, dict):
+            w_passive_name = w_passive.get('name', 'None')
+        elif isinstance(w_passive, str):
+            w_passive_name = w_passive
+        else:
+            w_passive_name = "None"
+
+        wild_display = (f"```\n"
+                        f"❤️ {wild_hp_bar} {self.wild_pet['current_hp']}/{self.wild_pet['max_hp']}\n"
+                        f"└─ Passive: {w_passive_name}\n"
+                        f"└─ Status:  {wild_effects_str}\n"
+                        f"```")
+        embed.add_field(name=f"Wild {self.wild_pet['species']} (Lvl {self.wild_pet['level']})", value=wild_display,
                         inline=True)
-        embed.add_field(name=f"{self.wild_pet['species']} (Lvl {self.wild_pet['level']})", value=(
-            f"❤️ {wild_hp_bar} {self.wild_pet['current_hp']}/{self.wild_pet['max_hp']}\n*Effects: {wild_effects_str}*"),
-                        inline=True)
+
+        # --- SEPARATE ADVANTAGE FIELD ---
+        player_primary_type = self.player_pet['pet_type'] if isinstance(self.player_pet['pet_type'], str) else \
+        self.player_pet['pet_type'][0]
+        opponent_types = [self.wild_pet['pet_type']] if isinstance(self.wild_pet['pet_type'], str) else self.wild_pet[
+            'pet_type']
+        multiplier = get_type_multiplier(player_primary_type, opponent_types)
+
+        if multiplier > 1.0:
+            advantage_text = "Your attacks are Super Effective!"
+        elif multiplier < 1.0 and multiplier > 0:
+            advantage_text = "Your attacks are Not Very Effective."
+        elif multiplier == 0:
+            advantage_text = "Your attacks have No Effect!"
+        else:
+            advantage_text = "Your attacks are Neutral."
+
+        embed.add_field(name="Type Advantage", value=f"`{advantage_text}`", inline=False)
+        # --- END OF ADVANTAGE FIELD ---
+
+        # --- ADDED MAXIMIZED GLOOM METER ---
+        gloom_filled = math.floor(self.gloom_meter / 5)
+        gloom_empty = 20 - gloom_filled
+        gloom_bar = '🟪' * gloom_filled + '⬛' * gloom_empty
         embed.add_field(name="Gloom Meter", value=f"{gloom_bar} `{self.gloom_meter}%`", inline=False)
+        # --- END OF GLOOM METER ---
+
         embed.set_thumbnail(url=get_pet_image_url(self.wild_pet['species']))
         return embed
 
@@ -251,50 +349,79 @@ class CombatView(discord.ui.View):
         await interaction.followup.send("Choose your next pet:", view=switch_view, ephemeral=True)
 
     async def handle_turn(self, interaction: discord.Interaction, player_action: dict):
+        """Disables buttons and passes the player's action to the round processor."""
         if not self.in_progress: return
         self.last_interaction = interaction
         await interaction.response.defer()
+
+        # Disable buttons to prevent multiple actions
         for item in self.children: item.disabled = True
         await interaction.edit_original_response(view=self)
-        player_fainted, player_log = await self.perform_attack(self.player_pet, self.wild_pet,
-                                                               player_action['skill_id'], True,
-                                                               self.player_gloom_channeled)
-        await self.handle_ai_turn(interaction, player_log)
 
-    async def handle_ai_turn(self, interaction: discord.Interaction, initial_log: str):
+        # Start the round processing
+        await self.process_round(player_action['skill_id'])
+
+    def _get_modified_stat(self, pet: dict, stat: str) -> int:
+        """Calculates a pet's stat after applying any temporary effects."""
+        base_value = pet.get(stat, 0)
+        final_value = float(base_value)
+        effects_list = self.player_pet_effects if 'pet_id' in pet else self.wild_pet_effects
+        for effect in effects_list:
+            if effect.get('type') == 'stat_change' and effect.get('stat') == stat:
+                final_value *= effect.get('modifier', 1.0)
+        return math.floor(final_value)
+
+    async def process_round(self, player_skill_id: str):
+        """Processes a full round of combat, accounting for priority moves and modified stats."""
+        player_move = {"skill_id": player_skill_id}
+        ai_move = get_ai_move(self.wild_pet, self.player_pet, self.gloom_meter)
+        player_skill_data = PET_SKILLS.get(player_move['skill_id'], {})
+        ai_skill_data = PET_SKILLS.get(ai_move['skill_id'], {})
+        player_goes_first = None
+        player_has_priority = player_skill_data.get("special_flag") == "priority_move"
+        ai_has_priority = ai_skill_data.get("special_flag") == "priority_move"
+        if player_has_priority and not ai_has_priority:
+            player_goes_first = True
+        elif not player_has_priority and ai_has_priority:
+            player_goes_first = False
+        if player_goes_first is None:
+            player_speed = self._get_modified_stat(self.player_pet, 'speed')
+            wild_speed = self._get_modified_stat(self.wild_pet, 'speed')
+            player_goes_first = player_speed >= wild_speed
+        attacker_order = [(self.player_pet, self.wild_pet, player_move, True),
+                          (self.wild_pet, self.player_pet, ai_move, False)]
+        if not player_goes_first:
+            attacker_order.reverse()
         self.turn_log.clear()
-        self.turn_log.append(initial_log)
-        embed = await self.get_battle_embed("\n".join(self.turn_log))
-        await interaction.edit_original_response(embed=embed)
-        if self.wild_pet['current_hp'] <= 0:
-            await asyncio.sleep(2);
-            await self._handle_win(interaction);
-            return
-        await asyncio.sleep(2)
-        if self.wild_pet['current_hp'] > 0:
-            if await self._process_effects(self.wild_pet, self.wild_pet_effects, self.turn_log, False):
-                await self._handle_win(interaction);
-                return
-            ai_move = get_ai_move(self.wild_pet, self.player_pet, self.gloom_meter)
-            ai_fainted, ai_log = await self.perform_attack(self.wild_pet, self.player_pet, ai_move['skill_id'], False,
-                                                           ai_move.get('action') == 'channel_and_attack')
-            self.turn_log.append(ai_log)
+        for attacker, defender, move, is_player in attacker_order:
+            attacker_effects = self.player_pet_effects if is_player else self.wild_pet_effects
+            attacker_name = f"Your **{attacker['name']}**" if is_player else f"The wild **{attacker['species']}**"
+            flinch_effect = next((e for e in attacker_effects if e.get('status_effect') == 'flinch'), None)
+            if flinch_effect:
+                self.turn_log.append(f"› {attacker_name} flinched and couldn't move!")
+                attacker_effects.remove(flinch_effect)
+                continue
+            fainted, attack_log = await self.perform_attack(attacker, defender, move['skill_id'], is_player)
+            self.turn_log.append(attack_log)
             embed = await self.get_battle_embed("\n".join(self.turn_log))
-            await interaction.edit_original_response(embed=embed)
-            if ai_fainted:
-                await asyncio.sleep(2);
-                await self._handle_loss(interaction);
+            await self.last_interaction.edit_original_response(embed=embed)
+            await asyncio.sleep(2)
+            if fainted:
+                if is_player:
+                    await self._handle_win(self.last_interaction)
+                else:
+                    await self._handle_loss(self.last_interaction)
                 return
-        await asyncio.sleep(2)
-        if await self._process_effects(self.player_pet, self.player_pet_effects, self.turn_log, True):
-            await self._handle_loss(interaction);
+        if await self._process_effects(self.wild_pet, self.wild_pet_effects, self.turn_log, False):
+            await self._handle_win(self.last_interaction);
             return
-        db_cog = self.bot.get_cog('Database')
-        await db_cog.update_pet(self.player_pet['pet_id'], current_hp=self.player_pet['current_hp'])
+        if await self._process_effects(self.player_pet, self.player_pet_effects, self.turn_log, True):
+            await self._handle_loss(self.last_interaction);
+            return
         self.rebuild_ui_for_player_turn()
         self.turn_log.append("\n**It's your turn!**")
         embed = await self.get_battle_embed("\n".join(self.turn_log))
-        await interaction.edit_original_response(embed=embed, view=self)
+        await self.last_interaction.edit_original_response(embed=embed, view=self)
 
     async def flee_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -318,6 +445,9 @@ class CombatView(discord.ui.View):
         for effect in effects_list[:]:
 
             # --- NEW: Check for end-of-turn damage sequences ---
+            if effect.get('status_effect') == 'flinch':
+                continue
+
             on_turn_end_data = effect.get('on_turn_end', {})
             if on_turn_end_data.get('type') == 'damage_sequence':
                 damage_array = on_turn_end_data.get('damage', [])
@@ -377,12 +507,17 @@ class CombatView(discord.ui.View):
         self.in_progress = False
         db_cog = self.bot.get_cog('Database')
         if not db_cog: return
+
         base_xp = XP_REWARD_BY_RARITY.get(self.wild_pet['rarity'], 20)
         xp_gain = math.floor(base_xp * (self.wild_pet['level'] / self.player_pet['level']) * 1.5)
         xp_gain = max(5, xp_gain)
         coin_gain = random.randint(5, 15) * self.wild_pet['level']
+
         updated_pet, leveled_up = await db_cog.add_xp(self.player_pet['pet_id'], xp_gain)
         await db_cog.add_coins(self.user_id, coin_gain)
+
+        await check_quest_progress(self.bot, self.user_id, "combat_victory", {"species": self.wild_pet['species']})
+
         self.player_pet = updated_pet
         victory_desc = f"You defeated the wild **{self.wild_pet['species']}**!"
         victory_embed = discord.Embed(title="🏆 Victory! 🏆", description=victory_desc, color=discord.Color.gold())

@@ -76,12 +76,25 @@ def _pet_tuple_to_dict(pet_data: tuple) -> Dict[str, Any]:
         return dict(zip(keys[:len(pet_data)], pet_data))
     return dict(zip(keys, pet_data))
 
+
 def _create_progress_bar(current: int, max_val: int) -> str:
-    """Creates a simple emoji-based progress bar."""
-    if max_val == 0: return "0/0"
-    filled = int((current / max_val) * 10)
-    empty = 10 - filled
-    return f"{'🟩' * filled}{'⬜' * empty}"
+    """Creates a simple, color-changing emoji-based progress bar."""
+    if max_val == 0:
+        return " " * 8 # Return empty space if no max value
+
+    percent = current / max_val
+
+    if percent > 0.6:
+        filled_emoji = '🟩'
+    elif percent > 0.25:
+        filled_emoji = '🟨'
+    else:
+        filled_emoji = '🟥'
+
+    filled_blocks = int(percent * 7)
+    empty_blocks = 7 - filled_blocks
+
+    return f"{filled_emoji * filled_blocks}{'⬜' * empty_blocks}"
 
 def get_status_bar(player_data: dict, main_pet_data: dict) -> str:
     """Generates a concise, one-line status bar for a player and their main pet."""
@@ -161,6 +174,10 @@ def get_type_multiplier(attack_type: str, defender_types: list) -> float:
     """
     total_multiplier = 1.0
 
+    # Ensure defender_types is a list
+    if not isinstance(defender_types, list):
+        defender_types = [defender_types]
+
     for defender_type in defender_types:
         chart_entry = DEFENSIVE_TYPE_CHART.get(defender_type, {})
 
@@ -172,11 +189,6 @@ def get_type_multiplier(attack_type: str, defender_types: list) -> float:
             return 0.0  # Immunity overrides everything
 
     return total_multiplier
-
-
-# In cogs/utils/helpers.py
-
-# In cogs/utils/helpers.py
 
 async def check_quest_progress(bot, user_id, action_type, context=None):
     """
