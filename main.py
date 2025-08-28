@@ -4,27 +4,18 @@ from discord import app_commands
 import os
 import asyncio
 from dotenv import load_dotenv
+from typing import List
 
-## --- REFACTORING CHANGES ---
 # The version constant is now imported from its new location.
 from cogs.utils.constants import VERSION
 
 # Load environment variables from a .env file.
 load_dotenv(".env")
 
-# Retrieve bot token and guild IDs from the environment.
+# --- CONFIGURATION ---
 TOKEN: str = os.getenv("DISCORD_TOKEN")
-GUILD_IDS: str = os.getenv("GUILD_IDS")
- 
-if not TOKEN:
-    print("Error: DISCORD_TOKEN not found in .env file.")
-    exit()
-
-intents = discord.Intents.default()
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-## --- FIX: Removed the obsolete towns and shop cogs ---
-COGS = [
+GUILD_IDS_STR: str = os.getenv("GUILD_IDS")
+COGS_TO_LOAD = [
     "cogs.gameplay.adventure_core",
     "cogs.systems.database",
     "cogs.systems.game",
@@ -39,18 +30,47 @@ COGS = [
     "cogs.systems.admin",
 ]
 
+# --- BOT SETUP ---
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix='!', intents=intents)
 
+# --- HELPER FUNCTIONS ---
 async def load_cogs():
-    """Loads all cogs from the COGS list."""
-    for cog in COGS:
+    """Loads all cogs from the COGS_TO_LOAD list."""
+    print("--- Loading Cogs ---")
+    for cog in COGS_TO_LOAD:
         try:
             await bot.load_extension(cog)
-            print(f"Loaded cog: {cog}")
+            print(f"  > Loaded cog: {cog}")
         except Exception as e:
-            print(f"Failed to load cog {cog}: {e}")
-            print(f"Error type: {type(e).__name__}")
+            print(f"  > Failed to load cog {cog}: {type(e).__name__} - {e}")
+    print("--------------------")
+
+async def sync_commands():
+    """Syncs slash commands to specific guilds or globally."""
+    print("--- Syncing Commands ---")
+    guild_ids: List[int] = []
+    if GUILD_IDS_STR:
+        guild_ids = [int(g.strip()) for g in GUILD_IDS_STR.split(',') if g.strip().isdigit()]
+
+    if guild_ids:
+        for guild_id in guild_ids:
+            try:
+                my_guild = discord.Object(id=guild_id)
+                synced = await bot.tree.sync(guild=my_guild)
+                print(f"  > Synced {len(synced)} command(s) to guild {guild_id}")
+            except Exception as e:
+                print(f"  > Failed to sync to guild {guild_id}: {e}")
+    else:
+        try:
+            synced = await bot.tree.sync()
+            print(f"  > Globally synced {len(synced)} command(s)")
+        except Exception as e:
+            print(f"  > An error with global syncing occurred: {e}")
+    print("----------------------")
 
 
+# --- BOT EVENTS ---
 @bot.event
 async def on_ready():
     """This event fires when the bot is connected to Discord."""
@@ -59,42 +79,20 @@ async def on_ready():
     print('------')
 
     await load_cogs()
+    await sync_commands()
 
-    try:
-        if GUILD_IDS:
-            guild_ids_list = [int(g.strip()) for g in GUILD_IDS.split(',') if g.strip().isdigit()]
-            if guild_ids_list:
-                for guild_id in guild_ids_list:
-                    try:
-                        my_guild = discord.Object(id=guild_id)
-                        synced_commands = await bot.tree.sync(guild=my_guild)
-                        print(f"Synced {len(synced_commands)} command(s) to guild {guild_id}")
-                    except Exception as e:
-                        print(f"Failed to sync to guild {guild_id}: {e}")
-            else:
-                print("No valid guild IDs found in .env file. Falling back to global sync.")
-                synced_commands = await bot.tree.sync()
-                print(f"Globally synced {len(synced_commands)} command(s)")
-        else:
-            synced_commands = await bot.tree.sync()
-            print(f"Globally synced {len(synced_commands)} command(s)")
-    except Exception as e:
-        print("An error with syncing application commands has occurred:", e)
-
-    try:
-        command = bot.tree.get_command('adventure')
-        if command:
-            print("Successfully found the /adventure command in the command tree.")
-        else:
-            print("ERROR: Could not find the /adventure command. It may not be synced correctly.")
-    except Exception as e:
-        print(f"ERROR: A fatal error occurred while checking for the /adventure command: {e}")
-
-
+# --- MAIN EXECUTION ---
 async def main():
     """The main function to start and run the bot."""
+    if not TOKEN:
+        print("Error: DISCORD_TOKEN not found in .env file.")
+        return  # Exit gracefully
+
     async with bot:
         await bot.start(TOKEN)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Bot shut down by user.")
