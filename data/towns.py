@@ -90,20 +90,19 @@ towns = {
                     }
                 }
             }
-        },
-
-        # --- NEW, SEPARATE ENTRY FOR THE WILDS ---
-        "oakhavenWilds": {
-            "id": "oakhavenWilds",
-            "name": "Oakhaven Wilds",
-            "is_wilds": True,
-            "description": "The rugged wilderness just outside the safety of the outpost.",
-            "connections": {
-                "oakhavenOutpost": "Oakhaven Outpost"  # The path back to the hub
-            },
-            "explore_zone": "oakhavenOutpost_rottingPits"  # The encounters for this zone
         }
     },
+                # --- MOVED TO HERE ---
+                "oakhavenWilds": {
+                    "id": "oakhavenWilds",
+                    "name": "Oakhaven Wilds",
+                    "is_wilds": True,
+                    "description": "The rugged wilderness just outside the safety of the outpost.",
+                    "connections": {
+                        "oakhavenOutpost": "Oakhaven Outpost"
+                    },
+                    "explore_zone": "oakhavenOutpost_rottingPits"
+                },
 
     "whisperwoodGrove": {
         "id": "whisperwoodGrove",
@@ -161,37 +160,37 @@ towns = {
                     }
                 }
             },
-            "exploration": {
-                "name": "The Whispering Thicket",
-                "availability": "all",
-                "description": "The deeper, untamed part of the forest. Be wary, as stronger creatures lurk here.",
-                "services": {
+                "exploration": {
+                    "name": "The Whispering Thicket",
+                    "availability": "all",
+                    "description": "The deeper, untamed part of the forest. Be wary, as stronger creatures lurk here.",
+                    "services": {
+                        "explore_zone": "whisperwoodGrove"
+                    }
+                },
+                "whisperwoodWilds": { # --- NEW WILDS ZONE ---
+                    "id": "whisperwoodWilds",
+                    "name": "Whisperwood Wilds",
+                    "is_wilds": True,
+                    "description": "The dense, untamed forest surrounding the Grove.",
+                    "connections": {
+                        "whisperwoodGrove": "Whisperwood Grove"
+                    },
                     "explore_zone": "whisperwoodGrove"
+                },
+            }
+        },
+            "sunstoneOasis": {
+                "id": "sunstoneOasis",
+                "name": "Sunstone Oasis",
+                "rank": "Journeyman",
+                "description_day": "A bustling town built around a life-giving oasis in the heart of a vast, sun-scorched desert. The heat is intense, but the spirit of the locals is resilient.",
+                "description_night": "Under the cool desert night, the oasis comes alive with the glow of lanterns and the sound of music. The stars above are brilliant and clear.",
+                "connections": ["whisperwoodGrove"], # Connection back to the grove
+                "prerequisite": None,
+                "locations": {
+                    # We can leave this empty for now
                 }
             },
-            "whisperwoodWilds": { # --- NEW WILDS ZONE ---
-                "id": "whisperwoodWilds",
-                "name": "Whisperwood Wilds",
-                "is_wilds": True,
-                "description": "The dense, untamed forest surrounding the Grove.",
-                "connections": {
-                    "whisperwoodGrove": "Whisperwood Grove"
-                },
-                "explore_zone": "whisperwoodGrove"
-            },
-        }
-    },
-    "sunstoneOasis": {
-        "id": "sunstoneOasis",
-        "name": "Sunstone Oasis",
-        "rank": "Journeyman",
-        "description_day": "A bustling town built around a life-giving oasis in the heart of a vast, sun-scorched desert. The heat is intense, but the spirit of the locals is resilient.",
-        "description_night": "Under the cool desert night, the oasis comes alive with the glow of lanterns and the sound of music. The stars above are brilliant and clear.",
-        "connections": ["whisperwoodGrove"], # Connection back to the grove
-        "prerequisite": None,
-        "locations": {
-            # We can leave this empty for now
-        }
-    },
     # ... (rest of the town data would go here)
-}
+            }

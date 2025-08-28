@@ -166,6 +166,25 @@ PET_DATABASE = {
     },
 
     # --- Oakhaven Outpost Pets ---
+    "Pineling": {
+        "species": "Pineling",
+        "pet_type": "Normal",
+        "rarity": "Common",
+        "personality": "Defensive",
+        "base_stat_ranges": {"hp": [45, 50], "attack": [25, 30], "defense": [40, 45], "special_attack": [20, 25],
+                             "special_defense": [30, 35], "speed": [20, 25]},
+        "growth_rates": {"hp": 1.9, "attack": 1.2, "defense": 1.8, "special_attack": 1.0, "special_defense": 1.3,
+                         "speed": 1.1},
+        "skill_tree": {
+            "1": ["pound", "harden"]
+        },
+        "evolutions": {
+            "Barkback": {
+                "evolves_at": 16
+                # Full data for Barkback to be added later
+            }
+        }
+    },
     "Corroder": {
         "species": "Corroder", "pet_type": ["Rock", "Poison"], "rarity": "Common", "personality": "Defensive",
         "passive_ability": {"name": "Lingering Gloom",

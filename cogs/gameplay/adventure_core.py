@@ -8,6 +8,7 @@ from cogs.utils.helpers import get_status_bar, get_town_embed, _pet_tuple_to_dic
 from cogs.utils.views_towns import TownView, WildsView  # All views now come from one place
 from cogs.utils.views_combat import CombatView
 from data.items import ITEMS
+from data.abilities import SHARED_PASSIVES_BY_TYPE
 
 class Adventure(commands.Cog):
     def __init__(self, bot):
@@ -54,7 +55,15 @@ class Adventure(commands.Cog):
 
         await db_cog.update_player(interaction.user.id, current_energy=player_data['current_energy'] - energy_cost)
 
-        outcome = random.choices(["item", "pet", "nothing"], weights=[45, 35, 20], k=1)[0]
+        active_quests = await db_cog.get_active_quests(interaction.user.id)
+        is_on_tutorial_battle_step = any(
+            q['quest_id'] == 'a_guildsmans_first_steps' and q['progress'].get('count', 0) == 3 for q in active_quests
+        )
+
+        if is_on_tutorial_battle_step:
+            outcome = "tutorial_pet"
+        else:
+            outcome = random.choices(["item", "pet", "nothing"], weights=[45, 35, 20], k=1)[0]
 
         if outcome == "item":
             item_id = "sun_kissed_berries"
@@ -63,64 +72,61 @@ class Adventure(commands.Cog):
             await db_cog.add_item_to_inventory(interaction.user.id, item_id, quantity)
             await interaction.followup.send(f"🌲 You searched the area and found **{quantity}x {item_data['name']}**!",
                                             ephemeral=True)
-
-            # --- THE FIX: Capture and send quest updates ---
-            quest_updates = await check_quest_progress(self.bot, interaction.user.id, "item_pickup", {"item_id": item_id})
+            quest_updates = await check_quest_progress(self.bot, interaction.user.id, "item_pickup",
+                                                       {"item_id": item_id})
             if quest_updates:
-                # Combine all quest update messages into one embed
                 full_description = "\n\n".join(quest_updates)
-                quest_embed = discord.Embed(
-                    description=full_description,
-                    color=discord.Color.gold()
-                )
-                # Send the quest update as a separate followup message
+                quest_embed = discord.Embed(description=full_description, color=discord.Color.gold())
                 await interaction.followup.send(embed=quest_embed, ephemeral=True)
-            # --- END OF FIX ---
 
-            await check_quest_progress(self.bot, interaction.user.id, "item_pickup", {"item_id": item_id})
-
-        elif outcome == "pet":
+        elif outcome == "tutorial_pet" or outcome == "pet":
             player_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
             if not player_pet_data or player_pet_data['current_hp'] <= 0:
                 return await interaction.followup.send("Your main pet is unable to battle! Heal it before exploring.",
                                                        ephemeral=True)
 
-            # --- REFACTOR: Use the new Encounter Tables and Pet Database ---
-            time_of_day = player_data.get('day_of_cycle', 'day')
+            if outcome == "tutorial_pet":
+                chosen_species_name = "Pineling"
+                level = 1
+            else:
+                time_of_day = player_data.get('day_of_cycle', 'day')
+                possible_pet_names = ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day, [])
+                if not possible_pet_names:
+                    return await interaction.followup.send("You searched the area but didn't encounter any wild pets.",
+                                                           ephemeral=True)
+                chosen_species_name = random.choice(possible_pet_names)
+                level = random.randint(3, 5)
 
-            # 1. Get a list of possible pet NAMES from the encounter table
-            possible_pet_names = ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day, [])
-            if not possible_pet_names:
-                return await interaction.followup.send("You searched the area but didn't encounter any wild pets.",
-                                                       ephemeral=True)
-
-            chosen_species_name = random.choice(possible_pet_names)
-
-            # 2. Look up the full pet data from the master PET_DATABASE
             wild_pet_base = PET_DATABASE.get(chosen_species_name)
             if not wild_pet_base:
                 return await interaction.followup.send(f"Error: Pet data for {chosen_species_name} not found.",
                                                        ephemeral=True)
 
-            level = random.randint(3, 5)
+            assigned_passive = None
+            if wild_pet_base['rarity'] in ["Common", "Uncommon"]:
+                pet_type = wild_pet_base['pet_type']
+                if isinstance(pet_type, list): pet_type = random.choice(pet_type)
+                possible_passives = SHARED_PASSIVES_BY_TYPE.get(pet_type, [])
+                if possible_passives: assigned_passive = random.choice(possible_passives)
+            else:
+                assigned_passive = wild_pet_base.get('passive_ability')
+
             base_stats = {stat: random.randint(val[0], val[1]) for stat, val in
                           wild_pet_base["base_stat_ranges"].items()}
             growth_rates = wild_pet_base["growth_rates"]
             calculated_stats = {stat: math.floor(base_stats[stat] + (level - 1) * growth_rates[stat]) for stat in
                                 base_stats}
 
-            all_learnable_skills = []
             skill_learn_data = wild_pet_base.get('skill_tree', {})
-            for lvl_req_str, skills in skill_learn_data.items():
-                if level >= int(lvl_req_str):
+            all_learnable_skills = []
+            for lvl, skills in skill_learn_data.items():
+                if level >= int(lvl):
                     if isinstance(skills, list):
                         all_learnable_skills.extend(skills)
                     elif isinstance(skills, dict) and "choice" in skills:
-                        all_learnable_skills.append(random.choice(skills["choice"]))
+                        all_learnable_skills.append(random.choice(skills['choice']))
 
-            active_skills = all_learnable_skills[-4:]
-            if not active_skills:
-                active_skills.append("scratch")
+            active_skills = all_learnable_skills[-4:] if all_learnable_skills else ["pound"]
 
             wild_pet_instance = {
                 "species": wild_pet_base['species'], "rarity": wild_pet_base['rarity'],
@@ -129,14 +135,13 @@ class Adventure(commands.Cog):
                 "attack": calculated_stats['attack'], "defense": calculated_stats['defense'],
                 "special_attack": calculated_stats['special_attack'],
                 "special_defense": calculated_stats['special_defense'],
-                "speed": calculated_stats['speed'],
-                "skills": active_skills
+                "speed": calculated_stats['speed'], "skills": active_skills,
+                "passive_ability": assigned_passive
             }
 
             combat_view = CombatView(self.bot, interaction.user.id, player_pet_data, wild_pet_instance, None)
             embed = await combat_view.get_battle_embed(
                 f"A wild Level {level} **{wild_pet_instance['species']}** appeared!")
-
             message = await interaction.followup.send(embed=embed, view=combat_view, ephemeral=True)
             combat_view.message = message
 
