@@ -504,10 +504,16 @@ class CombatView(discord.ui.View):
         await db_cog.add_coins(self.user_id, coin_gain)
         await check_quest_progress(self.bot, self.user_id, "combat_victory", {"species": self.wild_pet['species']})
         self.player_pet = updated_pet
+
+        quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_victory", {"species": self.wild_pet['species']})
+
         result_log = f"🏆 You defeated the wild {self.wild_pet['species']}! You earned {coin_gain} coins and {xp_gain} EXP."
         if leveled_up:
             result_log += f"\nYour pet {self.player_pet['name']} grew to Level {self.player_pet['level']}!"
         await self._return_to_wilds(result_log)
+
+        if quest_updates:
+            result_log += "\n\n" + "\n".join(quest_updates)
 
     async def _handle_loss(self, interaction: discord.Interaction):
         self.in_progress = False
