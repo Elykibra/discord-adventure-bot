@@ -12,6 +12,7 @@ PET_DATABASE = {
     # --- Starter Pets ---
     "Pyrelisk": {
         "species": "Pyrelisk", "pet_type": "Fire", "rarity": "Starter", "personality": "Aggressive",
+        "base_capture_rate": 35,
         "passive_ability": {
             "name": "Singeing Fury",
             "description": "Each time this pet uses a damaging Fire-type attack, it gains a 'Singe' stack. Each stack increases the power of all Fire-type moves by 5%."
@@ -64,6 +65,7 @@ PET_DATABASE = {
 
     "Dewdrop": {
         "species": "Dewdrop", "pet_type": "Water", "rarity": "Starter", "personality": "Tactical",
+        "base_capture_rate": 35,
         "passive_ability": {
             "name": "Temporal Wellspring",
             "description": "All status effects and debuffs applied by this pet last for one extra turn."
@@ -115,6 +117,7 @@ PET_DATABASE = {
     },
     "Terran": {
         "species": "Terran", "pet_type": "Ground", "rarity": "Starter", "personality": "Defensive",
+        "base_capture_rate": 35,
         "passive_ability": {
             "name": "Fortress Form",
             "description": "When this pet takes a direct hit from an opponent, its Defense and Special Defense stats are temporarily increased by 10% for the remainder of the turn. This bonus cannot stack."
@@ -171,6 +174,7 @@ PET_DATABASE = {
         "pet_type": "Normal",
         "rarity": "Common",
         "personality": "Defensive",
+        "base_capture_rate": 45,
         "base_stat_ranges": {"hp": [45, 50], "attack": [25, 30], "defense": [40, 45], "special_attack": [20, 25],
                              "special_defense": [30, 35], "speed": [20, 25]},
         "growth_rates": {"hp": 1.9, "attack": 1.2, "defense": 1.8, "special_attack": 1.0, "special_defense": 1.3,
@@ -187,6 +191,7 @@ PET_DATABASE = {
     },
     "Corroder": {
         "species": "Corroder", "pet_type": ["Rock", "Poison"], "rarity": "Common", "personality": "Defensive",
+        "base_capture_rate": 40,
         "passive_ability": {"name": "Lingering Gloom",
                             "description": "Stat-lowering debuffs applied by this pet last for one extra turn."},
         "skill_tree": {
@@ -239,6 +244,11 @@ PET_DATABASE = {
 
     # --- Whisperwood Grove Pets ---
     "Mossling": {
+        "species": "Mossling",
+        "pet_type": "Grass",
+        "rarity": "Common",
+        "personality": "Timid", # Example of a future personality
+        "base_capture_rate": 45,
         # ... Mossling's data would go here, with its evolutions nested inside
     }
 }

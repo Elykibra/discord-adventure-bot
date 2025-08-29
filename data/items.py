@@ -16,12 +16,6 @@ ITEMS = {
         "category": "Consumables",
         "price": 150,
     },
-    "capture_orb": {
-        "name": "Capture Orb",
-        "description": "A mystical orb used to capture wild pets.",
-        "category": "Consumables",
-        "price": 50
-    },
     "moss_balm": {
         "name": "Moss Balm",
         "description": "A healing salve made from forest moss. Heals for 20 HP.",
@@ -100,5 +94,40 @@ ITEMS = {
         "description": "A rugged compass salvaged from the pits. It doesn't point north, but it seems to react to hidden wonders, subtly enhancing your chances of finding rare treasures.",
         "category": "key items",
         "price": None
-    }
+    },
+
+    # --- CAPTURE ORBS ---
+    "tether_orb": {
+        "name": "Tether Orb",
+        "description": "A basic orb with a low chance of success. A starter tool for new Recruits.",
+        "category": "Consumables",
+        "price": 20,
+        "orb_data": {
+            "base_multiplier": 1.0
+        }
+    },
+    "pact_orb": {
+        "name": "Pact Orb",
+        "description": "The standard Guild-issue orb with a baseline capture rate.",
+        "category": "Consumables",
+        "price": 100,
+        "orb_data": {
+            "base_multiplier": 1.5
+        }
+    },
+    "purity_orb": {
+        "name": "Purity Orb",
+        "description": "A specialized orb, essential for purifying Gloom-Touched pets.",
+        "category": "Consumables",
+        "price": 250,
+        "orb_data": {
+            "base_multiplier": 1.0,
+            "conditional_bonus": {
+                # This is a placeholder for when we define Gloom-Touched pets.
+                "context_key": "is_gloom_touched",
+                "expected_value": True,
+                "multiplier": 2.5
+            }
+        }
+    },
 }
