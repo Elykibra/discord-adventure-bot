@@ -56,6 +56,27 @@ DEFENSIVE_TYPE_CHART = {
     "Dragon":   {"weak_to": ["Ice", "Dragon", "Fairy"], "resists": ["Fire", "Water", "Grass", "Electric"], "immune_to": []},
     "Fairy":    {"weak_to": ["Poison"], "resists": ["Fighting", "Bug"], "immune_to": ["Dragon"]},
 }
+
+TYPE_EMOJIS = {
+    "Bug": "🪲",
+    "Dragon": "🐉",
+    "Electric": "⚡",
+    "Fairy": "🌸",
+    "Fighting": "💪",
+    "Fire": "🔥",
+    "Flying": "🪶",
+    "Ghost": "👻",
+    "Grass": "🌿",
+    "Ground": "⛰️",
+    "Ice": "❄️",
+    "Normal": "⭐",
+    "Poison": "🧪",
+    "Psychic": "🔮",
+    "Rock": "🪨",
+    "Steel": "⚙️",
+    "Water": "🌊"
+}
+
 # Define descriptions for starter pets and new catchable pets
 PET_DESCRIPTIONS = {
     "Pyrelisk": "A small, lizard-like creature with a body made of fiery rock. It's an aggressive attacker, specializing in powerful, single-target fire damage.",

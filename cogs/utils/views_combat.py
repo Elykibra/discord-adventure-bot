@@ -1,11 +1,12 @@
 # --- cogs/utils/views_combat.py (Final Version with all mechanics) ---
 import discord, random, asyncio, math, traceback
 from . import effects
-from cogs.utils.constants import XP_REWARD_BY_RARITY
+from cogs.utils.constants import XP_REWARD_BY_RARITY, TYPE_EMOJIS
 from data.skills import PET_SKILLS
 from data.pets import PET_DATABASE
 from cogs.utils.effects import apply_effect
 from cogs.utils.helpers import get_pet_image_url, get_status_bar, get_ai_move, _create_progress_bar, get_type_multiplier, _pet_tuple_to_dict, check_quest_progress
+from .views_towns import WildsView
 
 
 
@@ -60,53 +61,38 @@ class SwitchPetView(discord.ui.View):
 
 
 class CombatView(discord.ui.View):
-    def __init__(self, bot, user_id, player_pet, wild_pet, message, parent_view=None):
+    def __init__(self, bot, user_id, player_pet, wild_pet, message, parent_interaction, origin_location_id):
+        print("--- [CHECK 10] CombatView __init__ initiated. ---")
         super().__init__(timeout=300)
-        self.bot, self.user_id = bot, user_id
+        self.bot = bot
+        self.user_id = user_id
         self.player_pet = _pet_tuple_to_dict(player_pet)
-        self.wild_pet = _pet_tuple_to_dict(wild_pet)
-        self.message, self.parent_view = message, parent_view
+        self.wild_pet = wild_pet
+        self.message = message
         self.in_progress = True
         self.player_pet_effects, self.wild_pet_effects = [], []
-        self.gloom_meter, self.purify_charges = 0, 1
-        self.player_gloom_channeled = False
         self.turn_log = []
-        self.last_interaction = None
+
+        self.gloom_meter = 0
+        self.purify_charges = 1
+
+        self.parent_interaction = parent_interaction
+        self.origin_location_id = origin_location_id
+        self.last_interaction = parent_interaction
         self.rebuild_ui_for_player_turn()
 
     def rebuild_ui_for_player_turn(self):
         self.clear_items()
-        is_gloom_touched = any(eff.get('name') == 'gloom_touched' for eff in self.player_pet_effects)
         for skill_id in self.player_pet.get("skills", ["scratch"])[:4]:
             skill_info = PET_SKILLS.get(skill_id, {})
-            skill_button = discord.ui.Button(label=skill_info.get('name', 'Unknown'), style=discord.ButtonStyle.primary,
-                                             custom_id=f"skill_{skill_id}")
+            skill_button = discord.ui.Button(label=skill_info.get('name', 'Unknown'), style=discord.ButtonStyle.primary, custom_id=f"skill_{skill_id}")
             skill_button.callback = self.skill_button_callback
             self.add_item(skill_button)
-
-        switch_button = discord.ui.Button(label="Switch Pet", style=discord.ButtonStyle.secondary, emoji="🔄", row=1)
-        switch_button.callback = self.switch_pet_callback
-        self.add_item(switch_button)
-
-        capture_button = discord.ui.Button(label="Capture", style=discord.ButtonStyle.green, custom_id="capture", row=1)
-        capture_button.callback = self.capture_button_callback
-        self.add_item(capture_button)
-
-        flee_button = discord.ui.Button(label="Flee", style=discord.ButtonStyle.secondary, custom_id="flee", row=1)
-        flee_button.callback = self.flee_button_callback
-        self.add_item(flee_button)
-
-        channel_button = discord.ui.Button(label="Channel Gloom", style=discord.ButtonStyle.danger,
-                                           custom_id="channel_gloom", row=2,
-                                           disabled=(self.gloom_meter < 50 or is_gloom_touched))
-        channel_button.callback = self.channel_gloom_callback
-        self.add_item(channel_button)
-
-        purify_button = discord.ui.Button(label=f"Purify ({self.purify_charges})", style=discord.ButtonStyle.secondary,
-                                          custom_id="purify", row=2,
-                                          disabled=(not is_gloom_touched or self.purify_charges <= 0))
-        purify_button.callback = self.purify_callback
-        self.add_item(purify_button)
+        self.add_item(discord.ui.Button(label="Switch Pet", style=discord.ButtonStyle.secondary, emoji="🔄", row=1))
+        self.children[-1].callback = self.switch_pet_callback
+        self.add_item(discord.ui.Button(label="Capture", style=discord.ButtonStyle.green, custom_id="capture", row=1, disabled=True)) # Capture disabled for now
+        self.add_item(discord.ui.Button(label="Flee", style=discord.ButtonStyle.secondary, custom_id="flee", row=1))
+        self.children[-1].callback = self.flee_button_callback
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
@@ -169,55 +155,47 @@ class CombatView(discord.ui.View):
 
         # --- Player Pet Field ---
         player_hp_bar = _create_progress_bar(self.player_pet['current_hp'], self.player_pet['max_hp'])
-        player_effects_str = ", ".join(
-            [e.get('status_effect', 'effect').title() for e in self.player_pet_effects]) or "None"
-        player_passive = self.player_pet.get('passive_ability')
-        if isinstance(player_passive, dict):
-            player_passive_name = player_passive.get('name', 'None')
-        elif isinstance(player_passive, str):
-            player_passive_name = player_passive
+        player_effects_str = ", ".join([e.get('status_effect', 'effect').title() for e in self.player_pet_effects]) or "None"
+        p_passive = self.player_pet.get('passive_ability')
+        p_passive_name = p_passive.get('name', 'None') if isinstance(p_passive, dict) else p_passive or "None"
+
+        # NEW: Format pet type with emoji for the stat block
+        if isinstance(self.player_pet['pet_type'], list):
+            p_types_with_emojis = [f"{t} {TYPE_EMOJIS.get(t, '')}".strip() for t in self.player_pet['pet_type']]
+            p_type_str = " / ".join(p_types_with_emojis)
         else:
-            player_passive_name = "None"
+            p_type = self.player_pet['pet_type']
+            p_type_str = f"{p_type} {TYPE_EMOJIS.get(p_type, '')}".strip()
 
         player_display = (f"```\n"
-                          f"❤️ {player_hp_bar} {self.player_pet['current_hp']}/{self.player_pet['max_hp']}\n"
-                          f"└─ Passive: {player_passive_name}\n"
-                          f"└─ Status:  {player_effects_str}\n"
-                          f"```")
-        embed.add_field(name=f"Your {self.player_pet['name']} (Lvl {self.player_pet['level']})", value=player_display,
-                        inline=True)
+                        f"❤️ {player_hp_bar} {self.player_pet['current_hp']}/{self.player_pet['max_hp']}\n"
+                        f"└─ Type:    {p_type_str}\n"
+                        f"└─ Passive: {p_passive_name}\n"
+                        f"└─ Status:  {player_effects_str}\n"
+                        f"```")
+        embed.add_field(name=f"Your {self.player_pet['name']} (Lvl {self.player_pet['level']})", value=player_display, inline=True)
 
         # --- Wild Pet Field ---
         wild_hp_bar = _create_progress_bar(self.wild_pet['current_hp'], self.wild_pet['max_hp'])
-        wild_effects_str = ", ".join(
-            [e.get('status_effect', 'effect').title() for e in self.wild_pet_effects]) or "None"
-        wild_passive = self.wild_pet.get('passive_ability')
-        if isinstance(wild_passive, dict):
-            wild_passive_name = wild_passive.get('name', 'None')
-        elif isinstance(wild_passive, str):
-            wild_passive_name = wild_passive
-        else:
-            wild_passive_name = "None"
-
-        # --- Wild Pet Field ---
-        wild_hp_bar = _create_progress_bar(self.wild_pet['current_hp'], self.wild_pet['max_hp'])
-        wild_effects_str = ", ".join(
-            [e.get('status_effect', 'effect').title() for e in self.wild_pet_effects]) or "None"
+        wild_effects_str = ", ".join([e.get('status_effect', 'effect').title() for e in self.wild_pet_effects]) or "None"
         w_passive = self.wild_pet.get('passive_ability')
-        if isinstance(w_passive, dict):
-            w_passive_name = w_passive.get('name', 'None')
-        elif isinstance(w_passive, str):
-            w_passive_name = w_passive
+        w_passive_name = w_passive.get('name', 'None') if isinstance(w_passive, dict) else w_passive or "None"
+
+        # NEW: Format pet type with emoji for the stat block
+        if isinstance(self.wild_pet['pet_type'], list):
+            w_types_with_emojis = [f"{t} {TYPE_EMOJIS.get(t, '')}".strip() for t in self.wild_pet['pet_type']]
+            w_type_str = " / ".join(w_types_with_emojis)
         else:
-            w_passive_name = "None"
+            w_type = self.wild_pet['pet_type']
+            w_type_str = f"{w_type} {TYPE_EMOJIS.get(w_type, '')}".strip()
 
         wild_display = (f"```\n"
-                        f"❤️ {wild_hp_bar} {self.wild_pet['current_hp']}/{self.wild_pet['max_hp']}\n"
-                        f"└─ Passive: {w_passive_name}\n"
-                        f"└─ Status:  {wild_effects_str}\n"
-                        f"```")
-        embed.add_field(name=f"Wild {self.wild_pet['species']} (Lvl {self.wild_pet['level']})", value=wild_display,
-                        inline=True)
+                      f"❤️ {wild_hp_bar} {self.wild_pet['current_hp']}/{self.wild_pet['max_hp']}\n"
+                      f"└─ Type:    {w_type_str}\n"
+                      f"└─ Passive: {w_passive_name}\n"
+                      f"└─ Status:  {wild_effects_str}\n"
+                      f"```")
+        embed.add_field(name=f"Wild {self.wild_pet['species']} (Lvl {self.wild_pet['level']})", value=wild_display, inline=True)
 
         # --- SEPARATE ADVANTAGE FIELD ---
         player_primary_type = self.player_pet['pet_type'] if isinstance(self.player_pet['pet_type'], str) else \
@@ -329,8 +307,7 @@ class CombatView(discord.ui.View):
 
 
     async def skill_button_callback(self, interaction: discord.Interaction):
-        await self.handle_turn(interaction,
-                               {'type': 'skill', 'skill_id': interaction.data['custom_id'].replace('skill_', '')})
+        await self.handle_turn(interaction, {'type': 'skill', 'skill_id': interaction.data['custom_id'].replace('skill_', '')})
 
     async def switch_pet_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -349,20 +326,13 @@ class CombatView(discord.ui.View):
         await interaction.followup.send("Choose your next pet:", view=switch_view, ephemeral=True)
 
     async def handle_turn(self, interaction: discord.Interaction, player_action: dict):
-        """Disables buttons and passes the player's action to the round processor."""
         if not self.in_progress: return
         self.last_interaction = interaction
-        await interaction.response.defer()
-
-        # Disable buttons to prevent multiple actions
         for item in self.children: item.disabled = True
-        await interaction.edit_original_response(view=self)
-
-        # Start the round processing
+        await interaction.response.edit_message(view=self)
         await self.process_round(player_action['skill_id'])
 
     def _get_modified_stat(self, pet: dict, stat: str) -> int:
-        """Calculates a pet's stat after applying any temporary effects."""
         base_value = pet.get(stat, 0)
         final_value = float(base_value)
         effects_list = self.player_pet_effects if 'pet_id' in pet else self.wild_pet_effects
@@ -425,8 +395,8 @@ class CombatView(discord.ui.View):
 
     async def flee_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        result_embed = await self.get_battle_embed("You successfully fled from the battle!")
-        await self._show_end_of_battle_ui(interaction, result_embed)
+        result_log = "💨 You successfully fled from the battle!"
+        await self._return_to_wilds(result_log)
 
     async def capture_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Capture logic not yet implemented.", ephemeral=True)
@@ -484,11 +454,31 @@ class CombatView(discord.ui.View):
 
         return fainted
 
-    async def _show_end_of_battle_ui(self, interaction: discord.Interaction, embed: discord.Embed):
+    async def _return_to_wilds(self, result_log: str):
+        wilds_view = WildsView(self.bot, self.parent_interaction, self.origin_location_id, activity_log=result_log)
+        db_cog = self.bot.get_cog('Database')
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+        new_embed = wilds_view.build_embed(result_log)
+        if player_and_pet_data:
+            status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
+            new_embed.set_footer(text=status_bar)
+        await self.message.edit(embed=new_embed, view=wilds_view)
+        wilds_view.message = self.message
+
+    async def _show_end_of_battle_ui(self, interaction: discord.Interaction, embed: discord.Embed, result_log: str):
         self.in_progress = False
         for item in self.children: item.disabled = True
+
         return_view = discord.ui.View(timeout=180)
-        return_button = discord.ui.Button(label="Return to Menu", style=discord.ButtonStyle.secondary)
+        return_button = discord.ui.Button(label="Return to Wilds", style=discord.ButtonStyle.secondary)
+
+        async def return_callback(cb_interaction: discord.Interaction):
+            # This is where we call the new return function
+            await self._return_to_wilds(cb_interaction, result_log)
+
+        return_button.callback = return_callback
+        return_view.add_item(return_button)
+        await interaction.edit_original_response(embed=embed, view=return_view)
 
         async def return_callback(cb_interaction: discord.Interaction):
             await cb_interaction.response.defer()
@@ -507,33 +497,22 @@ class CombatView(discord.ui.View):
         self.in_progress = False
         db_cog = self.bot.get_cog('Database')
         if not db_cog: return
-
         base_xp = XP_REWARD_BY_RARITY.get(self.wild_pet['rarity'], 20)
-        xp_gain = math.floor(base_xp * (self.wild_pet['level'] / self.player_pet['level']) * 1.5)
-        xp_gain = max(5, xp_gain)
+        xp_gain = max(5, math.floor(base_xp * (self.wild_pet['level'] / self.player_pet['level']) * 1.5))
         coin_gain = random.randint(5, 15) * self.wild_pet['level']
-
         updated_pet, leveled_up = await db_cog.add_xp(self.player_pet['pet_id'], xp_gain)
         await db_cog.add_coins(self.user_id, coin_gain)
-
         await check_quest_progress(self.bot, self.user_id, "combat_victory", {"species": self.wild_pet['species']})
-
         self.player_pet = updated_pet
-        victory_desc = f"You defeated the wild **{self.wild_pet['species']}**!"
-        victory_embed = discord.Embed(title="🏆 Victory! 🏆", description=victory_desc, color=discord.Color.gold())
-        rewards_text = f"💰 **{coin_gain}** Coins\n✨ **{xp_gain}** EXP"
-        victory_embed.add_field(name="Rewards", value=rewards_text)
+        result_log = f"🏆 You defeated the wild {self.wild_pet['species']}! You earned {coin_gain} coins and {xp_gain} EXP."
         if leveled_up:
-            victory_embed.add_field(name="Level Up!",
-                                    value=f"**{self.player_pet['name']}** grew to **Level {self.player_pet['level']}**!",
-                                    inline=False)
-        victory_embed.set_thumbnail(url=get_pet_image_url(self.player_pet['species']))
-        await self._show_end_of_battle_ui(interaction, victory_embed)
+            result_log += f"\nYour pet {self.player_pet['name']} grew to Level {self.player_pet['level']}!"
+        await self._return_to_wilds(result_log)
 
     async def _handle_loss(self, interaction: discord.Interaction):
         self.in_progress = False
         db_cog = self.bot.get_cog('Database')
         if db_cog:
             await db_cog.update_pet(self.player_pet['pet_id'], current_hp=max(0, self.player_pet['current_hp']))
-        result_embed = await self.get_battle_embed(f"Your pet was defeated by the wild {self.wild_pet['species']}.")
-        await self._show_end_of_battle_ui(interaction, result_embed)
+        result_log = f"💔 You were defeated by the wild {self.wild_pet['species']}."
+        await self._return_to_wilds(result_log)
