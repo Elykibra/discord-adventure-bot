@@ -1,6 +1,7 @@
 # cogs/utils/views_towns.py
 
 import discord, traceback, textwrap
+from data.items import ITEMS
 from data.towns import towns
 from data.dialogues import DIALOGUES
 from cogs.utils.helpers import get_status_bar, get_town_embed, check_quest_progress
@@ -306,6 +307,15 @@ class TownView(discord.ui.View):
                 dialogue_text = "They have nothing to say to you right now."
             else:
                 dialogue_text = node.get("text", "...")
+
+                if node.get("action") == "grant_item":
+                    item_id = node.get("item_id")
+                    quantity = node.get("quantity", 1)
+                    if item_id:
+                        await db_cog.add_item_to_inventory(self.user_id, item_id, quantity)
+                        item_name = ITEMS.get(item_id, {}).get('name', 'an item')
+                        dialogue_text += f"\n\n*You received: {quantity}x {item_name}*"
+
                 if node.get("action") == "grant_quest":
                     await db_cog.add_quest(self.user_id, node.get("quest_id"))
                 await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id})

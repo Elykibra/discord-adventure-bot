@@ -6,7 +6,7 @@ from data.pets import PET_DATABASE
 from data.items import ITEMS
 from data.skills import PET_SKILLS
 from cogs.utils import effects
-from cogs.utils.helpers import get_ai_move, get_type_multiplier
+from cogs.utils.helpers import get_ai_move, get_type_multiplier, check_quest_progress
 from cogs.utils.constants import XP_REWARD_BY_RARITY, PET_DESCRIPTIONS
 
 
@@ -35,7 +35,16 @@ class BattleState:
                 final_value *= effect.get('modifier', 1.0)
         return math.floor(final_value)
 
-    def get_capture_info(self, orb_id: str) -> dict:
+    async def get_capture_info(self, orb_id: str) -> dict:
+
+        player_data = await self.db_cog.get_player(self.user_id)
+
+        context = {
+            "time_of_day": player_data.get('day_of_cycle', 'day'),
+            "turn_count": self.turn_count,
+            "is_gloom_touched": False
+        }
+
         RARITY_MODIFIERS = {"Common": 1.1, "Uncommon": 1.0, "Rare": 0.9, "Legendary": 0.7, "Starter": 1.0}
         PERSONALITY_MODIFIERS = {"Aggressive": 0.9, "Defensive": 0.95, "Tactical": 0.95, "Timid": 1.1}
         STATUS_MODIFIERS = {"sleep": 2.0, "paralyze": 1.5, "frozen": 2.0, "confused": 1.2}
@@ -57,6 +66,20 @@ class BattleState:
                 status_mult = max(status_mult, mod)
 
         orb_mult = orb_data.get('base_multiplier', 1.0)
+
+        # Check for conditional bonuses
+        if 'conditional_bonus' in orb_data:
+            bonus_info = orb_data['conditional_bonus']
+            if context.get(bonus_info['context_key']) == bonus_info['expected_value']:
+                orb_mult *= bonus_info['multiplier']
+
+        # Check for scaling bonuses
+        if 'scaling_bonus' in orb_data:
+            bonus_info = orb_data['scaling_bonus']
+            scaling_value = context.get(bonus_info['context_key'], 0)
+            orb_mult += (scaling_value * bonus_info['bonus_per_unit'])
+        # --- END OF NEW ORB LOGIC ---
+
         final_rate = max(1, min(100, int((hp_factor * base_rate) * rarity_mult * pers_mult * status_mult * orb_mult)))
 
         if final_rate > 75:
@@ -223,15 +246,51 @@ class BattleState:
 
     async def attempt_capture(self, orb_id: str):
         await self.db_cog.remove_item_from_inventory(self.user_id, orb_id, 1)
-        rate = self.get_capture_info(orb_id)['rate']
+        capture_info = await self.get_capture_info(orb_id)
+        rate = capture_info['rate']
         orb_name = ITEMS.get(orb_id, {}).get('name', 'Orb')
         self.turn_log = [f"› You used a **{orb_name}**!"]
 
         if random.randint(1, 100) <= rate:
+            # SUCCESS
             self.turn_log.append(f"› Gotcha! **{self.wild_pet['species']}** was caught!")
-            await self.db_cog.add_pet(owner_id=self.user_id, name=self.wild_pet["species"], **self.wild_pet)
+
+            # Call the database with the correct, explicit parameters
+            pet_to_add = self.wild_pet
+            await self.db_cog.add_pet(
+                owner_id=self.user_id,
+                name=pet_to_add["species"],
+                species=pet_to_add["species"],
+                description=PET_DESCRIPTIONS.get(pet_to_add["species"], ""),
+                rarity=pet_to_add["rarity"],
+                pet_type=pet_to_add["pet_type"],
+                skills=pet_to_add["skills"],
+                current_hp=pet_to_add["max_hp"],  # Healed on capture
+                max_hp=pet_to_add["max_hp"],
+                attack=pet_to_add["attack"],
+                defense=pet_to_add["defense"],
+                special_attack=pet_to_add["special_attack"],
+                special_defense=pet_to_add["special_defense"],
+                speed=pet_to_add["speed"],
+                # For wild pets, base stats can mirror final stats for now
+                base_hp=pet_to_add["max_hp"],
+                base_attack=pet_to_add["attack"],
+                base_defense=pet_to_add["defense"],
+                base_special_attack=pet_to_add["special_attack"],
+                base_special_defense=pet_to_add["special_defense"],
+                base_speed=pet_to_add["speed"],
+                passive_ability=pet_to_add.get('passive_ability', {}).get('name')
+            )
+
+            # We also need to check for quest progress on capture
+            quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_capture",
+                                                       {"species": self.wild_pet['species']})
+            if quest_updates:
+                self.turn_log.extend(quest_updates)
+
             return {"log": "\n".join(self.turn_log), "is_over": True, "win": True, "captured": True}
         else:
+            # FAILURE
             self.turn_log.append(f"› Oh no! The wild **{self.wild_pet['species']}** broke free!")
             return await self.process_ai_turn()
 

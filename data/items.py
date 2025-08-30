@@ -130,4 +130,31 @@ ITEMS = {
             }
         }
     },
+    "dusk_orb": {
+        "name": "Dusk Orb",
+        "description": "A situational orb whose effectiveness is doubled when used at night.",
+        "category": "Consumables",
+        "price": 150,
+        "orb_data": {
+            "base_multiplier": 1.0,
+            "conditional_bonus": {
+                "context_key": "time_of_day",
+                "expected_value": "night",
+                "multiplier": 2.0
+            }
+        }
+    },
+    "steadfast_orb": {
+        "name": "Steadfast Orb",
+        "description": "A strategic orb whose effectiveness increases with each turn that passes in battle.",
+        "category": "Consumables",
+        "price": 200,
+        "orb_data": {
+            "base_multiplier": 1.0,
+            "scaling_bonus": {
+                "context_key": "turn_count",
+                "bonus_per_unit": 0.1
+            }
+        }
+    },
 }

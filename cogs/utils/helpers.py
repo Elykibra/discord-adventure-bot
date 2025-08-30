@@ -236,6 +236,8 @@ async def check_quest_progress(bot, user_id, action_type, context=None):
             target_matches = True
         elif action_type == "rest" and context.get("location_id") == objective_target:
             target_matches = True
+        elif action_type == "combat_capture" and (objective_target == "any" or context.get("species") == objective_target):
+            target_matches = True
 
         if target_matches:
             # --- NEW LOGIC FOR HANDLING COUNTS ---

@@ -7,47 +7,47 @@ QUESTS = {
             "title": "A Guildsman's First Steps",
             "description": "Recruitment Officer Elara is teaching you the basics of being a Guild Adventurer.",
             "type": "main",
-            # --- THIS IS THE NEW, STRUCTURED FORMAT ---
             "objectives": [
                 {
                     "text": "Speak with Recruitment Officer Elara.",
-                    "type": "talk_npc",
-                    "target": "elara"
+                    "type": "talk_npc", "target": "elara"
                 },
                 {
                     "text": "Gather a `Sun-Kissed Berry` from the wild.",
-                    "type": "item_pickup",
-                    "target": "sun_kissed_berries"
+                    "type": "item_pickup", "target": "sun_kissed_berries"
                 },
                 {
-                    "text": "Use the `Sun-Kissed Berry` from your `/character` inventory.",
-                    "type": "item_use",
-                    "target": "sun_kissed_berries"
+                    "text": "Use the `Sun-Kissed Berry` from your inventory.",
+                    "type": "item_use", "target": "sun_kissed_berries"
                 },
                 {
                     "text": "Defeat one wild pet in combat.",
-                    "type": "combat_victory",
-                    "target": "any" # "any" can be a special keyword for any pet
+                    "type": "combat_victory", "target": "any"
+                },
+                {
+                    "text": "Report your victory to Recruitment Officer Elara.",
+                    "type": "talk_npc", "target": "elara"
+                },
+                {
+                    "text": "Capture a wild pet using the Tether Orb.",
+                    "type": "combat_capture", "target": "any"  # A new type for our engine
                 },
                 {
                     "text": "Rest at the `Weary Wanderer's Bench` to recover.",
-                    "type": "rest",
-                    "target": "rest_point"
+                    "type": "rest", "target": "rest_point"
                 },
                 {
                     "text": "Speak with Grit Galen near the Rotting Pits.",
-                    "type": "talk_npc",
-                    "target": "grit_galen"
+                    "type": "talk_npc", "target": "grit_galen"
                 },
                 {
                     "text": "Return to Recruitment Officer Elara for your final briefing.",
-                    "type": "talk_npc",
-                    "target": "elara"
+                    "type": "talk_npc", "target": "elara"
                 }
             ],
             "reward_coins": 100,
             "reward_reputation": 25,
-            "reward_item": "capture_orb",
+            "reward_item": "tether_orb",
             "reward_item_quantity": 5
         },
 
