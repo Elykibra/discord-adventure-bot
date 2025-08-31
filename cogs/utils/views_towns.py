@@ -39,17 +39,9 @@ class WildsView(discord.ui.View):
         return embed
 
     async def explore_button_callback(self, interaction: discord.Interaction):
-        print("\n--- [CHECK 1] WildsView: explore_button_callback initiated. ---")
-        try:
-            adventure_cog = self.bot.get_cog('Adventure')
-            if adventure_cog:
-                print("--- [CHECK 2] Adventure cog found, calling explore... ---")
-                await adventure_cog.explore(interaction, self.location_id, self.message)
-            else:
-                print("--- [ERROR] Adventure cog NOT found. ---")
-        except Exception as e:
-            print(f"--- [FATAL ERROR] An exception occurred in explore_button_callback: {e} ---")
-            traceback.print_exc()
+        adventure_cog = self.bot.get_cog('Adventure')
+        if adventure_cog:
+            await adventure_cog.explore(interaction, self.location_id, self.message)
 
     async def enter_town_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()

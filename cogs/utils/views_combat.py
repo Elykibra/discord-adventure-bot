@@ -52,7 +52,6 @@ class CombatView(discord.ui.View):
             usable_items = [{'id': i['item_id'], 'name': ITEMS[i['item_id']]['name'], 'quantity': i['quantity']} for
                                 i in inventory if ITEMS.get(i['item_id'], {}).get('category') == 'Consumables']
             if usable_items:
-                 # --- THIS IS THE FIX for ITEMS ---
                 options = [
                     discord.SelectOption(
                             label=f"{item['name']} (x{item['quantity']})",
@@ -60,7 +59,6 @@ class CombatView(discord.ui.View):
                             description=ITEMS[item['id']].get('description', '')[:100]  # Add item description
                     ) for item in usable_items
                 ]
-                # --- END OF FIX ---
                 item_dropdown = discord.ui.Select(placeholder="Select an item to use...", options=options)
                 item_dropdown.callback = self.item_select_callback
                 self.add_item(item_dropdown)
@@ -121,7 +119,6 @@ class CombatView(discord.ui.View):
 
         if log:
             self.battle_log = log
-        # --- END OF FIX ---
 
         await self.rebuild_ui()
         embed = await self.get_battle_embed(preview_orb_id=self.selected_item_id)
@@ -137,30 +134,13 @@ class CombatView(discord.ui.View):
 
     async def item_select_callback(self, interaction: discord.Interaction):
         """Callback for when an item is chosen from the bag dropdown."""
-        # --- NEW ERROR CHECKER ---
-        print("\n--- [DEBUG] Item selected from dropdown ---")
-        try:
-            self.selected_item_id = interaction.data['values'][0]
-            print(f"[DEBUG] Selected Item ID: '{self.selected_item_id}'")
-
-            # We pass the interaction object to the helper.
-            await self._update_display(interaction)
-            print("[DEBUG] Item selection callback complete.")
-
-        except Exception as e:
-            print("\n--- [FATAL ERROR in item_select_callback] ---")
-            traceback.print_exc()
-            await interaction.followup.send(f"An error occurred selecting an item: `{e}`", ephemeral=True)
-        # --- END OF ERROR CHECKER ---
+        self.selected_item_id = interaction.data['values'][0]
+        await self._update_display(interaction)
 
     async def pet_select_callback(self, interaction: discord.Interaction):
         """Callback for when a pet is chosen from the switch dropdown."""
         self.selected_pet_to_switch = int(interaction.data['values'][0])
-
-        # --- THIS IS THE FIX ---
-        # Applying the same fix here for consistency.
         await self._update_display(interaction)
-        # --- END OF FIX ---
 
     async def use_item_callback(self, interaction: discord.Interaction):
         if 'orb' in self.selected_item_id:
@@ -184,38 +164,27 @@ class CombatView(discord.ui.View):
                 await self._handle_loss(results)
 
     async def skill_button_callback(self, interaction: discord.Interaction):
-        # --- NEW ERROR CHECKER ---
-        print("\n--- [DEBUG] Skill button pressed ---")
         try:
             await interaction.response.defer()
             for item in self.children: item.disabled = True
             await self.message.edit(view=self)
-            print("[DEBUG] Buttons disabled. Calling engine...")
 
             results = await self.battle.process_round(interaction.data['custom_id'].replace('skill_', ''))
-            print(f"[DEBUG] Engine returned: {results}")
 
             self.battle_log = results['log']
             if not results.get("is_over"):
                 self.battle_log += "\n\n> **It's your turn!**"
-                print("[DEBUG] Battle not over. Calling _update_display...")
                 await self._update_display(interaction)
-                print("[DEBUG] _update_display finished.")
             else:
-                print("[DEBUG] Battle is over. Handling win/loss...")
                 if results.get("win"):
                     await self._handle_win(results)
                 else:
                     await self._handle_loss(results)
 
-            print("[DEBUG] Skill callback complete.")
-
         except Exception as e:
-            print("\n--- [FATAL ERROR in skill_button_callback] ---")
             traceback.print_exc()
             await interaction.followup.send(f"An error occurred after using a skill: `{e}`", ephemeral=True)
             self.stop()
-        # --- END OF ERROR CHECKER ---
 
     async def attempt_capture(self, interaction: discord.Interaction, orb_id: str):
         await interaction.response.defer()
@@ -226,36 +195,27 @@ class CombatView(discord.ui.View):
 
     async def confirm_switch_callback(self, interaction: discord.Interaction):
         """Callback for the 'Confirm Switch' button."""
-        # --- NEW ERROR CHECKER ---
-        print("\n--- [DEBUG] 'Confirm Switch' button pressed ---")
         try:
             if not self.selected_pet_to_switch:
-                print("[ERROR] 'Confirm Switch' pressed but no pet was selected.")
                 return
 
             await interaction.response.defer()
             for item in self.children: item.disabled = True
             await self.message.edit(view=self)
-            print(f"[DEBUG] Buttons disabled. Switching to pet ID: {self.selected_pet_to_switch}")
 
             db_cog = self.bot.get_cog('Database')
             new_pet = await db_cog.get_pet(self.selected_pet_to_switch)
             self.battle.player_pet = _pet_tuple_to_dict(new_pet)
             self.battle.turn_log = [f"> You sent out **{new_pet['name']}**!"]
-            print("[DEBUG] Player pet updated in engine. Processing AI turn...")
 
             results = await self.battle.process_ai_turn()
-            print(f"[DEBUG] Engine returned: {results}")
 
             await self._update_view(interaction, results)
-            print("[DEBUG] Switch callback complete.")
 
         except Exception as e:
-            print("\n--- [FATAL ERROR in confirm_switch_callback] ---")
             traceback.print_exc()
             await interaction.followup.send(f"An error occurred while switching pets: `{e}`", ephemeral=True)
             self.stop()
-        # --- END OF ERROR CHECKER ---
 
     async def flee_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -345,11 +305,8 @@ class CombatView(discord.ui.View):
             empty_blocks = 20 - filled_blocks
             bar = '🟨' * filled_blocks + '⬛' * empty_blocks
             embed.add_field(name="Capture Meter", value=f"{bar} `{rate}%`\n> *{info['text']}*", inline=False)
-        else:
-            print("[DEBUG] No orbs found to calculate a capture rate.")
 
         embed.set_thumbnail(url=get_pet_image_url(self.battle.wild_pet['species']))
-        print("[DEBUG] Finished building embed.")
         return embed
 
     async def _handle_win(self, results: dict):

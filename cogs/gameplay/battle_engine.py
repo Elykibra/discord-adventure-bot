@@ -193,7 +193,6 @@ class BattleState:
         return fainted
 
     async def process_round(self, player_skill_id: str):
-        print("[DEBUG] process_round: Starting round logic...")
         player_move = {"skill_id": player_skill_id}
         ai_move = get_ai_move(self.wild_pet, self.player_pet, self.gloom_meter)
 
@@ -241,7 +240,6 @@ class BattleState:
 
         # If the battle is not over, increment the turn and return the final state
         self.turn_count += 1
-        print("[DEBUG] process_round: Round logic finished, returning results.")
         return {"log": "\n".join(self.turn_log), "is_over": False}
 
     async def attempt_capture(self, orb_id: str):

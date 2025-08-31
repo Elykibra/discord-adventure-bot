@@ -46,10 +46,7 @@ class Adventure(commands.Cog):
             view.message = message
 
     async def explore(self, interaction: discord.Interaction, location_id: str, message_to_edit: discord.Message):
-        print("--- [CHECK 3] Adventure.explore initiated. ---")
         user_id = interaction.user.id
-        # NOTE: The central lock is temporarily removed for this test to ensure it's not the cause.
-
         try:
             await interaction.response.defer()
             db_cog = self.bot.get_cog('Database')
@@ -68,8 +65,6 @@ class Adventure(commands.Cog):
                 outcome = "tutorial_pet"
             else:
                 outcome = random.choices(["item", "pet", "nothing"], weights=[45, 35, 20], k=1)[0]
-
-            print(f"--- [CHECK 4] Rolled outcome: '{outcome}' ---")
 
             if outcome == "item" or outcome == "nothing":
                 activity_log_text = ""
@@ -148,20 +143,14 @@ class Adventure(commands.Cog):
                                      "speed": calculated_stats['speed'], "skills": active_skills,
                                      "passive_ability": assigned_passive}
 
-                print("--- [CHECK 6] Pet instance created. Attempting to create CombatView... ---")
                 combat_view = CombatView(self.bot, user_id, player_pet_data, wild_pet_instance, message_to_edit,
                                          parent_interaction=interaction, origin_location_id=location_id)
 
-                print("--- [CHECK 7] CombatView created. Attempting to get embed... ---")
                 embed = await combat_view.get_battle_embed(
                     f"A wild Level {level} **{wild_pet_instance['species']}** appeared!")
 
-                print("--- [CHECK 8] Embed created. Attempting to edit message... ---")
                 await message_to_edit.edit(embed=embed, view=combat_view)
-                print("--- [CHECK 9] Message edit complete. Encounter should be visible. ---")
-        except Exception as e:
-            print(f"--- [FATAL ERROR] An exception occurred in explore: {e} ---")
-            traceback.print_exc()
+
         finally:
             if user_id in self.exploring_users:
                 self.exploring_users.remove(user_id)
