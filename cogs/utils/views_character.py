@@ -8,6 +8,7 @@ from cogs.utils.helpers import get_status_bar, get_player_rank_info, _create_pro
     _pet_tuple_to_dict
 from data.items import ITEMS
 from cogs.utils.constants import CREST_DATA, UNEARNED_CREST_EMOJI, PET_DESCRIPTIONS, RANK_DISPLAY_DATA, ITEM_CATEGORIES
+from .views_inventory import BagView
 from .views_modals import RenamePetModal
 
 
@@ -197,3 +198,36 @@ class ProfileView(discord.ui.View):
         embed.set_footer(text=status_bar)
 
         return embed
+
+
+class CharacterView(discord.ui.View):
+    def __init__(self, bot, user_id):
+        super().__init__(timeout=180)
+        self.bot = bot
+        self.user_id = user_id
+
+    @discord.ui.button(label="Profile", emoji="👤", style=discord.ButtonStyle.primary)
+    async def profile_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # This will open the existing ProfileView
+        await interaction.response.defer(ephemeral=True)
+        # ... (logic to create and send ProfileView) ...
+
+    @discord.ui.button(label="Pet", emoji="🐾", style=discord.ButtonStyle.primary)
+    async def pet_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # This will open the existing PetView
+        await interaction.response.defer(ephemeral=True)
+        # ... (logic to create and send PetView) ...
+
+    @discord.ui.button(label="Bag", emoji="🎒", style=discord.ButtonStyle.primary)
+    async def bag_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Opens the new, unified Bag interface."""
+        await interaction.response.defer(ephemeral=True)
+        db_cog = self.bot.get_cog('Database')
+
+        player_data = await db_cog.get_player(self.user_id)
+        inventory = await db_cog.get_player_inventory(self.user_id)
+
+        view = BagView(self.bot, self.user_id, player_data, inventory)
+        embed = view.create_embed()
+
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)

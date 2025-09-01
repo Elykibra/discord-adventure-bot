@@ -22,7 +22,40 @@ class Database(commands.Cog):
         self.bot = bot
         self.db_path = 'game.db'
         self._create_tables_sync()
+        self._run_migrations()
         self._populate_items_sync()
+
+    def _get_table_info(self, cursor, table_name):
+        """Helper to get column names of a table."""
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        return {row[1] for row in cursor.fetchall()}
+
+    def _run_migrations(self):
+        """Adds new columns to existing tables without deleting data."""
+        print("--- Running Database Migrations ---")
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # --- Migration for Player Gear Slots ---
+        player_columns = self._get_table_info(cursor, 'players')
+
+        if 'equipped_head' not in player_columns:
+            print("  > Migrating players table: Adding 'equipped_head'")
+            cursor.execute("ALTER TABLE players ADD COLUMN equipped_head TEXT")
+
+        if 'equipped_charm' not in player_columns:
+            print("  > Migrating players table: Adding 'equipped_charm'")
+            cursor.execute("ALTER TABLE players ADD COLUMN equipped_charm TEXT")
+
+        # You can add more 'if' blocks here for future columns.
+        # Example:
+        # if 'equipped_body' not in player_columns:
+        #     print("  > Migrating players table: Adding 'equipped_body'")
+        #     cursor.execute("ALTER TABLE players ADD COLUMN equipped_body TEXT")
+
+        conn.commit()
+        conn.close()
+        print("--- Migrations Complete ---")
 
     def _create_tables_sync(self):
         """
@@ -80,6 +113,10 @@ class Database(commands.Cog):
                            TEXT
                            DEFAULT
                            'day',
+                           -- NEW GEAR SLOTS --
+                           equipped_head TEXT,
+                           equipped_charm TEXT,
+                           -- Add other slots like body, feet, etc. here in the future --
                            version
                            TEXT
                            DEFAULT
@@ -870,6 +907,26 @@ class Database(commands.Cog):
             return updated_pet, leveled_up
 
         return await asyncio.to_thread(_sync_add_xp, pet_id, amount)
+
+    async def equip_item(self, user_id: int, item_id: str, slot: str):
+        """Equips an item to a specified slot for a player."""
+
+        def _sync_equip(uid, i_id, eq_slot):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # The column name is dynamically created from the slot (e.g., 'equipped_head')
+            column_name = f"equipped_{eq_slot}"
+
+            # This uses a safe way to update a column dynamically
+            cursor.execute(
+                f"UPDATE players SET {column_name} = ? WHERE user_id = ?",
+                (i_id, uid)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_equip, user_id, item_id, slot)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Database(bot))

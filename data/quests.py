@@ -58,13 +58,20 @@ QUESTS = {
             "time_sensitive": True,
             "failure_dialogue": "You took too long... my tools are gone for good now. A shame.",
             "objectives": [
-                "Explore the Rotting Pits to find the `Old Satchel`.",
-                "Return the `Old Satchel` to Grit Galen."
+                {
+                    "text": "Explore the Rotting Pits to find the `Old Satchel`.",
+                    "type": "item_pickup", "target": "old_satchel"
+                },
+                {
+                    "text": "Return the `Old Satchel` to Grit Galen.",
+                    "type": "talk_npc", "target": "grit_galen"
+                }
             ],
-            "reward_item": "scavengers_compass",
+            "reward_item": "scavengers_goggles",
             "reward_reputation": 20
         }
     },
+
     "whisperwoodGrove": {
         "forest_cleanup": {
             "title": "Forest Cleanup",

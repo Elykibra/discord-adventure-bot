@@ -95,6 +95,17 @@ ITEMS = {
         "category": "key items",
         "price": None
     },
+    "scavengers_goggles": {
+        "name": "Scavenger's Goggles",
+        "description": "A pair of sturdy goggles from an old Guild prospector. They have a knack for spotting things others might miss.",
+        "category": "Gear",
+        "price": 150,  # Sell price
+        "slot": "head",  # The equipment slot it uses
+        "effect": {
+            "type": "find_extra_materials",
+            "chance": 0.1  # 10% chance
+        }
+    },
 
     # --- CAPTURE ORBS ---
     "tether_orb": {

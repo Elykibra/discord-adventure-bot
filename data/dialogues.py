@@ -38,8 +38,14 @@ DIALOGUES = {
         "dialogue_tree": [
             {"required_quest_status": {"quest_id": "sunk_cost", "status": "completed"}, "text": "Thanks again for finding my tools. That compass will serve you well."},
             {"required_quest_status": {"quest_id": "sunk_cost", "status": "failed"}, "text": "Nothing to say to you, adventurer. You had your chance to help."},
-            {"required_item": "old_satchel", "action": "complete_quest", "quest_id": "sunk_cost", "text": "You found it! By the Spirits, I thought it was lost for good. Here, take this. It's a compass of sorts. Doesn't point north, but it has a knack for finding things that don't want to be found."},
-            {"required_quest_status": {"quest_id": "sunk_cost", "status": "active"}, "text": "Still looking for my satchel? Be careful down there. The Gloom makes things... twitchy."},
+
+            {"required_item": "old_satchel",
+             "action": "complete_quest",
+             "quest_id": "sunk_cost",
+             "text": "You found it! By the Spirits... let's see what's left. *Galen rummages through the tar-covered bag, pulling out ruined tools.* Rusted... ruined... a shame. Ah, but these... *He salvages a pair of sturdy goggles.* They survived. From my old days as a Guild prospector. They've got a knack for spotting things others might miss. They're yours. A proper reward for a proper Guildsman."},
+
+            {"required_quest_status": {"quest_id": "sunk_cost", "status": "active"},
+             "text": "Still looking for my satchel? Be careful down there. The Gloom makes things... twitchy."},
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 5}, "action": "offer_quest", "quest_id": "sunk_cost", "text": "Lost my satchel of tools in there... sinking fast. If you've got the nerve to fetch it, I'll make it worth your while."},
             {"default": "Another fresh face from the Guild. Don't get too close to these pits, adventurer. The Gloom here makes everything... twitchy."}
         ]
