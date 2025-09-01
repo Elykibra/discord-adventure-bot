@@ -122,11 +122,9 @@ ITEMS = {
         "price": 250,
         "orb_data": {
             "base_multiplier": 1.0,
-            "conditional_bonus": {
-                # This is a placeholder for when we define Gloom-Touched pets.
-                "context_key": "is_gloom_touched",
-                "expected_value": True,
-                "multiplier": 2.5
+            "gloom_effect": {
+                "reduction": 40,  # Reduces Gloom Meter by 40%
+                "bonus_multiplier_if_gloom_touched": 2.5  # Extra capture bonus
             }
         }
     },

@@ -35,19 +35,28 @@ class BattleState:
                 final_value *= effect.get('modifier', 1.0)
         return math.floor(final_value)
 
+    async def reduce_gloom(self, amount: int):
+        """Reduces the gloom meter by a specific amount."""
+        self.gloom_meter = max(0, self.gloom_meter - amount)
+
     async def get_capture_info(self, orb_id: str) -> dict:
 
         player_data = await self.db_cog.get_player(self.user_id)
-
         context = {
             "time_of_day": player_data.get('day_of_cycle', 'day'),
             "turn_count": self.turn_count,
-            "is_gloom_touched": False
+            "is_gloom_touched": self.wild_pet.get('is_gloom_touched', False)
         }
 
         RARITY_MODIFIERS = {"Common": 1.1, "Uncommon": 1.0, "Rare": 0.9, "Legendary": 0.7, "Starter": 1.0}
         PERSONALITY_MODIFIERS = {"Aggressive": 0.9, "Defensive": 0.95, "Tactical": 0.95, "Timid": 1.1}
         STATUS_MODIFIERS = {"sleep": 2.0, "paralyze": 1.5, "frozen": 2.0, "confused": 1.2}
+
+        # 1. Check if the pet is Gloom-Touched and if the meter is too high.
+        is_gloom_locked = context["is_gloom_touched"] and self.gloom_meter >= 50
+
+        if is_gloom_locked:
+            return {"rate": 0, "text": "The Gloom's hold is too strong. A pact is impossible."}
 
         pet_data = PET_DATABASE.get(self.wild_pet['species'], {})
         base_rate = pet_data.get('base_capture_rate', 30)
@@ -67,6 +76,11 @@ class BattleState:
 
         orb_mult = orb_data.get('base_multiplier', 1.0)
 
+        # Apply the Purity Orb's special bonus multiplier if the pet is Gloom-Touched
+        gloom_effect_data = orb_data.get('gloom_effect', {})
+        if gloom_effect_data and context["is_gloom_touched"]:
+            orb_mult *= gloom_effect_data.get('bonus_multiplier_if_gloom_touched', 1.0)
+
         # Check for conditional bonuses
         if 'conditional_bonus' in orb_data:
             bonus_info = orb_data['conditional_bonus']
@@ -82,7 +96,9 @@ class BattleState:
 
         final_rate = max(1, min(100, int((hp_factor * base_rate) * rarity_mult * pers_mult * status_mult * orb_mult)))
 
-        if final_rate > 75:
+        if context["is_gloom_touched"]:
+            lore_text = "The Gloom's grip is weakening! The creature's spirit is fighting back."
+        elif final_rate > 75:
             lore_text = "The pet's spirit is calm. A pact is nearly formed!"
         elif final_rate > 50:
             lore_text = "The pet is weary from battle. Its wild spirit is beginning to calm."
@@ -98,6 +114,25 @@ class BattleState:
                                     {"name": "Struggle", "power": 35, "type": "Normal", "category": "Physical"})
         attacker_name = f"Your **{attacker['name']}**" if is_player else f"The wild **{attacker['species']}**"
         log = [f"› {attacker_name} used **{skill_info['name']}**!"]
+
+        # --- NEW ERROR CHECKER ---
+        print("\n--- [DEBUG] Gloom Meter Check ---")
+        wild_pet_is_gloom_touched = self.wild_pet.get('is_gloom_touched', False)
+        print(f"[DEBUG] Is the wild pet Gloom-Touched? {wild_pet_is_gloom_touched}")
+        print(f"[DEBUG] Is the current attacker the player? {is_player}")
+        # --- END OF ERROR CHECKER ---
+
+        if wild_pet_is_gloom_touched and not is_player:
+            gloom_increase = 15
+            self.gloom_meter = min(100, self.gloom_meter + gloom_increase)
+            log.append(f"> A wave of corruption washes over the battlefield! (Gloom +{gloom_increase}%)")
+            print("[DEBUG] Gloom Meter increased.")
+
+        if wild_pet_is_gloom_touched and is_player:
+            gloom_reduction = 10
+            self.gloom_meter = max(0, self.gloom_meter - gloom_reduction)
+            log.append(f"> Your pet's willpower pushes back the Gloom! (Gloom -{gloom_reduction}%)")
+            print("[DEBUG] Gloom Meter reduced.")
 
         attacker_passive_data = attacker.get('passive_ability')
         if isinstance(attacker_passive_data, dict) and attacker_passive_data.get('name') == "Singeing Fury" and \

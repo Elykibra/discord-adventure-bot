@@ -22,12 +22,12 @@ class Adventure(commands.Cog):
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(interaction.user.id)
         if not player_data:
-            return await interaction.followup.send("You have not started your adventure! Use `/start` to begin.",
-                                                   ephemeral=True)
+            return await interaction.followup.send("You have not started your adventure! Use `/start` to begin.", ephemeral=True)
 
         location_id = player_data.get('current_location', 'oakhavenOutpost')
         location_data = towns.get(location_id, {})
         view = None
+        embed = None
 
         if location_data.get('is_wilds', False):
             view = WildsView(self.bot, interaction, location_id)
@@ -45,8 +45,9 @@ class Adventure(commands.Cog):
         if view:
             view.message = message
 
-    async def explore(self, interaction: discord.Interaction, location_id: str, message_to_edit: discord.Message):
+    async def explore(self, interaction: discord.Interaction, location_id: str, view_context=None):
         user_id = interaction.user.id
+        print("\n--- [DEBUG] Main explore function initiated ---")
         try:
             await interaction.response.defer()
             db_cog = self.bot.get_cog('Database')
@@ -80,14 +81,11 @@ class Adventure(commands.Cog):
                 else:
                     activity_log_text = f"💨 You searched the area but found nothing of interest."
 
-                updated_player_and_pet_data = await db_cog.get_player_and_pet_data(user_id)
-                new_status_bar = get_status_bar(updated_player_and_pet_data['player_data'],
-                                                updated_player_and_pet_data['main_pet_data'])
-                new_embed = message_to_edit.embeds[0]
-                new_embed.clear_fields()
-                new_embed.add_field(name="Activity Log", value=f"> *{activity_log_text}*", inline=False)
-                new_embed.set_footer(text=new_status_bar)
-                await message_to_edit.edit(embed=new_embed)
+                # Find the active TownView and call its new update helper.
+                if view_context:
+                    await view_context.update_with_activity_log(activity_log_text)
+                return
+
             elif outcome == "tutorial_pet" or outcome == "pet":
                 player_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
                 if not player_pet_data or player_pet_data['current_hp'] <= 0:
@@ -143,13 +141,28 @@ class Adventure(commands.Cog):
                                      "speed": calculated_stats['speed'], "skills": active_skills,
                                      "passive_ability": assigned_passive}
 
-                combat_view = CombatView(self.bot, user_id, player_pet_data, wild_pet_instance, message_to_edit,
-                                         parent_interaction=interaction, origin_location_id=location_id)
+                # Ensure the Gloom-Touched status is carried over into the battle instance.
+                wild_pet_instance['is_gloom_touched'] = wild_pet_base.get('is_gloom_touched', False)
 
-                embed = await combat_view.get_battle_embed(
-                    f"A wild Level {level} **{wild_pet_instance['species']}** appeared!")
+                combat_message = await interaction.channel.send(
+                    f"A wild pet appears before {interaction.user.mention}...",
+                    silent=True
+                )
 
-                await message_to_edit.edit(embed=embed, view=combat_view)
+                if view_context is None:
+                    # This is a simplified way to find the active view.
+                    # A more robust system might use a dictionary mapping user_id to active views.
+                    for view in self.bot.persistent_views:
+                        if isinstance(view, WildsView) and view.user_id == user_id:
+                            view_context = view
+                            break
+
+                # 2. Create the CombatView, passing the new message to it.
+                combat_view = CombatView(self.bot, user_id, player_pet_data, wild_pet_instance, combat_message,
+                                         interaction, location_id, view_context)
+        except Exception as e:
+            print(f"--- [FATAL ERROR] An exception occurred in explore: {e} ---")
+            traceback.print_exc()
 
         finally:
             if user_id in self.exploring_users:

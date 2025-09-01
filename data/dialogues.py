@@ -41,7 +41,7 @@ DIALOGUES = {
             {"required_item": "old_satchel", "action": "complete_quest", "quest_id": "sunk_cost", "text": "You found it! By the Spirits, I thought it was lost for good. Here, take this. It's a compass of sorts. Doesn't point north, but it has a knack for finding things that don't want to be found."},
             {"required_quest_status": {"quest_id": "sunk_cost", "status": "active"}, "text": "Still looking for my satchel? Be careful down there. The Gloom makes things... twitchy."},
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 5}, "action": "offer_quest", "quest_id": "sunk_cost", "text": "Lost my satchel of tools in there... sinking fast. If you've got the nerve to fetch it, I'll make it worth your while."},
-            {"default": "Another fresh face from the Guild. Don't get too close to these pits, adventurer."}
+            {"default": "Another fresh face from the Guild. Don't get too close to these pits, adventurer. The Gloom here makes everything... twitchy."}
         ]
     }
 }

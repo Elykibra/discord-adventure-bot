@@ -191,6 +191,7 @@ PET_DATABASE = {
     },
     "Corroder": {
         "species": "Corroder", "pet_type": ["Rock", "Poison"], "rarity": "Common", "personality": "Defensive",
+        "is_gloom_touched": True,
         "base_capture_rate": 40,
         "passive_ability": {"name": "Lingering Gloom",
                             "description": "Stat-lowering debuffs applied by this pet last for one extra turn."},

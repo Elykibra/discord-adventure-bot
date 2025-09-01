@@ -6,13 +6,13 @@ import asyncio
 import math
 from cogs.gameplay.battle_engine import BattleState
 from cogs.utils.helpers import get_pet_image_url, get_status_bar, _create_progress_bar, _pet_tuple_to_dict, check_quest_progress, get_type_multiplier
-from .views_towns import WildsView
+from .views_towns import WildsView, TownView
 from data.items import ITEMS
 from data.skills import PET_SKILLS
 from cogs.utils.constants import TYPE_EMOJIS
 
 class CombatView(discord.ui.View):
-    def __init__(self, bot, user_id, player_pet, wild_pet, message, parent_interaction, origin_location_id):
+    def __init__(self, bot, user_id, player_pet, wild_pet, message, parent_interaction, origin_location_id, view_context=None):
         super().__init__(timeout=300)
         self.bot = bot
         self.user_id = user_id
@@ -28,6 +28,7 @@ class CombatView(discord.ui.View):
         self.battle_log = ""
 
         self.bot.loop.create_task(self.initial_setup())
+        self.view_context = view_context
 
     async def initial_setup(self):
         """Builds the initial UI and sends the first embed."""
@@ -143,10 +144,21 @@ class CombatView(discord.ui.View):
         await self._update_display(interaction)
 
     async def use_item_callback(self, interaction: discord.Interaction):
+        """Handles using an item (including orbs)."""
+
+        item_data = ITEMS.get(self.selected_item_id, {})
+        gloom_effect_data = item_data.get('orb_data', {}).get('gloom_effect')
+
+        if gloom_effect_data and self.battle.wild_pet.get('is_gloom_touched'):
+            reduction = gloom_effect_data.get('reduction', 0)
+            await self.battle.reduce_gloom(reduction)
+            self.battle_log += f"\n> The **{item_data.get('name')}** unleashes a purifying light! (Gloom -{reduction}%)"
+
         if 'orb' in self.selected_item_id:
             await self.attempt_capture(interaction, self.selected_item_id)
         else:
-            await interaction.response.send_message(f"Using {self.selected_item_id} is not implemented yet.", ephemeral=True)
+            await interaction.response.send_message(f"Using {self.selected_item_id} is not implemented yet.",
+                                                    ephemeral=True)
 
     async def _update_view(self, interaction: discord.Interaction, results: dict):
         """This function handles updates AFTER a turn is processed."""
@@ -314,16 +326,23 @@ class CombatView(discord.ui.View):
             self.battle.player_pet['pet_id'],
             current_hp=self.battle.player_pet['current_hp']
         )
-
         result_log = ""
+        quest_updates = []  # Initialize the list here
+
         if results.get("captured"):
             result_log = results['log']
+            # If the pet was captured, check for "combat_capture" quests.
+            quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_capture",
+                                                       {"species": self.battle.wild_pet['species']})
         else:
             result_log = await self.battle.grant_battle_rewards()
+            # If the pet was defeated, check for "combat_victory" quests.
+            quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_victory",
+                                                       {"species": self.battle.wild_pet['species']})
 
-        quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_victory", {"species": self.battle.wild_pet['species']})
         if quest_updates:
             result_log += "\n\n" + "\n".join(quest_updates)
+
         await self._return_to_wilds(result_log)
 
     async def _handle_loss(self, results: dict):
@@ -332,10 +351,19 @@ class CombatView(discord.ui.View):
         await self._return_to_wilds(result_log)
 
     async def _return_to_wilds(self, result_log: str):
-        view = WildsView(self.bot, self.parent_interaction, self.origin_location_id, activity_log=result_log)
-        data = await self.battle.db_cog.get_player_and_pet_data(self.user_id)
-        embed = view.build_embed(result_log)
-        if data:
-            embed.set_footer(text=get_status_bar(data['player_data'], data['main_pet_data']))
-        await self.message.edit(embed=embed, view=view)
-        view.message = self.message
+        # --- THIS IS THE FIX ---
+        # If the battle started from a TownView (a sub-location), return to it.
+        if isinstance(self.view_context, (TownView, WildsView)):
+            # Tell the original view to update itself with the battle results.
+            await self.view_context.update_with_activity_log(result_log)
+            # Delete the now-unused combat message.
+            await self.message.delete()
+        else:
+            # Fallback for older or different systems.
+            view = WildsView(self.bot, self.parent_interaction, self.origin_location_id, activity_log=result_log)
+            data = await self.battle.db_cog.get_player_and_pet_data(self.user_id)
+            embed = view.build_embed(result_log)
+            if data:
+                embed.set_footer(text=get_status_bar(data['player_data'], data['main_pet_data']))
+            await self.message.edit(embed=embed, view=view)
+        # --- END OF FIX ---

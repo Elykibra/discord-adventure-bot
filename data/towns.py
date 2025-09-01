@@ -73,8 +73,11 @@ towns = {
                 "emoji": "☠️",  # <-- NEW
                 "parent_zone": "oakhavenOutpost",
                 "availability": "all",
-                "description": "A series of bubbling tar pits...",  # Unchanged
-                "services": {"explore_zone": "oakhavenOutpost_rottingPits"},
+                "description_day": "A series of bubbling tar pits exude a foul, corrupting smell. The air is thick with a palpable sense of Gloom, making the area feel unsettling even in broad daylight. You sense that creatures here are more aggressive.",
+                "description_night": "Under the moonlight, the pits seem to glow with a sickly luminescence. The Gloom is stronger now, and the strange sounds bubbling up from the sludge suggest that the creatures within are even more dangerous.",
+                "services": {"explore_zone": "oakhavenOutpost_rottingPits",
+                             "gloom_level": 20,
+                             },
                 "npcs": {
                     "grit_galen": {
                         "name": "Grit Galen",

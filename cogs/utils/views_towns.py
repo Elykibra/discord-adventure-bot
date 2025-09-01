@@ -39,9 +39,22 @@ class WildsView(discord.ui.View):
         return embed
 
     async def explore_button_callback(self, interaction: discord.Interaction):
-        adventure_cog = self.bot.get_cog('Adventure')
-        if adventure_cog:
-            await adventure_cog.explore(interaction, self.location_id, self.message)
+        print("\n--- [CHECK 1] WildsView: explore_button_callback initiated. ---")
+        try:
+            adventure_cog = self.bot.get_cog('Adventure')
+            if adventure_cog:
+                print("--- [CHECK 2] Adventure cog found, calling explore... ---")
+
+                # --- THIS IS THE FIX ---
+                # Pass the main message (self.message) to the explore function.
+                await adventure_cog.explore(interaction, self.location_id, self)
+                # --- END OF FIX ---
+
+            else:
+                print("--- [ERROR] Adventure cog NOT found. ---")
+        except Exception as e:
+            print(f"--- [FATAL ERROR] An exception occurred in explore_button_callback: {e} ---")
+            traceback.print_exc()
 
     async def enter_town_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -56,6 +69,18 @@ class WildsView(discord.ui.View):
         new_view = TownView(self.bot, self.original_interaction, town_connection_id)
         await interaction.edit_original_response(embed=new_embed, view=new_view)
         new_view.message = await interaction.original_response()
+
+    async def update_with_activity_log(self, activity_log: str):
+        """Helper to refresh the WildsView with an activity log."""
+        db_cog = self.bot.get_cog('Database')
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+
+        new_embed = self.build_embed(activity_log)
+        if player_and_pet_data:
+            status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
+            new_embed.set_footer(text=status_bar)
+
+        await self.message.edit(embed=new_embed, view=self)
 
 
 class TravelView(discord.ui.View):
@@ -113,12 +138,31 @@ class TownView(discord.ui.View):
         """Builds a standard embed with a non-wrapping monospaced description."""
 
         description_text = location_info.get('description_day', "No description available.")
+        location_name = location_info['name']
+        embed_color = discord.Color.dark_teal() # Default color
+
+        # --- THIS IS THE NEW LOGIC ---
+        # Check for a gloom_level to determine if the zone is hazardous
+        gloom_level = location_info.get('services', {}).get('gloom_level')
+        if gloom_level:
+            embed_color = discord.Color.dark_purple() # Change color for hazardous zones
+            location_name = f"⚠️ {location_name} ⚠️" # Add warning emojis to the title
+        # --- END OF NEW LOGIC ---
 
         embed = discord.Embed(
             title=f"Location: {location_info['name']}",
             description=f"```{description_text}```",
             color=discord.Color.dark_teal()
         )
+
+        # --- ADD A HAZARD FIELD IF APPLICABLE ---
+        if gloom_level:
+            embed.add_field(
+                name="🥀 Zone Hazard: Lingering Gloom",
+                value=f"The corruption is strong here. All battles will start with **{gloom_level}% Gloom**.",
+                inline=False
+            )
+        # --- END OF HAZARD FIELD ---
 
         # Add the dialogue log as a separate field if it exists
         if dialogue_log:
@@ -284,11 +328,11 @@ class TownView(discord.ui.View):
     async def explore_zone_callback(self, interaction: discord.Interaction):
         adventure_cog = self.bot.get_cog('Adventure')
         if adventure_cog:
-            town_info = towns.get(self.town_id, {})
-            location_info = town_info.get('locations', {}).get(self.current_sub_location_id, {})
+            location_info = towns.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
             explore_zone_id = location_info.get('services', {}).get('explore_zone')
             if explore_zone_id:
-                await adventure_cog.explore(interaction, explore_zone_id, self.message)
+                # Pass the view instance (self) as the context
+                await adventure_cog.explore(interaction, explore_zone_id, self)
 
     def create_talk_callback(self, npc_id, location_info):
         async def talk_callback(interaction: discord.Interaction):
@@ -351,3 +395,36 @@ class TownView(discord.ui.View):
         full_description = "\n\n".join(message_parts)
         embed = discord.Embed(title=embed_title, description=full_description, color=discord.Color.light_grey())
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    async def _update_sublocation_view(self, activity_log: str):
+        """A dedicated helper to refresh a sub-location view with an activity log."""
+        db_cog = self.bot.get_cog('Database')
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+
+        # Get the current embed and add the activity log
+        embed = self.message.embeds[0]
+        embed.add_field(name="Activity Log", value=f"> *{activity_log}*", inline=False)
+
+        # Update the status bar
+        if player_and_pet_data:
+            status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
+            embed.set_footer(text=status_bar)
+
+        # Rebuild the buttons for the current sub-location to ensure they are fresh
+        self.build_ui()
+
+        # Edit the message with the updated embed and view
+        await self.message.edit(embed=embed, view=self)
+
+    async def update_with_activity_log(self, activity_log: str):
+        """Helper to refresh the TownView (sub-location) with an activity log."""
+        db_cog = self.bot.get_cog('Database')
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+
+        location_info = towns.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+
+        # Use the existing _build_sublocation_embed and pass the log to it.
+        # This assumes the log should be displayed in the 'dialogue_log' parameter.
+        new_embed = await self._build_sublocation_embed(location_info, dialogue_log=activity_log)
+
+        await self.message.edit(embed=new_embed, view=self)
