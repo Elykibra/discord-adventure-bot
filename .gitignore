@@ -1,19 +1,21 @@
-# Secrets - NEVER upload this file!
-.env
-
-# Python runtime files
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Virtual environment folder
-venv/
+# Virtual env
 .venv/
+env/
+venv/
 
-# Database & Log files
-game.db
-discord.log
-*.log
-
-# IDE-specific folders (for PyCharm, VSCode, etc.)
+# IDE stuff
 .idea/
 .vscode/
+
+# Logs and databases
+*.log
+*.db
+
+# Environment variables
+.env
