@@ -9,8 +9,8 @@ from discord.ext import commands
 
 ## --- REFACTORING CHANGES ---
 # We now import all necessary data and helper functions from the consolidated files.
-from cogs.utils.constants import VERSION
-from cogs.utils.helpers import get_status_bar
+from utils.constants import VERSION
+from utils.helpers import get_status_bar
 
 
 # A view for the general commands, allowing users to interact via buttons.

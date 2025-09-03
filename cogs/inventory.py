@@ -1,29 +1,30 @@
+# cogs/inventory.py
+import discord
+from discord import app_commands
 from discord.ext import commands
-from core.inventory import Bag
+from .views.inventory import BagView
 
-# Temporary player bags (later swap to DB)
-player_bags = {}
 
 class Inventory(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def bag(self, ctx):
-        user_id = str(ctx.author.id)
-        bag = player_bags.get(user_id, Bag())
-        await ctx.send(f"Bag: {len(bag.items)}/{bag.slots} items")
+    @app_commands.command(name="inventory", description="Opens your item bag.")
+    async def inventory(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        db_cog = self.bot.get_cog('Database')
 
-    @commands.command()
-    async def additem(self, ctx, *, item_name):
-        user_id = str(ctx.author.id)
-        bag = player_bags.get(user_id, Bag())
-        success = bag.add_item(item_name)
-        player_bags[user_id] = bag
-        if success:
-            await ctx.send(f"Added {item_name} to your bag.")
-        else:
-            await ctx.send("Your bag is full!")
+        player_data = await db_cog.get_player(interaction.user.id)
+        if not player_data:
+            return await interaction.followup.send("You don't have a character. Use `/start` to create one.",
+                                                   ephemeral=True)
+
+        inventory_data = await db_cog.get_player_inventory(interaction.user.id)
+
+        view = BagView(self.bot, interaction.user.id, player_data, inventory_data)
+        embed = view.create_embed()
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(Inventory(bot))

@@ -1,6 +1,10 @@
-# cogs/utils/views_towns.py
+# cogs/views/towns.py
 
-import discord, traceback
+import discord
+import traceback
+import textwrap
+
+# --- REFACTORED IMPORTS ---
 from data.items import ITEMS
 from data.towns import towns
 from data.dialogues import DIALOGUES

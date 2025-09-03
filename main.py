@@ -1,13 +1,12 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import os
 import asyncio
 from dotenv import load_dotenv
 from typing import List
 
 # The version constant is now imported from its new location.
-from cogs.utils.constants import VERSION
+from utils.constants import VERSION
 
 # Load environment variables from a .env file.
 load_dotenv(".env")

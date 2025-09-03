@@ -5,11 +5,6 @@ import discord
 
 # --- REFACTORING FIX ---
 # Removed ITEM_DATA and ITEM_CATEGORIES from this import as they are no longer used in this file.
-from cogs.utils.constants import PET_DESCRIPTIONS, CREST_DATA, \
-    UNEARNED_CREST_EMOJI, RANK_DISPLAY_DATA
-from cogs.utils.helpers import get_pet_image_url, _pet_tuple_to_dict, _create_progress_bar, get_player_rank_info, \
-    get_status_bar
-from data.pets import ENCOUNTER_TABLES # Import from the new data/pets.py file
 
 
 # --- Modals ---

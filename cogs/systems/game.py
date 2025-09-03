@@ -8,9 +8,9 @@ from discord import app_commands
 from discord.ext import commands
 import random
 import traceback
-from cogs.utils.constants import PET_DESCRIPTIONS
+from utils.constants import PET_DESCRIPTIONS
 from data.pets import PET_DATABASE
-from cogs.utils.helpers import get_pet_image_url, get_status_bar
+from utils.helpers import get_pet_image_url, get_status_bar
 from data.abilities import STARTER_TALENTS
 
 # A helper list to get only the starter pets from the database

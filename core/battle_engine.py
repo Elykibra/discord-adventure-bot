@@ -1,14 +1,18 @@
-# gameplay/battle_engine.py
+# core/battle_engine.py
 # This file contains the core logic engine for combat.
 
-import random,math
+import random
+import math
+import asyncio
+import discord
+
+# --- REFACTORED IMPORTS ---
 from data.pets import PET_DATABASE
 from data.items import ITEMS
 from data.skills import PET_SKILLS
-from cogs.utils import effects
-from utils.helpers import get_ai_move, get_type_multiplier, check_quest_progress
-from utils.constants import XP_REWARD_BY_RARITY, PET_DESCRIPTIONS
-
+from core.effect_system import apply_effect, PASSIVE_HANDLERS_ON_HIT  # <-- Changed
+from utils.helpers import get_ai_move, get_type_multiplier, check_quest_progress  # <-- Changed
+from utils.constants import XP_REWARD_BY_RARITY, PET_DESCRIPTIONS  # <-- Changed
 
 class BattleState:
     """Manages the state and logic of a single combat encounter."""

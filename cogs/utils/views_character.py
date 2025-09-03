@@ -4,10 +4,9 @@
 
 import discord
 from data.skills import PET_SKILLS
-from cogs.utils.helpers import get_status_bar, get_player_rank_info, _create_progress_bar, get_pet_image_url, \
+from utils.helpers import get_status_bar, get_player_rank_info, _create_progress_bar, get_pet_image_url, \
     _pet_tuple_to_dict
-from data.items import ITEMS
-from cogs.utils.constants import CREST_DATA, UNEARNED_CREST_EMOJI, PET_DESCRIPTIONS, RANK_DISPLAY_DATA, ITEM_CATEGORIES
+from utils.constants import CREST_DATA, UNEARNED_CREST_EMOJI, RANK_DISPLAY_DATA
 from .views_inventory import BagView
 from .views_modals import RenamePetModal
 

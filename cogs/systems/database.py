@@ -524,7 +524,7 @@ class Database(commands.Cog):
         """
         Retrieves a single pet by its ID and returns it as a dictionary.
         """
-        from cogs.utils.helpers import _pet_tuple_to_dict  # Import the helper
+        from utils.helpers import _pet_tuple_to_dict  # Import the helper
 
         def _sync_get_pet(pid: int):
             conn = sqlite3.connect(self.db_path)

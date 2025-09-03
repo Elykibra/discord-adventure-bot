@@ -1,11 +1,10 @@
-# --- cogs/utils/constants.py ---
+# utils/constants.py
 # This file contains all shared constants and data dictionaries.
 
 from typing import Dict
 import discord
 
-# Version number of the game.
-VERSION = "4.2.0" # Updated version for new inventory system
+VERSION = "v0.4.0" # Updated version for new inventory system
 
 # A dictionary to hold pet image URLs.
 PET_IMAGE_URLS = {
