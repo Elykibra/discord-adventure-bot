@@ -8,14 +8,14 @@ from discord import app_commands
 from discord.ext import commands
 
 # --- REFACTORED IMPORTS ---
-from data.towns import towns
+from data.towns import TOWNS
 from data.pets import PET_DATABASE, ENCOUNTER_TABLES
 from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE
 from utils.helpers import get_status_bar, get_town_embed, check_quest_progress
 from core.battle_engine import BattleState  # <-- Key Change: Importing from core
-from .views.towns import TownView, WildsView  # <-- Assuming a cogs/views/ subfolder
-from cogs.views.combat import CombatView
+from .views.towns import TownView, WildsView
+from .views.combat import CombatView
 
 
 class Adventure(commands.Cog):
@@ -32,7 +32,7 @@ class Adventure(commands.Cog):
                                                    ephemeral=True)
 
         location_id = player_data.get('current_location', 'oakhavenOutpost')
-        location_data = towns.get(location_id, {})
+        location_data = TOWNS.get(location_id, {})
         view = None
         embed = None
 
@@ -154,6 +154,8 @@ class Adventure(commands.Cog):
                                      "speed": calculated_stats['speed'], "skills": active_skills,
                                      "passive_ability": assigned_passive}
 
+                wild_pet_instance['is_gloom_touched'] = wild_pet_base.get('is_gloom_touched', False)
+
                 combat_message = await interaction.channel.send(
                     f"A wild pet appears before {interaction.user.mention}...",
                     silent=True
@@ -170,12 +172,6 @@ class Adventure(commands.Cog):
                     origin_location_id=location_id,
                     view_context=view_context
                 )
-
-            # ... (rest of the exploration and pet generation logic is unchanged) ...
-
-            # The CombatView will be imported from cogs.views.combat now
-            # and it will correctly use the BattleState from core.battle_engine
-            # combat_view = CombatView(...)
 
         except Exception as e:
             print(f"--- [FATAL ERROR] An exception occurred in explore: {e} ---")

@@ -318,7 +318,25 @@ class Database(commands.Cog):
     # No changes are needed for the other database functions (get_player, add_item, etc.)
     # as they are already just reading and writing data.
     # ... (all other functions like get_player, add_player, update_pet, add_item, etc. remain the same) ...
-    async def get_player_and_pet_data(self, user_id: int) -> Optional[Dict[str, Any]]:
+
+    async def add_player(self, user_id: int, username: str, gender: str) -> None:
+        """Adds a new player to the database."""
+
+        def _sync_add_player(uid: int, uname: str, ugender: str):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            unlocked_towns = json.dumps(["oakhavenOutpost"])
+            cursor.execute(
+                '''INSERT INTO players (user_id, username, gender, unlocked_towns)
+                   VALUES (?, ?, ?, ?)''',
+                (uid, uname, ugender, unlocked_towns)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_add_player, user_id, username, gender)
+
+    async def get_player_and_pet_data(self, user_id: int) -> dict | None:
         """
         Fetches a player's data and their main pet's data in a single operation.
         This is a new helper function for the status bar implementation.
@@ -333,12 +351,23 @@ class Database(commands.Cog):
             if not player_data:
                 conn.close()
                 return None
+
             player_data['unlocked_towns'] = json.loads(player_data.get('unlocked_towns', '[]'))
             main_pet_id = player_data.get('main_pet_id')
             main_pet_data = None
+
             if main_pet_id:
                 cursor.execute('SELECT * FROM pets WHERE pet_id = ?', (main_pet_id,))
                 main_pet_data = cursor.fetchone()
+
+                # This is the new, corrected block
+                if main_pet_data:
+                    if 'skills' in main_pet_data and isinstance(main_pet_data['skills'], str):
+                        main_pet_data['skills'] = json.loads(main_pet_data['skills'])
+                    if 'pet_type' in main_pet_data and isinstance(main_pet_data['pet_type'], str) and main_pet_data[
+                        'pet_type'].startswith('['):
+                        main_pet_data['pet_type'] = json.loads(main_pet_data['pet_type'])
+
             conn.close()
             return {'player_data': player_data, 'main_pet_data': main_pet_data}
 
@@ -401,6 +430,341 @@ class Database(commands.Cog):
 
         return await asyncio.to_thread(_sync_add_xp, pet_id, amount)
 
+    async def get_player(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieves a player by their user ID."""
+        def _sync_get_player(uid: int):
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = self._dict_factory
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM players WHERE user_id = ?', (uid,))
+            result = cursor.fetchone()
+            conn.close()
+            if result:
+                result['unlocked_towns'] = json.loads(result.get('unlocked_towns', '[]'))
+            return result
+        return await asyncio.to_thread(_sync_get_player, user_id)
+
+    async def update_player(self, user_id: int, **kwargs: Any) -> None:
+        """
+        Updates a player's data in the database with keyword arguments.
+        Handles the JSON conversion for 'unlocked_towns' before saving.
+        """
+
+        def _sync_update_player(uid: int, updates: Dict[str, Any]):
+            if not updates:
+                return
+            if 'unlocked_towns' in updates:
+                updates['unlocked_towns'] = json.dumps(updates['unlocked_towns'])
+
+            set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values())
+            values.append(uid)
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(f'UPDATE players SET {set_clause} WHERE user_id = ?', tuple(values))
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_update_player, user_id, kwargs)
+
+    async def get_active_quests(self, user_id: int) -> list[dict[str, any]]:
+        """Retrieves a player's active quests."""
+
+        def _sync_get_quests(uid: int):
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = self._dict_factory
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM player_quests WHERE user_id = ?', (uid,))
+            results = cursor.fetchall()
+            conn.close()
+            for r in results:
+                r['progress'] = json.loads(r['progress'])
+            return results
+
+        return await asyncio.to_thread(_sync_get_quests, user_id)
+
+    async def add_item_to_inventory(self, user_id: int, item_id: str, quantity: int = 1) -> None:
+        """
+        Adds an item to a player's inventory, or increases the quantity if it already exists.
+        """
+
+        def _sync_add_item(uid: int, i_id: str, qty: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                '''INSERT INTO player_items (user_id, item_id, quantity)
+                   VALUES (?, ?, ?) ON CONFLICT(user_id, item_id) DO
+                UPDATE SET quantity = quantity + excluded.quantity''',
+                (uid, i_id, qty)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_add_item, user_id, item_id, quantity)
+
+    async def add_quest(self, user_id: int, quest_id: str, progress: dict | None = None) -> None:
+        """Adds a quest to a player's active quest list."""
+
+        def _sync_add_quest(uid: int, q_id: str, prog: dict | None):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if prog is None:
+                prog = {"status": "in_progress", "count": 0}
+
+            progress_json = json.dumps(prog)
+
+            cursor.execute(
+                '''INSERT INTO player_quests (user_id, quest_id, progress)
+                   VALUES (?, ?, ?) ON CONFLICT(user_id, quest_id) DO NOTHING''',
+                (uid, q_id, progress_json)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_add_quest, user_id, quest_id, progress)
+
+    async def update_quest_progress(self, user_id: int, quest_id: str, new_progress: dict[str, any]) -> None:
+        """Updates the progress of an active quest."""
+
+        def _sync_update_progress(uid: int, q_id: str, progress: dict[str, any]):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE player_quests SET progress = ? WHERE user_id = ? AND quest_id = ?',
+                (json.dumps(progress), uid, q_id)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_update_progress, user_id, quest_id, new_progress)
+
+    async def get_pet(self, pet_id: int) -> dict | None:
+        """Retrieves a single pet by its ID and returns it as a dictionary."""
+
+        def _sync_get_pet(pid: int):
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = self._dict_factory
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM pets WHERE pet_id = ?', (pid,))
+            pet_dict = cursor.fetchone()
+            conn.close()
+
+            # The 'skills' column is stored as a JSON string, so we parse it
+            if pet_dict:
+                if 'skills' in pet_dict and isinstance(pet_dict['skills'], str):
+                    pet_dict['skills'] = json.loads(pet_dict['skills'])
+                if 'pet_type' in pet_dict and isinstance(pet_dict['pet_type'], str) and pet_dict['pet_type'].startswith('['):
+                    pet_dict['pet_type'] = json.loads(pet_dict['pet_type'])
+            return pet_dict
+
+        return await asyncio.to_thread(_sync_get_pet, pet_id)
+
+    async def get_player_inventory(self, user_id: int) -> list[dict[str, any]]:
+        """
+        Retrieves the player's inventory, returning a list of dictionaries
+        with 'item_id' and 'quantity'.
+        """
+
+        def _sync_get_player_inventory(uid: int):
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = self._dict_factory
+            cursor = conn.cursor()
+            cursor.execute('SELECT item_id, quantity FROM player_items WHERE user_id = ?', (uid,))
+            results = cursor.fetchall()
+            conn.close()
+            return results
+
+        return await asyncio.to_thread(_sync_get_player_inventory, user_id)
+
+    async def get_all_pets(self, user_id: int) -> list[dict[str, any]]:
+        """Retrieves all pets owned by a specific user."""
+
+        def _sync_get_user_pets(uid: int):
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = self._dict_factory
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM pets WHERE owner_id = ?', (uid,))
+            results = cursor.fetchall()
+            conn.close()
+
+            # Parse the skills JSON string for every pet
+            for pet in results:
+                if 'pet_type' in pet and isinstance(pet['pet_type'], str) and pet[
+                    'pet_type'].startswith('['):
+                    pet['pet_type'] = json.loads(pet['pet_type'])
+            return results
+
+        return await asyncio.to_thread(_sync_get_user_pets, user_id)
+
+    async def update_pet(self, pet_id: int, **kwargs: any) -> None:
+        """Updates a pet's data in the database with keyword arguments."""
+
+        def _sync_update_pet(pid: int, updates: dict[str, any]):
+            if not updates:
+                return
+
+            # Handle the conversion of the skills list to a JSON string for saving
+            if 'skills' in updates and isinstance(updates['skills'], list):
+                updates['skills'] = json.dumps(updates['skills'])
+
+            set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values())
+            values.append(pid)
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(f'UPDATE pets SET {set_clause} WHERE pet_id = ?', tuple(values))
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_update_pet, pet_id, kwargs)
+
+    async def add_coins(self, user_id: int, amount: int) -> None:
+        """Adds a specified amount of coins to a player's balance."""
+
+        def _sync_add_coins(uid: int, coins: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE players SET coins = coins + ? WHERE user_id = ?',
+                (coins, uid)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_add_coins, user_id, amount)
+
+    async def remove_item_from_inventory(self, user_id: int, item_id: str, quantity: int = 1) -> None:
+        """
+        Removes a specified quantity of an item from a player's inventory.
+        Removes the item entirely if the quantity drops to 0 or less.
+        """
+
+        def _sync_remove_item(uid: int, i_id: str, qty: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE player_items SET quantity = quantity - ? WHERE user_id = ? AND item_id = ?',
+                (qty, uid, i_id)
+            )
+            cursor.execute(
+                'DELETE FROM player_items WHERE user_id = ? AND item_id = ? AND quantity <= 0',
+                (uid, i_id)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_remove_item, user_id, item_id, quantity)
+
+    async def add_pet(
+            self, owner_id: int, name: str, species: str, description: str, rarity: str, pet_type: str,
+            skills: list, current_hp: int, max_hp: int, attack: int, defense: int, special_attack: int,
+            special_defense: int, speed: int, base_hp: int, base_attack: int, base_defense: int,
+            base_special_attack: int, base_special_defense: int, base_speed: int,
+            passive_ability: str | None = None
+    ) -> int:
+        """Adds a new pet to the database for a given owner."""
+
+        def _sync_add_pet(
+                oid: int, p_name: str, p_species: str, desc: str, rar: str, p_type: str,
+                p_skills: list, p_chp: int, p_mhp: int, p_atk: int, p_def: int, p_satk: int,
+                p_sdef: int, p_spd: int, p_bhp: int, p_batk: int, p_bdef: int,
+                p_bsatk: int, p_bsdef: int, p_bspd: int, p_passive: str | None
+        ) -> int:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            skills_json = json.dumps(p_skills if p_skills else [])
+            pet_type_json = json.dumps(p_type)
+
+            cursor.execute(
+                '''INSERT INTO pets (owner_id, name, species, description, rarity, pet_type, skills,
+                                     current_hp, max_hp, attack, defense, special_attack, special_defense, speed,
+                                     base_hp, base_attack, base_defense, base_special_attack, base_special_defense,
+                                     base_speed, is_in_party, passive_ability)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)''',
+                (
+                    oid, p_name, p_species, desc, rar, pet_type_json, skills_json, p_chp, p_mhp, p_atk, p_def, p_satk,
+                    p_sdef, p_spd, p_bhp, p_batk, p_bdef, p_bsatk, p_bsdef, p_bspd, p_passive
+                )
+            )
+            conn.commit()
+            lastrowid = cursor.lastrowid
+            conn.close()
+            return lastrowid
+
+        return await asyncio.to_thread(
+            _sync_add_pet, owner_id, name, species, description, rarity, pet_type,
+            skills, current_hp, max_hp, attack, defense, special_attack,
+            special_defense, speed, base_hp, base_attack, base_defense,
+            base_special_attack, base_special_defense, base_speed, passive_ability
+        )
+
+    async def set_main_pet(self, user_id: int, pet_id: int) -> None:
+        """Sets a pet as the player's main pet."""
+
+        def _sync_set_main_pet(uid: int, pid: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE players SET main_pet_id = ? WHERE user_id = ?',
+                (pid, uid)
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_set_main_pet, user_id, pet_id)
+
+    async def delete_player_data(self, user_id: int) -> None:
+        """
+        Deletes all data associated with a player for a full reset.
+        """
+
+        def _sync_delete_player(uid: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Delete from all tables where the user_id exists
+            cursor.execute('DELETE FROM players WHERE user_id = ?', (uid,))
+            cursor.execute('DELETE FROM pets WHERE owner_id = ?', (uid,))
+            cursor.execute('DELETE FROM player_items WHERE user_id = ?', (uid,))
+            cursor.execute('DELETE FROM player_quests WHERE user_id = ?', (uid,))
+            cursor.execute('DELETE FROM player_crests WHERE user_id = ?', (uid,))
+
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_delete_player, user_id)
+
+    async def get_player_by_username(self, username: str) -> dict | None:
+        """Retrieves a player by their username."""
+
+        def _sync_get_player_by_username(uname: str):
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = self._dict_factory
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM players WHERE username = ?', (uname,))
+            result = cursor.fetchone()
+            conn.close()
+            return result
+
+        return await asyncio.to_thread(_sync_get_player_by_username, username)
+
+    async def set_game_channel_id(self, channel_id: int) -> None:
+        """Saves the game channel ID to the database."""
+
+        def _sync_set_game_channel_id(cid: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                ("game_channel_id", str(cid))
+            )
+            conn.commit()
+            conn.close()
+
+        await asyncio.to_thread(_sync_set_game_channel_id, channel_id)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Database(bot))

@@ -6,16 +6,18 @@ import random
 from typing import Any, Dict, List
 
 # We import from our new data and utils layers
-from data import towns, skills, quests, items
+from data.items import ITEMS
+from data.quests import QUESTS
 from data.skills import PET_SKILLS
 from .constants import PET_IMAGE_URLS, CREST_RANKS, DEFENSIVE_TYPE_CHART
+from data.towns import TOWNS
 
 async def get_town_embed(bot, user_id, town_id):
     """Creates a dynamic embed for a town, showing the correct description for day or night."""
     db_cog = bot.get_cog('Database')
     player_data = await db_cog.get_player(user_id)
     time_of_day = player_data.get('day_of_cycle', 'day')
-    town_info = towns.get(town_id)
+    town_info = TOWNS.get(town_id)
     if not town_info:
         return None
     description_key = f"description_{time_of_day}"

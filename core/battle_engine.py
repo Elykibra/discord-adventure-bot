@@ -173,7 +173,7 @@ class BattleState:
         if 'effect' in skill_info:
             target = attacker if skill_info['effect'].get('target') == 'self' else defender
             target_fx = self.player_pet_effects if target == self.player_pet else self.wild_pet_effects
-            await effects.apply_effect(handler_type=skill_info['effect'].get('type'), target=target,
+            await apply_effect(handler_type=skill_info['effect'].get('type'), target=target,
                                        target_effects_list=target_fx, effect_data=skill_info['effect'],
                                        turn_log_lines=log, damage_dealt=damage)
 
@@ -184,8 +184,8 @@ class BattleState:
         elif isinstance(defender_passive_data, str):
             passive_name = defender_passive_data
 
-        if passive_name and passive_name in effects.PASSIVE_HANDLERS_ON_HIT:
-            handler = effects.PASSIVE_HANDLERS_ON_HIT[passive_name]
+        if passive_name and passive_name in PASSIVE_HANDLERS_ON_HIT:
+            handler = PASSIVE_HANDLERS_ON_HIT[passive_name]
             attacker_fx = self.player_pet_effects if is_player else self.wild_pet_effects
             await handler(attacker=attacker, defender=defender, turn_log_lines=log, skill_info=skill_info,
                           attacker_effects_list=attacker_fx)

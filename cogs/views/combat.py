@@ -371,3 +371,20 @@ class CombatView(discord.ui.View):
                 embed.set_footer(text=get_status_bar(data['player_data'], data['main_pet_data']))
             await self.message.edit(embed=embed, view=view)
         # --- END OF FIX ---
+
+    async def on_timeout(self):
+        # This function runs automatically when the view expires (after 300 seconds)
+        if self.message:
+            try:
+                # We edit the message to show a clear timeout status
+                # and remove all buttons/embeds for a clean look.
+                await self.message.edit(
+                    content="⚔️ The battle has timed out due to inactivity.",
+                    embed=None,  # Clears the embed
+                    view=None    # Removes all buttons
+                )
+            except discord.NotFound:
+                # If the message was already deleted, we don't want an error.
+                # This makes the bot resilient.
+                pass
+        self.stop() # Stops the view from listening for more interactions

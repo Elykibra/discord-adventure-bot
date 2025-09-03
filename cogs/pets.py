@@ -3,7 +3,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 # We can reuse the view from the character cog's view file
-from .views.character import PetView, SetMainPetView
+from .views.character import PetView
 
 
 class Pets(commands.Cog):

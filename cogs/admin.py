@@ -9,11 +9,11 @@ import random
 # --- REFACTORED IMPORTS ---
 # The data imports are already correct. We just need to fix the view import.
 from data.items import ITEMS
-from data.towns import towns
 from data.pets import PET_DATABASE
 from data.skills import PET_SKILLS
 from data.quests import QUESTS
 from .views.combat import CombatView # <-- Path updated for new structure
+from data.towns import TOWNS
 
 
 class ResetView(discord.ui.View):
@@ -186,12 +186,12 @@ class Admin(commands.Cog):
     async def teleport(self, interaction: discord.Interaction, town_id: str):
         """Instantly changes the player's current location."""
         await interaction.response.defer(ephemeral=True)
-        if town_id not in towns:
+        if town_id not in TOWNS:
             return await interaction.followup.send(f"Error: Town ID '{town_id}' not found.", ephemeral=True)
 
         db_cog = self.bot.get_cog('Database')
         await db_cog.update_player(interaction.user.id, current_location=town_id)
-        await interaction.followup.send(f"You have teleported to **{towns[town_id]['name']}**.", ephemeral=True)
+        await interaction.followup.send(f"You have teleported to **{TOWNS[town_id]['name']}**.", ephemeral=True)
 
     # You would expand this with subcommands for start, complete, reset, etc.
     @app_commands.command(name='quest', description='(Admin Only) Manipulate a quest.')
