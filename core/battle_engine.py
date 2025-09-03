@@ -1,14 +1,18 @@
-# gameplay/battle_engine.py
+# core/battle_engine.py
 # This file contains the core logic engine for combat.
 
-import random,math,asyncio, discord
+import random
+import math
+import asyncio
+import discord
+
+# --- REFACTORED IMPORTS ---
 from data.pets import PET_DATABASE
 from data.items import ITEMS
 from data.skills import PET_SKILLS
-from cogs.utils import effects
-from cogs.utils.helpers import get_ai_move, get_type_multiplier, check_quest_progress
-from cogs.utils.constants import XP_REWARD_BY_RARITY, PET_DESCRIPTIONS
-
+from core.effect_system import apply_effect, PASSIVE_HANDLERS_ON_HIT  # <-- Changed
+from utils.helpers import get_ai_move, get_type_multiplier, check_quest_progress  # <-- Changed
+from utils.constants import XP_REWARD_BY_RARITY, PET_DESCRIPTIONS  # <-- Changed
 
 class BattleState:
     """Manages the state and logic of a single combat encounter."""
@@ -169,7 +173,7 @@ class BattleState:
         if 'effect' in skill_info:
             target = attacker if skill_info['effect'].get('target') == 'self' else defender
             target_fx = self.player_pet_effects if target == self.player_pet else self.wild_pet_effects
-            await effects.apply_effect(handler_type=skill_info['effect'].get('type'), target=target,
+            await apply_effect(handler_type=skill_info['effect'].get('type'), target=target,
                                        target_effects_list=target_fx, effect_data=skill_info['effect'],
                                        turn_log_lines=log, damage_dealt=damage)
 
@@ -180,8 +184,8 @@ class BattleState:
         elif isinstance(defender_passive_data, str):
             passive_name = defender_passive_data
 
-        if passive_name and passive_name in effects.PASSIVE_HANDLERS_ON_HIT:
-            handler = effects.PASSIVE_HANDLERS_ON_HIT[passive_name]
+        if passive_name and passive_name in PASSIVE_HANDLERS_ON_HIT:
+            handler = PASSIVE_HANDLERS_ON_HIT[passive_name]
             attacker_fx = self.player_pet_effects if is_player else self.wild_pet_effects
             await handler(attacker=attacker, defender=defender, turn_log_lines=log, skill_info=skill_info,
                           attacker_effects_list=attacker_fx)

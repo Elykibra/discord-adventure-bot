@@ -1,15 +1,17 @@
-# --- cogs/utils/views_combat.py (Final Version with all mechanics) --
+# cogs/views/combat.py
+
 import traceback
 import discord
-import textwrap
-import asyncio
 import math
-from cogs.gameplay.battle_engine import BattleState
-from cogs.utils.helpers import get_pet_image_url, get_status_bar, _create_progress_bar, _pet_tuple_to_dict, check_quest_progress, get_type_multiplier
-from .views_towns import WildsView, TownView
+
+# --- REFACTORED IMPORTS ---
+from core.battle_engine import BattleState
+from utils.helpers import get_pet_image_url, get_status_bar, _create_progress_bar, check_quest_progress, \
+    get_type_multiplier, _pet_tuple_to_dict
+from .towns import WildsView, TownView # Assuming views_towns.py is renamed to towns.py in this folder
 from data.items import ITEMS
 from data.skills import PET_SKILLS
-from cogs.utils.constants import TYPE_EMOJIS
+from utils.constants import TYPE_EMOJIS
 
 class CombatView(discord.ui.View):
     def __init__(self, bot, user_id, player_pet, wild_pet, message, parent_interaction, origin_location_id, view_context=None):
@@ -19,7 +21,9 @@ class CombatView(discord.ui.View):
         self.message = message
         self.parent_interaction = parent_interaction
         self.origin_location_id = origin_location_id
+        # This correctly creates an instance of our core battle engine
         self.battle = BattleState(bot, user_id, player_pet, wild_pet)
+        self.view_context = view_context
 
         # --- STATE MANAGEMENT ---
         self.current_menu = "fight"
@@ -367,3 +371,20 @@ class CombatView(discord.ui.View):
                 embed.set_footer(text=get_status_bar(data['player_data'], data['main_pet_data']))
             await self.message.edit(embed=embed, view=view)
         # --- END OF FIX ---
+
+    async def on_timeout(self):
+        # This function runs automatically when the view expires (after 300 seconds)
+        if self.message:
+            try:
+                # We edit the message to show a clear timeout status
+                # and remove all buttons/embeds for a clean look.
+                await self.message.edit(
+                    content="⚔️ The battle has timed out due to inactivity.",
+                    embed=None,  # Clears the embed
+                    view=None    # Removes all buttons
+                )
+            except discord.NotFound:
+                # If the message was already deleted, we don't want an error.
+                # This makes the bot resilient.
+                pass
+        self.stop() # Stops the view from listening for more interactions

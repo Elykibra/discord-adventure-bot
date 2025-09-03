@@ -1,7 +1,7 @@
 # --- data/towns.py ---
 # This file contains the data structure for all towns in the world of Aethelgard.
 
-towns = {
+TOWNS = {
     "oakhavenOutpost": {
         "id": "oakhavenOutpost",
         "name": "Oakhaven Outpost",

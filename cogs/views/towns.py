@@ -1,10 +1,14 @@
-# cogs/utils/views_towns.py
+# cogs/views/towns.py
 
-import discord, traceback, textwrap
+import discord
+import traceback
+import textwrap
+
+# --- REFACTORED IMPORTS ---
 from data.items import ITEMS
-from data.towns import towns
+from data.towns import TOWNS
 from data.dialogues import DIALOGUES
-from cogs.utils.helpers import get_status_bar, get_town_embed, check_quest_progress
+from utils.helpers import get_status_bar, get_town_embed, check_quest_progress
 
 
 class WildsView(discord.ui.View):
@@ -17,9 +21,9 @@ class WildsView(discord.ui.View):
         self.message = None
         self.embed = self.build_embed(activity_log)
 
-        location_data = towns.get(self.location_id, {})
+        location_data = TOWNS.get(self.location_id, {})
         town_connection_id = next(iter(location_data.get('connections', {})), None)
-        town_name = towns.get(town_connection_id, {}).get('name', 'Town')
+        town_name = TOWNS.get(town_connection_id, {}).get('name', 'Town')
 
         self.add_item(
             discord.ui.Button(label=f"Return to {town_name}", style=discord.ButtonStyle.secondary, emoji="🏘️"))
@@ -28,7 +32,7 @@ class WildsView(discord.ui.View):
         self.children[1].callback = self.explore_button_callback
 
     def build_embed(self, activity_log: str = None):
-        location_data = towns.get(self.location_id, {})
+        location_data = TOWNS.get(self.location_id, {})
         embed = discord.Embed(
             title=f"Location: {location_data.get('name')}",
             description=location_data.get('description'),
@@ -59,7 +63,7 @@ class WildsView(discord.ui.View):
     async def enter_town_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
         db_cog = self.bot.get_cog('Database')
-        location_data = towns.get(self.location_id, {})
+        location_data = TOWNS.get(self.location_id, {})
         town_connection_id = next(iter(location_data.get('connections', {})), None)
         if not town_connection_id:
             return await interaction.edit_original_response(content="Error: Cannot find path back to town.", view=None, embed=None)
@@ -100,7 +104,7 @@ class TravelView(discord.ui.View):
         destination_id = interaction.data['values'][0]
         db_cog = self.bot.get_cog('Database')
         await db_cog.update_player(self.original_interaction.user.id, current_location=destination_id)
-        destination_data = towns.get(destination_id, {})
+        destination_data = TOWNS.get(destination_id, {})
 
         new_view = None
         if destination_data.get('is_wilds', False):
@@ -200,7 +204,7 @@ class TownView(discord.ui.View):
                 time_of_day = 'night'
 
         if self.current_sub_location_id:
-            town_info = towns.get(self.town_id, {})
+            town_info = TOWNS.get(self.town_id, {})
             location_info = town_info.get('locations', {}).get(self.current_sub_location_id, {})
             services = location_info.get('services', {})
 
@@ -222,7 +226,7 @@ class TownView(discord.ui.View):
             self.add_item(discord.ui.Button(label="Back to Town Hub", style=discord.ButtonStyle.grey, emoji="↩️"))
             self.children[-1].callback = self.back_to_town_callback
         else:
-            town_info = towns.get(self.town_id, {})
+            town_info = TOWNS.get(self.town_id, {})
             locations = town_info.get('locations', {})
             location_options = [
                 discord.SelectOption(label=data['name'], value=loc_id, description=data.get('menu_description'),
@@ -234,7 +238,7 @@ class TownView(discord.ui.View):
                 select.callback = self.select_location_callback
                 self.add_item(select)
             wilds_id = next(
-                (loc_id for loc_id in town_info.get('connections', {}) if towns.get(loc_id, {}).get('is_wilds')), None)
+                (loc_id for loc_id in town_info.get('connections', {}) if TOWNS.get(loc_id, {}).get('is_wilds')), None)
             if wilds_id:
                 explore_wilds_button = discord.ui.Button(label="Explore Wilds", style=discord.ButtonStyle.green,
                                                          emoji="🌲")
@@ -247,10 +251,10 @@ class TownView(discord.ui.View):
     async def explore_wilds_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
         db_cog = self.bot.get_cog('Database')
-        town_info = towns.get(self.town_id, {})
-        wilds_id = next((loc_id for loc_id in town_info.get('connections', {}) if towns.get(loc_id, {}).get('is_wilds')), None)
+        town_info = TOWNS.get(self.town_id, {})
+        wilds_id = next((loc_id for loc_id in town_info.get('connections', {}) if TOWNS.get(loc_id, {}).get('is_wilds')), None)
         if not wilds_id: return
-        wilds_data = towns.get(wilds_id, {})
+        wilds_data = TOWNS.get(wilds_id, {})
         await db_cog.update_player(self.user_id, current_location=wilds_id)
         new_embed = discord.Embed(title=f"Location: {wilds_data.get('name')}", description=wilds_data.get('description'), color=discord.Color.dark_green())
         player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
@@ -266,7 +270,7 @@ class TownView(discord.ui.View):
         time_cog = self.bot.get_cog('Time')
         db_cog = self.bot.get_cog('Database')
 
-        location_info = towns.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+        location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
         rest_details = location_info.get('services', {}).get('rest', {})
 
         if rest_details.get('type') == 'inn':
@@ -301,7 +305,7 @@ class TownView(discord.ui.View):
         await interaction.response.defer()
         self.current_sub_location_id = interaction.data['values'][0]
 
-        location_info = towns.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+        location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
 
         # Use the new helper to build the initial embed
         new_embed = await self._build_sublocation_embed(location_info)
@@ -318,7 +322,7 @@ class TownView(discord.ui.View):
 
     async def travel_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        town_data = towns.get(self.town_id, {})
+        town_data = TOWNS.get(self.town_id, {})
         connections = town_data.get('connections', {})
         if not connections:
             return await interaction.followup.send("There's nowhere to travel to from here.", ephemeral=True)
@@ -328,7 +332,7 @@ class TownView(discord.ui.View):
     async def explore_zone_callback(self, interaction: discord.Interaction):
         adventure_cog = self.bot.get_cog('Adventure')
         if adventure_cog:
-            location_info = towns.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+            location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
             explore_zone_id = location_info.get('services', {}).get('explore_zone')
             if explore_zone_id:
                 # Pass the view instance (self) as the context
@@ -421,7 +425,7 @@ class TownView(discord.ui.View):
         db_cog = self.bot.get_cog('Database')
         player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
 
-        location_info = towns.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+        location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
 
         # Use the existing _build_sublocation_embed and pass the log to it.
         # This assumes the log should be displayed in the 'dialogue_log' parameter.
