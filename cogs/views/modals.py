@@ -8,13 +8,10 @@ import discord
 # from their new top-level locations.
 from utils.helpers import get_status_bar
 
-
 class RenamePetModal(discord.ui.Modal, title="Rename Your Pet"):
     """
     A modal for renaming a pet.
-    The logic inside this class was already solid and needs no changes.
     """
-
     def __init__(self, bot, pet_id, old_name, parent_view):
         super().__init__()
         self.bot = bot
@@ -37,15 +34,27 @@ class RenamePetModal(discord.ui.Modal, title="Rename Your Pet"):
 
         new_name = self.new_name_input.value
         try:
+            # Update DB
             await db_cog.update_pet(self.pet_id, name=new_name)
-            await interaction.followup.send(f"You have renamed **{self.old_name}** to **{new_name}**!", ephemeral=True)
+            await interaction.followup.send(
+                f"You have renamed **{self.old_name}** to **{new_name}**!",
+                ephemeral=True
+            )
 
-            # Refresh the parent view with the new pet name
-            self.parent_view.main_pet_data = await db_cog.get_pet(self.pet_id)
-            # Recreate the main_pet object with new data in the parent view
-            self.parent_view.main_pet.__init__(self.parent_view.main_pet_data)
+            # Refresh the parent view's pet object
+            new_pet_data = await db_cog.get_pet(self.pet_id)
+
+            # Update the object directly instead of re-calling __init__
+            self.parent_view.main_pet_object.name = new_pet_data["name"]
+
+            # Rebuild UI + refresh embed
+            self.parent_view.rebuild_ui()
             new_embed = await self.parent_view.get_pet_status_embed()
             await self.parent_view.message.edit(embed=new_embed, view=self.parent_view)
+
         except Exception as e:
             print(f"ERROR: An error occurred in RenamePetModal.on_submit: {e}")
-            await interaction.followup.send(f"An error occurred while renaming your pet: {e}", ephemeral=True)
+            await interaction.followup.send(
+                f"An error occurred while renaming your pet: {e}",
+                ephemeral=True
+            )

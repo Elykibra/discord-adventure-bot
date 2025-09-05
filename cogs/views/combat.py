@@ -1,5 +1,5 @@
 # cogs/views/combat.py
-
+import asyncio
 import traceback
 import discord
 import math
@@ -30,6 +30,7 @@ class CombatView(discord.ui.View):
         self.selected_item_id = None
         self.selected_pet_to_switch = None
         self.battle_log = ""
+        self.is_processing = False
 
         self.bot.loop.create_task(self.initial_setup())
         self.view_context = view_context
@@ -180,17 +181,28 @@ class CombatView(discord.ui.View):
                 await self._handle_loss(results)
 
     async def skill_button_callback(self, interaction: discord.Interaction):
-        try:
-            await interaction.response.defer()
-            for item in self.children: item.disabled = True
-            await self.message.edit(view=self)
+        # 1. Check if an action is already being processed.
+        if self.is_processing:
+            await interaction.response.send_message("Processing... Please wait.", ephemeral=True, delete_after=3)
+            return
 
+        # Use a try...finally block to GUARANTEE the view is unlocked at the end.
+        try:
+            # 2. Lock the view and disable buttons visually.
+            self.is_processing = True
+            for item in self.children:
+                item.disabled = True
+            await interaction.response.edit_message(view=self)
+
+            # 3. Process the game logic.
             results = await self.battle.process_round(interaction.data['custom_id'].replace('skill_', ''))
 
+            # 4. Update the view with the results.
+            # The _update_display() or _handle_win() will re-enable buttons or change the view.
             self.battle_log = results['log']
             if not results.get("is_over"):
                 self.battle_log += "\n\n> **It's your turn!**"
-                await self._update_display(interaction)
+                await self._update_display()
             else:
                 if results.get("win"):
                     await self._handle_win(results)
@@ -198,9 +210,14 @@ class CombatView(discord.ui.View):
                     await self._handle_loss(results)
 
         except Exception as e:
+            # If any error occurs, print it and stop the view.
+            print(f"An error occurred in skill_button_callback: {e}")
             traceback.print_exc()
-            await interaction.followup.send(f"An error occurred after using a skill: `{e}`", ephemeral=True)
             self.stop()
+        finally:
+            # 5. ALWAYS unlock the view when the action is done.
+            # This is the most important part to prevent stuck buttons.
+            self.is_processing = False
 
     async def attempt_capture(self, interaction: discord.Interaction, orb_id: str):
         await interaction.response.defer()
@@ -383,6 +400,9 @@ class CombatView(discord.ui.View):
                     embed=None,  # Clears the embed
                     view=None    # Removes all buttons
                 )
+                await asyncio.sleep(15)
+                await self.message.delete()
+
             except discord.NotFound:
                 # If the message was already deleted, we don't want an error.
                 # This makes the bot resilient.

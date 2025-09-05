@@ -24,6 +24,7 @@ class Pet:
         self.species = pet_data.get('species')
         self.rarity = pet_data.get('rarity')
         self.pet_type = pet_data.get('pet_type')
+        self.personality = pet_data.get('personality', 'Unknown')
 
         # --- Core Stats ---
         self.level = pet_data.get('level', 1)

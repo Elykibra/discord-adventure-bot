@@ -5,8 +5,11 @@ from discord import app_commands
 from discord.ext import commands
 
 # --- REFACTORED IMPORTS ---
-from .views.character import CharacterView  # Assuming views will be in a subfolder
+from .views.character import CharacterView
 from utils.helpers import get_status_bar
+
+# --- ADD THIS IMPORT FOR THE DEBUGGER ---
+import inspect
 
 class Character(commands.Cog):
     def __init__(self, bot):
@@ -16,7 +19,6 @@ class Character(commands.Cog):
     async def character_menu(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         db_cog = self.bot.get_cog('Database')
-
         player_and_pet_data = await db_cog.get_player_and_pet_data(interaction.user.id)
         if not player_and_pet_data:
             return await interaction.followup.send("You have not started your adventure! Use `/start` to begin.", ephemeral=True)
@@ -29,9 +31,9 @@ class Character(commands.Cog):
         )
         embed.set_footer(text=status_bar)
 
-        # This view will now handle using our new core classes
         view = CharacterView(self.bot, interaction.user.id)
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        view.message = message
 
 async def setup(bot):
     await bot.add_cog(Character(bot))
