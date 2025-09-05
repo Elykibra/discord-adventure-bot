@@ -20,19 +20,24 @@ ITEMS = {
         "name": "Moss Balm",
         "description": "A healing salve made from forest moss. Heals for 20 HP.",
         "category": "Consumables",
-        "price": 20
+        "price": 20,
+        "effect": {"type": "heal_pet", "value": 20},
+        "actions": ["use", "drop"]
     },
     "sun_kissed_berries": {
         "name": "Sun-Kissed Berries",
         "description": "Sweet berries that restore 25 player energy.",
         "category": "Consumables",
-        "price": 20
+        "price": 20,
+        "effect": {"type": "restore_energy", "value": 25},
+        "actions": ["use", "drop"]
     },
     "nightshade_root": {
         "name": "Nightshade Root",
         "description": "A potent root that can heal a pet's health for 40 HP.",
         "category": "Consumables",
-        "price": 35
+        "price": 35,
+        "actions": ["use", "drop"]
     },
 
 
@@ -42,36 +47,42 @@ ITEMS = {
         "description": "A crystal humming with raw magical energy. Used to craft powerful artifacts.",
         "category": "Crafting Materials",
         "price": 100,
+        "actions": ["drop"]
     },
     "mystic_essence": {
         "name": "Mystic Essence",
         "description": "A rare and volatile crafting material, condensed from pure magic.",
         "category": "Crafting Materials",
         "price": 300,
+        "actions": ["drop"]
     },
     "whisperbark_shard": {
         "name": "Whisperbark Shard",
         "description": "A piece of bark that faintly hums with forest magic.",
         "category": "Crafting Materials",
-        "price": 5
+        "price": 5,
+        "actions": ["drop"]
     },
     "verdant_sporebloom": {
         "name": "Verdant Sporebloom",
         "description": "A rare, luminescent flower sought after by alchemists.",
         "category": "Crafting Materials",
-        "price": 50
+        "price": 50,
+        "actions": ["drop"]
     },
     "blight_spore": {
         "name": "Blight Spore",
         "description": "A sickly fungus that pulsates with a dark, unsettling energy.",
         "category": "Crafting Materials",
-        "price": 10
+        "price": 10,
+        "actions": ["drop"]
     },
     "tainted_sludge": {
         "name": "Tainted Sludge",
         "description": "A thick, foul-smelling substance collected from the Rotting Pits. It pulses with a faint, sickly light.",
         "category": "Crafting Materials",
         "price": 15,
+        "actions": ["drop"]
     },
 
     # Gear
@@ -80,6 +91,40 @@ ITEMS = {
         "description": "A basic training sword. Provides a small attack boost. (+5 Attack)",
         "category": "Gear",
         "price": 25,
+        "actions": ["equip", "drop"]
+    },
+
+    # --- NEW TUNIC ITEM ---
+    "guild_tunic": {
+        "name": "Guild Tunic",
+        "description": "The standard issue tunic for a Guild Adventurer. Provides a small bonus to Reputation earned.",
+        "category": "Gear",
+        "price": 200,
+        "slot": "tunic",
+        "effect": {"type": "reputation_gain_modifier", "value": 1.05},  # 5% bonus
+        "actions": ["equip", "drop"]
+    },
+
+    # --- NEW BOOTS ITEM ---
+    "sturdy_boots": {
+        "name": "Sturdy Boots",
+        "description": "Well-made leather boots that lessen the burden of long journeys.",
+        "category": "Gear",
+        "price": 150,
+        "slot": "boots",
+        "effect": {"type": "energy_cost_modifier", "value": 0.9}, # 10% energy reduction
+        "actions": ["equip", "drop"]
+    },
+
+    # --- NEW ACCESSORY ITEM ---
+    "warding_charm": {
+        "name": "Warding Charm",
+        "description": "A small charm that pulses with protective energy, warding off the worst of the Gloom.",
+        "category": "Gear",
+        "price": 300,
+        "slot": "accessory",
+        "effect": {"type": "gloom_meter_reduction", "value": 5},  # Reduces starting Gloom by 5
+        "actions": ["equip", "drop"]
     },
 
     # Key Items (Example)
@@ -87,7 +132,8 @@ ITEMS = {
         "name": "Simple Sleeping Bag",
         "description": "A basic but reliable bag for resting and recovering energy during adventures.",
         "category": "Key Items",
-        "price": 150
+        "price": 150,
+        "actions": []
     },
     "scavengers_compass": {
         "name": "The Scavenger's Compass",
@@ -101,6 +147,7 @@ ITEMS = {
         "category": "Gear",
         "price": 150,  # Sell price
         "slot": "head",  # The equipment slot it uses
+        "actions": ["equip", "drop"],
         "effect": {
             "type": "find_extra_materials",
             "chance": 0.1  # 10% chance

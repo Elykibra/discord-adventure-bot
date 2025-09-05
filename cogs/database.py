@@ -25,12 +25,19 @@ class Database(commands.Cog):
         self._run_migrations()
         self._populate_items_sync()
 
-    # No changes needed for these internal setup methods
     def _get_table_info(self, cursor, table_name):
         """Helper to get column names of a table."""
         cursor.execute(f"PRAGMA table_info({table_name})")
         return {row[1] for row in cursor.fetchall()}
 
+    def _dict_factory(self, cursor: sqlite3.Cursor, row: sqlite3.Row) -> Dict[str, Any]:
+        """Helper function to convert a query result to a dictionary."""
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return d
+
+    # No changes needed for these internal setup methods
     def _run_migrations(self):
         """Adds new columns to existing tables without deleting data."""
         print("--- Running Database Migrations ---")
@@ -40,19 +47,36 @@ class Database(commands.Cog):
         # --- Migration for Player Gear Slots ---
         player_columns = self._get_table_info(cursor, 'players')
 
+        # Step 1: Handle the renaming of the old 'equipped_charm' to 'equipped_accessory'
+        if 'equipped_charm' in player_columns and 'equipped_accessory' not in player_columns:
+            print("  > Migrating players table: Renaming 'equipped_charm' to 'equipped_accessory'")
+            cursor.execute("ALTER TABLE players RENAME COLUMN equipped_charm TO equipped_accessory")
+            # Refresh column info after rename
+            player_columns = self._get_table_info(cursor, 'players')
+
+        # Step 2: Add any missing player slots
         if 'equipped_head' not in player_columns:
             print("  > Migrating players table: Adding 'equipped_head'")
             cursor.execute("ALTER TABLE players ADD COLUMN equipped_head TEXT")
 
-        if 'equipped_charm' not in player_columns:
-            print("  > Migrating players table: Adding 'equipped_charm'")
-            cursor.execute("ALTER TABLE players ADD COLUMN equipped_charm TEXT")
+        if 'equipped_tunic' not in player_columns:
+            print("  > Migrating players table: Adding 'equipped_tunic'")
+            cursor.execute("ALTER TABLE players ADD COLUMN equipped_tunic TEXT")
 
-        # You can add more 'if' blocks here for future columns.
-        # Example:
-        # if 'equipped_body' not in player_columns:
-        #     print("  > Migrating players table: Adding 'equipped_body'")
-        #     cursor.execute("ALTER TABLE players ADD COLUMN equipped_body TEXT")
+        if 'equipped_boots' not in player_columns:
+            print("  > Migrating players table: Adding 'equipped_boots'")
+            cursor.execute("ALTER TABLE players ADD COLUMN equipped_boots TEXT")
+
+        # This will now only run if the column doesn't exist after the potential rename
+        if 'equipped_accessory' not in player_columns:
+            print("  > Migrating players table: Adding 'equipped_accessory'")
+            cursor.execute("ALTER TABLE players ADD COLUMN equipped_accessory TEXT")
+
+        # --- Migration for Pet Charm Slot ---
+        pet_columns = self._get_table_info(cursor, 'pets')
+        if 'equipped_charm' not in pet_columns:
+            print("  > Migrating pets table: Adding 'equipped_charm'")
+            cursor.execute("ALTER TABLE pets ADD COLUMN equipped_charm TEXT")
 
         conn.commit()
         conn.close()
