@@ -551,11 +551,13 @@ class Database(commands.Cog):
             pet_dict = cursor.fetchone()
             conn.close()
 
-            # The 'skills' column is stored as a JSON string, so we parse it
             if pet_dict:
+                # This is the fix for skills
                 if 'skills' in pet_dict and isinstance(pet_dict['skills'], str):
                     pet_dict['skills'] = json.loads(pet_dict['skills'])
-                if 'pet_type' in pet_dict and isinstance(pet_dict['pet_type'], str) and pet_dict['pet_type'].startswith('['):
+                # This is the fix for pet_type
+                if 'pet_type' in pet_dict and isinstance(pet_dict['pet_type'], str) and pet_dict['pet_type'].startswith(
+                        '['):
                     pet_dict['pet_type'] = json.loads(pet_dict['pet_type'])
             return pet_dict
 
@@ -589,10 +591,12 @@ class Database(commands.Cog):
             results = cursor.fetchall()
             conn.close()
 
-            # Parse the skills JSON string for every pet
             for pet in results:
-                if 'pet_type' in pet and isinstance(pet['pet_type'], str) and pet[
-                    'pet_type'].startswith('['):
+                # This is the fix for skills
+                if 'skills' in pet and isinstance(pet['skills'], str):
+                    pet['skills'] = json.loads(pet['skills'])
+                # This is the fix for pet_type
+                if 'pet_type' in pet and isinstance(pet['pet_type'], str) and pet['pet_type'].startswith('['):
                     pet['pet_type'] = json.loads(pet['pet_type'])
             return results
 
@@ -659,7 +663,7 @@ class Database(commands.Cog):
         await asyncio.to_thread(_sync_remove_item, user_id, item_id, quantity)
 
     async def add_pet(
-            self, owner_id: int, name: str, species: str, description: str, rarity: str, pet_type: str,
+            self, owner_id: int, name: str, species: str, description: str, rarity: str, pet_type: any,
             skills: list, current_hp: int, max_hp: int, attack: int, defense: int, special_attack: int,
             special_defense: int, speed: int, base_hp: int, base_attack: int, base_defense: int,
             base_special_attack: int, base_special_defense: int, base_speed: int,
@@ -668,15 +672,18 @@ class Database(commands.Cog):
         """Adds a new pet to the database for a given owner."""
 
         def _sync_add_pet(
-                oid: int, p_name: str, p_species: str, desc: str, rar: str, p_type: str,
+                oid: int, p_name: str, p_species: str, desc: str, rar: str, p_type: any,
                 p_skills: list, p_chp: int, p_mhp: int, p_atk: int, p_def: int, p_satk: int,
                 p_sdef: int, p_spd: int, p_bhp: int, p_batk: int, p_bdef: int,
                 p_bsatk: int, p_bsdef: int, p_bspd: int, p_passive: str | None
         ) -> int:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+
+            # Use the correct parameter name 'p_skills'
             skills_json = json.dumps(p_skills if p_skills else [])
-            pet_type_json = json.dumps(p_type)
+            # Only convert pet_type to JSON if it's a list
+            pet_type_to_save = json.dumps(p_type) if isinstance(p_type, list) else p_type
 
             cursor.execute(
                 '''INSERT INTO pets (owner_id, name, species, description, rarity, pet_type, skills,
@@ -685,7 +692,8 @@ class Database(commands.Cog):
                                      base_speed, is_in_party, passive_ability)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)''',
                 (
-                    oid, p_name, p_species, desc, rar, pet_type_json, skills_json, p_chp, p_mhp, p_atk, p_def, p_satk,
+                    oid, p_name, p_species, desc, rar, pet_type_to_save, skills_json, p_chp, p_mhp, p_atk, p_def,
+                    p_satk,
                     p_sdef, p_spd, p_bhp, p_batk, p_bdef, p_bsatk, p_bsdef, p_bspd, p_passive
                 )
             )
@@ -765,6 +773,32 @@ class Database(commands.Cog):
             conn.close()
 
         await asyncio.to_thread(_sync_set_game_channel_id, channel_id)
+
+    async def count_player_crests(self, user_id: int) -> int:
+        """Counts the number of crests a player has earned."""
+
+        def _sync_count_crests(uid: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM player_crests WHERE user_id = ?', (uid,))
+            result = cursor.fetchone()
+            conn.close()
+            return result[0] if result else 0
+
+        return await asyncio.to_thread(_sync_count_crests, user_id)
+
+    async def get_player_crests(self, user_id: int) -> list[str]:
+        """Retrieves all guild crests a player has earned."""
+
+        def _sync_get_crests(uid: int):
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT crest_name FROM player_crests WHERE user_id = ?', (uid,))
+            results = cursor.fetchall()
+            conn.close()
+            return [result[0] for result in results]
+
+        return await asyncio.to_thread(_sync_get_crests, user_id)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Database(bot))

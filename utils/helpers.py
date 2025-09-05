@@ -54,7 +54,7 @@ def get_player_rank_info(num_crests):
         progress_bar = f"{'🟩' * filled_blocks}{'⬜' * empty_blocks} {progress_current}/{progress_total}"
     else:
         progress_bar = "Max Rank Reached! ✨"
-    return {"rank": rank, "description": description, "progress_bar": progress_bar, "next_rank_threshold": next_threshold}
+    return {"rank": rank, "description": description, "progress_bar": progress_bar, "next_rank_threshold": next_threshold, "progress_current": progress_current, "progress_total": progress_total}
 
 def get_pet_image_url(pet_species):
     """Returns the image URL for a given pet species."""

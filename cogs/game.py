@@ -75,9 +75,16 @@ class GenderSelectView(discord.ui.View):
 
     async def on_timeout(self):
         if self.message:
-            for item in self.children:
-                item.disabled = True
-            await self.message.edit(content="Gender selection timed out.", view=self)
+            try:
+                # Edit the message with a clear instruction and remove the buttons
+                await self.message.edit(
+                    content="⏱️ Gender selection timed out. Please run `/start` again to create your character.",
+                    view=None  # This removes all buttons
+                )
+            except discord.NotFound:
+                # If the message is already gone, just ignore the error.
+                # This prevents the traceback from appearing in your console.
+                pass
 
     async def _create_player(self, interaction: discord.Interaction, gender: str):
         db_cog = self.bot.get_cog('Database')
