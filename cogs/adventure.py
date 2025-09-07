@@ -12,7 +12,7 @@ from data.towns import TOWNS
 from data.pets import PET_DATABASE, ENCOUNTER_TABLES
 from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE
-from utils.helpers import get_status_bar, get_town_embed, check_quest_progress
+from utils.helpers import get_status_bar, get_town_embed, check_quest_progress, get_notification
 from core.battle_engine import BattleState  # <-- Key Change: Importing from core
 from .views.towns import TownView, WildsView
 from .views.combat import CombatView
@@ -65,7 +65,9 @@ class Adventure(commands.Cog):
             player_data = await db_cog.get_player(user_id)
             energy_cost = 10
             if player_data['current_energy'] < energy_cost:
-                await interaction.followup.send("You don't have enough energy to explore.", ephemeral=True)
+                no_energy_message = get_notification("ACTION_FAIL_NO_ENERGY", cost=energy_cost)
+                if view_context:
+                    await view_context.update_with_activity_log(no_energy_message)
                 return
 
             await db_cog.update_player(user_id, current_energy=player_data['current_energy'] - energy_cost)
@@ -84,18 +86,20 @@ class Adventure(commands.Cog):
                 if outcome == "item":
                     item_id = "sun_kissed_berries"
                     await db_cog.add_item_to_inventory(user_id, item_id, 1)
-                    activity_log_text = f"🌲 You searched the area and found **1x {ITEMS[item_id]['name']}**!"
+                    activity_log_text = get_notification("EXPLORE_FIND_ITEM", quantity=1,
+                                                         item_name=ITEMS[item_id]['name'])
+
                     quest_updates = await check_quest_progress(self.bot, user_id, "item_pickup", {"item_id": item_id})
                     if quest_updates:
                         await interaction.followup.send(
                             embed=discord.Embed(description="\n\n".join(quest_updates), color=discord.Color.gold()),
                             ephemeral=True)
                 else:
-                    activity_log_text = f"💨 You searched the area but found nothing of interest."
+                    activity_log_text = get_notification("EXPLORE_FIND_NOTHING")
 
                 # Find the active TownView and call its new update helper.
                 if view_context:
-                    await view_context.update_with_activity_log(activity_log_text)
+                    await view_context.update_with_activity_log([activity_log_text])
                 return
 
             elif outcome == "tutorial_pet" or outcome == "pet":

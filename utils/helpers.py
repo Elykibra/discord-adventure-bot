@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 # We import from our new data and utils layers
 from data.items import ITEMS
+from data.notifications import NOTIFICATIONS
 from data.quests import QUESTS
 from data.skills import PET_SKILLS
 from .constants import PET_IMAGE_URLS, CREST_RANKS, DEFENSIVE_TYPE_CHART
@@ -153,18 +154,38 @@ def get_ai_move(ai_pet, player_pet, gloom_meter):
     else:  # Default behavior for "Aggressive" and any other types
         return {"action": "skill", "skill_id": get_strongest_move()}
 
+
 async def apply_effect(db_cog, target, effect_data):
-    """Applies a given effect to a target player or pet."""
+    """Applies a given effect and returns the value changed as a number."""
     effect_type = effect_data.get("type")
+
     if effect_type == "heal_pet":
-        # --- CORRECTED HEALING LOGIC ---
-        new_health = min(target['max_hp'], target['current_hp'] + effect_data['value'])
-        await db_cog.update_pet(target['pet_id'], current_hp=new_health) # Corrected function call
-        return f"Healed {target['name']} for {effect_data['value']} HP!"
+        if target['current_hp'] >= target['max_hp']:
+            return 0  # Correctly returns 0 if no healing is needed
+
+        current_health = target['current_hp']
+        new_health = min(target['max_hp'], current_health + effect_data['value'])
+
+        # FIX #1: Calculate the actual amount that was healed
+        actual_heal_amount = new_health - current_health
+
+        await db_cog.update_pet(target['pet_id'], current_hp=new_health)
+
+        # FIX #2: Return the number, not a string
+        return actual_heal_amount
+
     elif effect_type == "restore_energy":
-        new_energy = min(target['max_energy'], target['current_energy'] + effect_data['value'])
+        # FIX #3: Add the missing check for max energy
+        if target['current_energy'] >= target['max_energy']:
+            return 0
+
+        current_energy = target['current_energy']
+        new_energy = min(target['max_energy'], current_energy + effect_data['value'])
+
+        actual_energy_restored = new_energy - current_energy
+
         await db_cog.update_player(target['user_id'], current_energy=new_energy)
-        return f"Restored {effect_data['value']} energy!"
+        return actual_energy_restored
 
     # ... add more elifs for "apply_status", etc.
 
@@ -302,3 +323,38 @@ async def check_quest_progress(bot, user_id, action_type, context=None):
                     await db_cog.complete_quest(user_id, quest_id)
 
                 return messages_to_return  # Return the list, which might be empty or full of messages
+
+def get_notification(key: str, **kwargs) -> str:
+    """
+    Fetches a random notification template by its key, formats it with
+    the provided arguments, and returns the final string.
+    """
+    message_templates = NOTIFICATIONS.get(key)
+    if not message_templates:
+        # Return a clear error message if the key doesn't exist
+        return f"Error: Missing notification for key: {key}"
+
+    # Select a random message from the list
+    template = random.choice(message_templates)
+
+    # Fill in the variables (e.g., amount, pet_name)
+    try:
+        return template.format(**kwargs)
+    except KeyError as e:
+        # Return an error if a required variable is missing
+        return f"Error: Missing variable {e} for notification key: {key}"
+
+
+def format_log_block(log_list: list[str]) -> str:
+    """
+    Takes a list of log messages and formats them into a single
+    Discord block quote string, with each line italicized.
+    """
+    if not log_list:
+        return ""
+
+    # Add "> *" to the start and "*" to the end of each line
+    formatted_lines = [f"> *{line}*" for line in log_list]
+
+    # Join them into a single string
+    return "\n".join(formatted_lines)

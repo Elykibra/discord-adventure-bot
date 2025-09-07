@@ -11,7 +11,7 @@ from data.pets import PET_DATABASE
 from data.items import ITEMS
 from data.skills import PET_SKILLS
 from core.effect_system import apply_effect, PASSIVE_HANDLERS_ON_HIT  # <-- Changed
-from utils.helpers import get_ai_move, get_type_multiplier, check_quest_progress  # <-- Changed
+from utils.helpers import get_ai_move, get_type_multiplier, check_quest_progress, get_notification  # <-- Changed
 from utils.constants import XP_REWARD_BY_RARITY, PET_DESCRIPTIONS  # <-- Changed
 
 class BattleState:
@@ -345,6 +345,36 @@ class BattleState:
 
         self.turn_count += 1
         return {"log": "\n".join(self.turn_log), "is_over": False}
+
+    async def attempt_flee(self):
+        """
+        Handles a player's attempt to flee from combat.
+        Returns a dictionary with the outcome and the log message.
+        """
+        player_speed = self._get_modified_stat(self.player_pet, 'speed')
+        wild_speed = self._get_modified_stat(self.wild_pet, 'speed')
+
+        # Fleeing is more likely if your pet is faster
+        flee_chance = 50 + (player_speed - wild_speed)
+        flee_chance = max(10, min(95, flee_chance))  # Clamp chance between 10% and 95%
+
+        if random.randint(1, 100) <= flee_chance:
+            # --- SUCCESSFUL FLEE ---
+            log_message = get_notification("FLEE_SUCCESS")
+            # FIX: Return a list containing the single message
+            return {"success": True, "log": [log_message]}
+        else:
+            # --- FAILED FLEE ---
+            log = []
+            log.append(get_notification("FLEE_FAILURE", wild_pet_species=self.wild_pet['species']))
+
+            # The wild pet gets a free attack. We reuse the existing process_ai_turn method.
+            self.turn_log.clear()
+            ai_turn_result = await self.process_ai_turn()
+            log.append(ai_turn_result['log'])
+
+            # FIX: Return the raw list of log messages, not a joined string
+            return {"success": False, "log": log, "is_over": ai_turn_result.get('is_over', False)}
 
     async def grant_battle_rewards(self):
         base_xp = XP_REWARD_BY_RARITY.get(self.wild_pet['rarity'], 20)

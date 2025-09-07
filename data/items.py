@@ -22,7 +22,7 @@ ITEMS = {
         "category": "Consumables",
         "price": 20,
         "effect": {"type": "heal_pet", "value": 20},
-        "actions": ["use", "drop"]
+        "actions": ["use", "drop", "inspect"]
     },
     "sun_kissed_berries": {
         "name": "Sun-Kissed Berries",
@@ -30,14 +30,14 @@ ITEMS = {
         "category": "Consumables",
         "price": 20,
         "effect": {"type": "restore_energy", "value": 25},
-        "actions": ["use", "drop"]
+        "actions": ["use", "drop", "inspect"]  # <-- New format
     },
     "nightshade_root": {
         "name": "Nightshade Root",
         "description": "A potent root that can heal a pet's health for 40 HP.",
         "category": "Consumables",
         "price": 35,
-        "actions": ["use", "drop"]
+        "actions": ["use", "drop", "inspect"] # <-- New format
     },
 
 
@@ -102,7 +102,7 @@ ITEMS = {
         "price": 200,
         "slot": "tunic",
         "effect": {"type": "reputation_gain_modifier", "value": 1.05},  # 5% bonus
-        "actions": ["equip", "drop"]
+        "actions": ["equip", "drop", "inspect"] # <-- New format
     },
 
     # --- NEW BOOTS ITEM ---
@@ -113,7 +113,7 @@ ITEMS = {
         "price": 150,
         "slot": "boots",
         "effect": {"type": "energy_cost_modifier", "value": 0.9}, # 10% energy reduction
-        "actions": ["equip", "drop"]
+        "actions": ["equip", "drop", "inspect"]  # <-- New format
     },
 
     # --- NEW ACCESSORY ITEM ---
@@ -124,7 +124,7 @@ ITEMS = {
         "price": 300,
         "slot": "accessory",
         "effect": {"type": "gloom_meter_reduction", "value": 5},  # Reduces starting Gloom by 5
-        "actions": ["equip", "drop"]
+        "actions": ["equip", "drop", "inspect"]
     },
 
     # Key Items (Example)

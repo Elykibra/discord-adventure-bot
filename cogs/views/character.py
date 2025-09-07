@@ -318,6 +318,7 @@ class CharacterView(discord.ui.View):
 
         # Create an instance of the BagView
         bag_view = BagView(self.bot, self.user_id, player_data, inventory_data)
+        await bag_view.rebuild_ui()
         embed = bag_view.create_embed()
 
         # Send the new view and embed

@@ -8,7 +8,7 @@ import textwrap
 from data.items import ITEMS
 from data.towns import TOWNS
 from data.dialogues import DIALOGUES
-from utils.helpers import get_status_bar, get_town_embed, check_quest_progress
+from utils.helpers import get_status_bar, get_town_embed, check_quest_progress, get_notification, format_log_block
 
 
 class WildsView(discord.ui.View):
@@ -31,15 +31,19 @@ class WildsView(discord.ui.View):
         self.add_item(discord.ui.Button(label="Explore the Wilds", style=discord.ButtonStyle.green, emoji="🌲"))
         self.children[1].callback = self.explore_button_callback
 
-    def build_embed(self, activity_log: str = None):
+    def build_embed(self, activity_log_list: list[str] = None):
         location_data = TOWNS.get(self.location_id, {})
         embed = discord.Embed(
             title=f"Location: {location_data.get('name')}",
             description=location_data.get('description'),
             color=discord.Color.dark_green()
         )
-        if activity_log:
-            embed.add_field(name="Activity Log", value=f"> *{activity_log}*", inline=False)
+
+        # It now expects a list and formats it with our central helper
+        if activity_log_list:
+            formatted_log = format_log_block(activity_log_list)
+            embed.add_field(name="Activity Log", value=formatted_log, inline=False)
+
         return embed
 
     async def explore_button_callback(self, interaction: discord.Interaction):
@@ -138,43 +142,41 @@ class TownView(discord.ui.View):
         self.build_ui()
 
     # --- NEW HELPER TO BUILD THE SUB-LOCATION EMBED ---
-    async def _build_sublocation_embed(self, location_info, dialogue_log: str = None):
-        """Builds a standard embed with a non-wrapping monospaced description."""
+    async def _build_sublocation_embed(self, location_info, log_list: list[str] = None):
+        """Builds a standard embed for a sub-location, including hazards and logs."""
 
         description_text = location_info.get('description_day', "No description available.")
-        location_name = location_info['name']
-        embed_color = discord.Color.dark_teal() # Default color
-
-        # --- THIS IS THE NEW LOGIC ---
-        # Check for a gloom_level to determine if the zone is hazardous
-        gloom_level = location_info.get('services', {}).get('gloom_level')
-        if gloom_level:
-            embed_color = discord.Color.dark_purple() # Change color for hazardous zones
-            location_name = f"⚠️ {location_name} ⚠️" # Add warning emojis to the title
-        # --- END OF NEW LOGIC ---
 
         embed = discord.Embed(
             title=f"Location: {location_info['name']}",
             description=f"```{description_text}```",
-            color=discord.Color.dark_teal()
+            color=discord.Color.dark_teal()  # Default color
         )
 
-        # --- ADD A HAZARD FIELD IF APPLICABLE ---
+        # --- YOUR GLOOM HAZARD LOGIC (This is the correct place for it) ---
+        gloom_level = location_info.get('services', {}).get('gloom_level')
         if gloom_level:
+            # Change the embed color and title for hazardous zones
+            embed.color = discord.Color.dark_purple()
+            embed.title = f"⚠️ {embed.title} ⚠️"
+
+            # Add the specific hazard field
             embed.add_field(
                 name="🥀 Zone Hazard: Lingering Gloom",
                 value=f"The corruption is strong here. All battles will start with **{gloom_level}% Gloom**.",
                 inline=False
             )
-        # --- END OF HAZARD FIELD ---
+        # --- END OF GLOOM LOGIC ---
 
-        # Add the dialogue log as a separate field if it exists
-        if dialogue_log:
+        # --- OUR NEW ACTIVITY LOG LOGIC ---
+        if log_list:
+            formatted_log = format_log_block(log_list)
             embed.add_field(
-                name="Dialogue Log",
-                value=f"> *{dialogue_log}*",
+                name="Activity Log",
+                value=formatted_log,
                 inline=False
             )
+        # --- END OF ACTIVITY LOG LOGIC ---
 
         # Add the footer with the status bar
         db_cog = self.bot.get_cog('Database')
@@ -273,33 +275,31 @@ class TownView(discord.ui.View):
         location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
         rest_details = location_info.get('services', {}).get('rest', {})
 
+        action_logs = []
+
+        # Handle Inn Costs
         if rest_details.get('type') == 'inn':
             cost = rest_details.get('cost', 10)
             player_data = await db_cog.get_player(self.user_id)
             if player_data['coins'] < cost:
-                return await interaction.followup.send(f"You don't have enough coins. It costs {cost} coins.",
-                                                       ephemeral=True)
-            await db_cog.remove_coins(self.user_id, cost)
+                no_coins_log = [get_notification("ACTION_FAIL_NO_COINS", cost=cost)]
+                await self.update_with_activity_log(no_coins_log)
+                return
 
-        confirmation_embed = await time_cog.advance_time(self.user_id, rest_details)
-        if confirmation_embed:
-            await interaction.followup.send(embed=confirmation_embed, ephemeral=True)
+            action_logs = [get_notification("ACTION_SUCCESS_PAY_COINS", cost=cost)]
 
-        await check_quest_progress(self.bot, self.user_id, "rest", {"location_id": self.current_sub_location_id})
+        # 1. Call the refactored time cog, which returns a list of log strings
+        time_logs = await time_cog.advance_time(self.user_id, rest_details)
+        action_logs.extend(time_logs)
 
-        # Create a new, fresh Town Hub view to reflect the time change
-        self.current_sub_location_id = None
-        new_hub_embed = await get_town_embed(self.bot, self.user_id, self.town_id)
-        new_hub_view = TownView(self.bot, self.parent_interaction, self.town_id)
+        # 2. Check for quest progress
+        quest_updates = await check_quest_progress(self.bot, self.user_id, "rest",
+                                                   {"location_id": self.current_sub_location_id})
+        if quest_updates:
+            action_logs.extend(quest_updates)
 
-        for item in self.children:
-            item.disabled = True
-
-        # We edit the original message from the parent interaction to show the disabled view
-        await self.parent_interaction.edit_original_response(embed=new_hub_embed, view=new_hub_view)
-        new_hub_view.message = await self.parent_interaction.original_response()
-        self.stop()
-        pass
+        # 3. Join all logs and pass the final string to YOUR existing helper function
+        await self.update_with_activity_log(action_logs)
 
     async def select_location_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -420,15 +420,17 @@ class TownView(discord.ui.View):
         # Edit the message with the updated embed and view
         await self.message.edit(embed=embed, view=self)
 
-    async def update_with_activity_log(self, activity_log: str):
-        """Helper to refresh the TownView (sub-location) with an activity log."""
-        db_cog = self.bot.get_cog('Database')
-        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
-
+    async def update_with_activity_log(self, log_list: list[str]):
+        """
+        The single, authoritative function to refresh the TownView with a new activity log.
+        """
         location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
 
-        # Use the existing _build_sublocation_embed and pass the log to it.
-        # This assumes the log should be displayed in the 'dialogue_log' parameter.
-        new_embed = await self._build_sublocation_embed(location_info, dialogue_log=activity_log)
+        # Call our clean embed builder
+        new_embed = await self._build_sublocation_embed(location_info, log_list=log_list)
 
+        # Rebuild the buttons to ensure their state is fresh
+        self.build_ui()
+
+        # Edit the message with the updated embed and view
         await self.message.edit(embed=new_embed, view=self)
