@@ -7,7 +7,7 @@ import math
 # --- REFACTORED IMPORTS ---
 from core.battle_engine import BattleState
 from utils.helpers import get_pet_image_url, get_status_bar, _create_progress_bar, check_quest_progress, \
-    get_type_multiplier, _pet_tuple_to_dict
+    get_type_multiplier, _pet_tuple_to_dict, format_log_block
 from .towns import WildsView, TownView # Assuming views_towns.py is renamed to towns.py in this folder
 from data.items import ITEMS
 from data.skills import PET_SKILLS
@@ -252,10 +252,37 @@ class CombatView(discord.ui.View):
 
     async def flee_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        await self._return_to_wilds("💨 You successfully fled from the battle!")
 
-    async def get_battle_embed(self, preview_orb_id: str = None):
-        turn_log_display = "\n".join([f"> {line}" for line in self.battle_log.split('\n')])
+        # Call the new flee logic from your battle engine
+        flee_result = await self.battle.attempt_flee()
+
+        if flee_result['success']:
+            # On success, return to the wilds with the dynamic success message
+            await self._return_to_wilds(flee_result['log'])
+        else:
+            # On failure, update the combat UI with the failure log and the enemy's attack
+            embed = await self.get_battle_embed(turn_summary=flee_result['log'])
+
+            # Disable buttons if the player's pet fainted from the counter-attack
+            view = self
+            if flee_result.get('is_over'):
+                view = self.disable_all_buttons()  # You would need a helper to disable all buttons
+
+            await interaction.edit_original_response(embed=embed, view=view)
+
+    async def get_battle_embed(self, turn_summary: list[str] = None, preview_orb_id: str = None):
+
+        if turn_summary:
+            # If a turn summary is provided (like from a failed flee), display it.
+            turn_log_display = format_log_block(turn_summary)
+        elif preview_orb_id:
+            # If an orb is being previewed, show its capture info.
+            capture_info = await self.battle.get_capture_info(preview_orb_id)
+            orb_name = ITEMS.get(preview_orb_id, {}).get('name', 'Orb')
+            turn_log_display = f"**{orb_name} Preview:**\n> {capture_info['text']}\n> *Estimated Capture Rate: **{capture_info['rate']}%***"
+        else:
+            # If nothing else, show a default message.
+            turn_log_display = "> What will you do next?"
 
         hp_percent = self.battle.player_pet['current_hp'] / self.battle.player_pet['max_hp'] if self.battle.player_pet[
                                                                                                         'max_hp'] > 0 else 0
