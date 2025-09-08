@@ -1,4 +1,4 @@
-# cogs/systems/database.py (Fully Refactored & Complete)
+# cogs/database.py (Fully Refactored & Complete)
 # Handles all database interactions using SQLite.
 
 import os
@@ -176,6 +176,15 @@ class Database(commands.Cog):
             self.conn.commit()
 
         await asyncio.to_thread(_sync_delete_player)
+
+    async def get_all_players(self) -> List[Dict[str, Any]]:
+        """Retrieves a list of all players in the database."""
+
+        def _sync_get_all_players():
+            self.cursor.execute('SELECT user_id, username FROM players ORDER BY username')
+            return self.cursor.fetchall()
+
+        return await asyncio.to_thread(_sync_get_all_players)
 
     # --- Pet Management ---
 
