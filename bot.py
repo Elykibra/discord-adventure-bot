@@ -38,10 +38,18 @@ async def on_ready():
     print(f'✅ Logged in as {bot.user.name}')
     print('------')
 
-    # Load all cogs first, so the bot knows about all your commands
     print("--- Loading Cogs ---")
+    # Load the database cog first as other cogs might depend on it.
+    try:
+        await bot.load_extension('cogs.database')
+        print('  > Loaded cog: database.py')
+    except Exception as e:
+        print(f'  > Failed to load cog database.py: {e}')
+
+
     for filename in os.listdir('./cogs'):
-        if filename.endswith('.py'):
+        # Make sure not to load database again
+        if filename.endswith('.py') and filename != 'database.py':
             try:
                 await bot.load_extension(f'cogs.{filename[:-3]}')
                 print(f'  > Loaded cog: {filename}')
