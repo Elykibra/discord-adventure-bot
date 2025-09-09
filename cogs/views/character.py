@@ -10,6 +10,7 @@ from data.skills import PET_SKILLS
 # --- REFACTORED IMPORTS ---
 from core.pet_system import Pet
 from data.towns import TOWNS
+from .crafting import CraftingView
 from .inventory import BagView
 from .modals import RenamePetModal
 from utils.helpers import get_status_bar, get_player_rank_info, _create_progress_bar, get_pet_image_url, _pet_tuple_to_dict
@@ -335,6 +336,26 @@ class CharacterView(discord.ui.View):
 
         message = await interaction.followup.send(embed=embed, view=bag_view, ephemeral=True)
         bag_view.message = message
+
+    @discord.ui.button(label="Crafting", emoji="🛠️", style=discord.ButtonStyle.primary)
+    async def crafting_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+
+        db_cog = self.bot.get_cog('Database')
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+
+        crafting_view = CraftingView(
+            self.bot,
+            self.user_id,
+            player_and_pet_data['player_data'],
+            player_and_pet_data['main_pet_data']
+        )
+        await crafting_view.initial_setup()
+
+        embed = crafting_view.create_embed()
+
+        message = await interaction.followup.send(embed=embed, view=crafting_view, ephemeral=True)
+        crafting_view.message = message
 
     async def on_timeout(self):
         if self.message:
