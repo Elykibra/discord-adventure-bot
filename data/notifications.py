@@ -33,6 +33,12 @@ NOTIFICATIONS = {
         "🤔 That's not a valid amount. Please enter a number between 1 and {max_quantity}.",
         "⚠️ You can't use that many. You only have {max_quantity}!",
     ],
+    # --- Player Buff Notifications ---
+    "PLAYER_BUFF_WELL_RESTED": [
+        "✨ Your sharp senses from being well-rested make you feel lucky!",
+        "⚡ Feeling energetic, you notice details you might have otherwise missed.",
+        "🔋 With energy to spare, your perception is heightened."
+    ],
 
     # Battle Related Notifications
     "BATTLE_REWARD_COINS": [
@@ -52,6 +58,22 @@ NOTIFICATIONS = {
         "❌ You couldn't get away!",
         "🚫 The wild {wild_pet_species} blocked your escape!",
         "⚠️ Your attempt to flee failed!",
+    ],
+    # --- Battle Reward Notifications ---
+    "BATTLE_REWARD_BASE": [
+        "🏆 You defeated the wild {wild_pet_species}! You earned {coin_gain} coins and {xp_gain} EXP.",
+        "🎉 Victory! You received {coin_gain} coins and {xp_gain} EXP for defeating the {wild_pet_species}.",
+        "⚔️ The wild {wild_pet_species} was defeated! You gained {coin_gain} coins and {xp_gain} EXP."
+    ],
+    "BATTLE_REWARD_SATIATED_BONUS": [
+        "> Satiated Bonus! Your pet earned an extra **{bonus_xp} EXP** for being well-fed.",
+        "> Your well-fed pet feels invigorated, earning a bonus of **{bonus_xp} EXP**!",
+        "> Thanks to your excellent care, your pet gets a Satiated Bonus of **{bonus_xp} EXP**."
+    ],
+    "BATTLE_REWARD_LEVEL_UP": [
+        "🌟 Your pet {pet_name} grew to Level {new_level}!",
+        "✨ A surge of power! {pet_name} is now Level {new_level}!",
+        "🔥 {pet_name} has reached Level {new_level}!"
     ],
 
     # Quest Updates
