@@ -18,6 +18,21 @@ from data.quests import QUESTS
 from .views.combat import CombatView # <-- Path updated for new structure
 from data.towns import TOWNS
 
+async def recipe_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    choices = []
+    for recipe_id, recipe_data in RECIPES.items():
+        item_name = recipe_data.get('name', recipe_id)
+        if current.lower() in item_name.lower():
+            choices.append(app_commands.Choice(name=item_name, value=recipe_id))
+    return choices[:25]
+
+# --- NEW: Autocomplete for pet species ---
+async def species_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    choices = []
+    for species_name in PET_DATABASE.keys():
+        if current.lower() in species_name.lower():
+            choices.append(app_commands.Choice(name=species_name, value=species_name))
+    return choices[:25]
 
 class ResetView(discord.ui.View):
     def __init__(self, bot, user_id):
@@ -53,14 +68,6 @@ class ResetView(discord.ui.View):
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    async def recipe_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        choices = []
-        for recipe_id, recipe_data in RECIPES.items():
-            item_name = recipe_data.get('name', recipe_id)
-            if current.lower() in item_name.lower():
-                choices.append(app_commands.Choice(name=item_name, value=recipe_id))
-        return choices[:25]
 
     @app_commands.command(name='heal', description='(Admin Only) Heals your main pet to full HP.')
     @commands.is_owner()
@@ -311,18 +318,6 @@ class Admin(commands.Cog):
 
         await interaction.followup.send(f"Commands synced to **{guild.name}**.", ephemeral=True)
 
-    @add_item.error
-    @add_coins.error
-    @set_level.error
-    @teleport.error
-    @quest.error
-    async def admin_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if isinstance(error, app_commands.NotOwner):
-            await interaction.response.send_message("This is an admin-only command.", ephemeral=True)
-        else:
-            await interaction.response.send_message("An error occurred.", ephemeral=True)
-            print(f"Admin command error: {error}")
-
     @app_commands.command(name='reset', description='(Admin Only) Resets your character to start over.')
     @commands.is_owner()
     async def reset(self, interaction: discord.Interaction):
@@ -382,6 +377,22 @@ class Admin(commands.Cog):
         await db_cog.add_recipe_to_player(interaction.user.id, recipe_id)
 
         await interaction.followup.send(f"Successfully learned recipe: {RECIPES[recipe_id]['name']}.", ephemeral=True)
+
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        """Handles errors for all commands in this cog."""
+        if isinstance(error, app_commands.NotOwner):
+            await interaction.response.send_message("This is an admin-only command.", ephemeral=True)
+        else:
+            # It's good practice to log the full error to your console
+            print(f"An unhandled error occurred in the Admin cog: {error}")
+            import traceback
+            traceback.print_exc()
+
+            # Send a generic message to the user
+            if interaction.response.is_done():
+                await interaction.followup.send("An unexpected error occurred.", ephemeral=True)
+            else:
+                await interaction.response.send_message("An unexpected error occurred.", ephemeral=True)
 
 
 async def setup(bot):
