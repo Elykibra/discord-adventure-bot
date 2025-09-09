@@ -14,6 +14,7 @@ from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE
 from utils.helpers import get_status_bar, get_town_embed, check_quest_progress, get_notification
 from core.battle_engine import BattleState  # <-- Key Change: Importing from core
+from .resources import ACTION_COSTS
 from .views.towns import TownView, WildsView
 from .views.combat import CombatView
 
@@ -63,14 +64,29 @@ class Adventure(commands.Cog):
             await interaction.response.defer()
             db_cog = self.bot.get_cog('Database')
             player_data = await db_cog.get_player(user_id)
-            energy_cost = 10
-            if player_data['current_energy'] < energy_cost:
-                no_energy_message = get_notification("ACTION_FAIL_NO_ENERGY", cost=energy_cost)
+
+            explore_cost = ACTION_COSTS.get("explore", {}).get("energy", 0)
+            if player_data['current_energy'] < explore_cost:
+                no_energy_message = get_notification("ACTION_FAIL_NO_ENERGY", cost=explore_cost)
                 if view_context:
-                    await view_context.update_with_activity_log(no_energy_message)
+                    await view_context.update_with_activity_log([no_energy_message])
                 return
 
-            await db_cog.update_player(user_id, current_energy=player_data['current_energy'] - energy_cost)
+            resource_cog = self.bot.get_cog('Resources')
+            if resource_cog:
+                await resource_cog.spend_resources(user_id, "explore")
+
+            # 1. Check for the "Well-Rested" buff
+            energy_percentage = player_data.get('current_energy', 100) / player_data.get('max_energy', 100)
+            is_well_rested = energy_percentage >= 0.9  # 90-100% energy
+
+            # 2. Adjust the encounter weights
+            pet_chance = 35
+            if is_well_rested:
+                pet_chance += 5  # Increase pet encounter chance by 5%
+
+            weights = [45, pet_chance, 20]  # item, pet, nothing
+
             active_quests = await db_cog.get_active_quests(user_id)
             is_on_tutorial_battle_step = any(
                 q['quest_id'] == 'a_guildsmans_first_steps' and q['progress'].get('count', 0) == 3 for q in
@@ -80,6 +96,10 @@ class Adventure(commands.Cog):
                 outcome = "tutorial_pet"
             else:
                 outcome = random.choices(["item", "pet", "nothing"], weights=[45, 35, 20], k=1)[0]
+
+            activity_log_list = []
+            if is_well_rested:
+                activity_log_list.append(get_notification("PLAYER_BUFF_WELL_RESTED"))
 
             if outcome == "item" or outcome == "nothing":
                 activity_log_text = ""
@@ -159,6 +179,10 @@ class Adventure(commands.Cog):
                                      "passive_ability": assigned_passive}
 
                 wild_pet_instance['is_gloom_touched'] = wild_pet_base.get('is_gloom_touched', False)
+
+                resource_cog = self.bot.get_cog('Resources')
+                if resource_cog:
+                    await resource_cog.spend_resources(user_id, "battle")
 
                 combat_message = await interaction.channel.send(
                     f"A wild pet appears before {interaction.user.mention}...",

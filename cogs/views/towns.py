@@ -321,6 +321,15 @@ class TownView(discord.ui.View):
         await interaction.edit_original_response(embed=new_embed, view=self)
 
     async def travel_callback(self, interaction: discord.Interaction):
+        # We will add the resource check and spending logic here.
+        # For now, this is a placeholder for where the logic would go
+        # as the travel action itself is not fully built out.
+
+        # --- Example of future logic ---
+        # resource_cog = self.bot.get_cog('Resources')
+        # if resource_cog:
+        #     await resource_cog.spend_resources(self.user_id, "travel")
+
         await interaction.response.defer(ephemeral=True)
         town_data = TOWNS.get(self.town_id, {})
         connections = town_data.get('connections', {})

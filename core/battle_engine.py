@@ -378,14 +378,38 @@ class BattleState:
 
     async def grant_battle_rewards(self):
         base_xp = XP_REWARD_BY_RARITY.get(self.wild_pet['rarity'], 20)
+
+        hunger_percentage = (self.player_pet.get('hunger', 0) / 100)
+        is_satiated = hunger_percentage >= 0.9  # 90-100% hunger
+
+        # 2. Calculate EXP with the potential bonus
         xp_gain = max(5, math.floor(base_xp * (self.wild_pet['level'] / self.player_pet['level']) * 1.5))
+        satiated_bonus_xp = 0
+        if is_satiated:
+            satiated_bonus_xp = math.ceil(xp_gain * 0.05)
+            xp_gain += satiated_bonus_xp
+
         coin_gain = random.randint(5, 15) * self.wild_pet['level']
 
         updated_pet, leveled_up = await self.db_cog.add_xp(self.player_pet['pet_id'], xp_gain)
         await self.db_cog.add_coins(self.user_id, coin_gain)
         self.player_pet = updated_pet
 
-        result_log = f"🏆 You defeated the wild {self.wild_pet['species']}! You earned {coin_gain} coins and {xp_gain} EXP."
+        log_list = [get_notification(
+            "BATTLE_REWARD_BASE",
+            wild_pet_species=self.wild_pet['species'],
+            coin_gain=coin_gain,
+            xp_gain=xp_gain
+        )]
+
+        if is_satiated:
+            log_list.append(get_notification("BATTLE_REWARD_SATIATED_BONUS", bonus_xp=satiated_bonus_xp))
+
         if leveled_up:
-            result_log += f"\n🌟 Your pet {self.player_pet['name']} grew to Level {self.player_pet['level']}!"
-        return result_log
+            log_list.append(get_notification(
+                "BATTLE_REWARD_LEVEL_UP",
+                pet_name=self.player_pet['name'],
+                new_level=self.player_pet['level']
+            ))
+
+        return "\n".join(log_list)
