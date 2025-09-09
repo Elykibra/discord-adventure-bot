@@ -110,4 +110,14 @@ NOTIFICATIONS = {
         "❤️ [!] {pet_name} is already at full health!",
         "🩹 [!] No healing needed — {pet_name} has max HP.",
     ],
+    "PET_EQUIP_SUCCESS": [
+        "🛡️ You equipped the {item_name} on {pet_name}.",
+        "✨ {pet_name} is now holding the {item_name}!",
+        "✅ The {item_name} has been given to {pet_name} to hold."
+    ],
+    "ACTION_FAIL_GENERIC": [
+        "❌ That action could not be completed.",
+        "⚠️ An unexpected error occurred. Please try again.",
+        "❗ Something went wrong."
+    ],
 }

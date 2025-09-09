@@ -76,11 +76,19 @@ class Database(commands.Cog):
         """Populates the 'items' table from the ITEMS dictionary."""
         async with self.pool.acquire() as conn:
             for item_id, item_data in ITEMS.items():
+
+                # --- THIS IS THE FIX ---
+                # We check if the category is a list and convert it to a JSON string if it is.
+                category = item_data.get('category')
+                if isinstance(category, list):
+                    category = json.dumps(category)
+
                 await conn.execute(
                     '''INSERT INTO items (item_id, name, description, category, price)
                        VALUES ($1, $2, $3, $4, $5) ON CONFLICT (item_id) DO NOTHING''',
                     item_id, item_data.get('name'), item_data.get('description'),
-                    item_data.get('category'), item_data.get('price')
+                    category,  # Use the potentially converted category here
+                    item_data.get('price')
                 )
 
     def cog_unload(self):

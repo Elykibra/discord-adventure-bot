@@ -192,16 +192,16 @@ class PetView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def get_pet_status_embed(self):
+        # --- main pet indicator ---
         pet = self.main_pet_object
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
 
         rarity_colors = {"Starter": discord.Color.light_grey(), "Common": discord.Color.dark_grey(),
                          "Uncommon": discord.Color.green(), "Rare": discord.Color.blue(),
                          "Legendary": discord.Color.gold()}
         color = rarity_colors.get(pet.rarity, discord.Color.light_grey())
 
-        # --- main pet indicator ---
-        db_cog = self.bot.get_cog('Database')
-        player_data = await db_cog.get_player(self.user_id)
         is_main_pet = player_data.get('main_pet_id') == pet.pet_id
         indicator = "👑 " if is_main_pet else ""
 
@@ -220,13 +220,19 @@ class PetView(discord.ui.View):
         xp_bar = _create_progress_bar(pet.xp, xp_for_next_level)
         embed.add_field(name="Experience", value=f"✨ {xp_bar} ({pet.xp}/{xp_for_next_level})", inline=False)
 
+        # Fetch charm data and include it in the details
+        pet_db_data = await db_cog.get_pet(pet.pet_id) # Get fresh data to be sure
+        equipped_charm_id = pet_db_data.get('equipped_charm')
+        charm_name = ITEMS.get(equipped_charm_id, {}).get('name', 'None')
+
         # --- Pet Details (Left Column) ---
         pet_type_str = " / ".join(pet.pet_type) if isinstance(pet.pet_type, list) else pet.pet_type
         details_text = (
             f"**Rarity:** {pet.rarity}\n"
             f"**Type:** {pet_type_str}\n"
             f"**Personality:** {pet.personality}\n"
-            f"**Talent:** {pet.passive_ability or 'None'}"
+            f"**Talent:** {pet.passive_ability or 'None'}\n"
+            f"**Charm:** {charm_name}"
         )
         embed.add_field(name="Details", value=details_text, inline=True)
 
@@ -313,16 +319,22 @@ class CharacterView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         db_cog = self.bot.get_cog('Database')
 
-        player_data = await db_cog.get_player(self.user_id)
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
         inventory_data = await db_cog.get_player_inventory(self.user_id)
 
         # Create an instance of the BagView
-        bag_view = BagView(self.bot, self.user_id, player_data, inventory_data)
+        bag_view = BagView(
+            self.bot,
+            self.user_id,
+            player_and_pet_data['player_data'],
+            player_and_pet_data['main_pet_data'], # Pass the pet data
+            inventory_data
+        )
         await bag_view.rebuild_ui()
         embed = bag_view.create_embed()
 
-        # Send the new view and embed
-        await interaction.followup.send(embed=embed, view=bag_view, ephemeral=True)
+        message = await interaction.followup.send(embed=embed, view=bag_view, ephemeral=True)
+        bag_view.message = message
 
     async def on_timeout(self):
         if self.message:
