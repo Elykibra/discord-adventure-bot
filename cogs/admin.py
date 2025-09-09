@@ -12,6 +12,7 @@ import io
 # The data imports are already correct. We just need to fix the view import.
 from data.items import ITEMS
 from data.pets import PET_DATABASE
+from data.recipes import RECIPES
 from data.skills import PET_SKILLS
 from data.quests import QUESTS
 from .views.combat import CombatView # <-- Path updated for new structure
@@ -52,6 +53,14 @@ class ResetView(discord.ui.View):
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def recipe_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        choices = []
+        for recipe_id, recipe_data in RECIPES.items():
+            item_name = recipe_data.get('name', recipe_id)
+            if current.lower() in item_name.lower():
+                choices.append(app_commands.Choice(name=item_name, value=recipe_id))
+        return choices[:25]
 
     @app_commands.command(name='heal', description='(Admin Only) Heals your main pet to full HP.')
     @commands.is_owner()
@@ -358,6 +367,22 @@ class Admin(commands.Cog):
         file = discord.File(data_stream, filename=f"{user.name}_data.json")
 
         await interaction.followup.send(f"Here is the data export for {user.name}:", file=file, ephemeral=True)
+
+    @app_commands.command(name='learnrecipe', description='(Admin Only) Teaches your character a recipe.')
+    @app_commands.autocomplete(recipe_id=recipe_autocomplete)  # We'll need to define this autocomplete
+    @commands.is_owner()
+    async def learn_recipe(self, interaction: discord.Interaction, recipe_id: str):
+        """Teaches the player a specific recipe."""
+        await interaction.response.defer(ephemeral=True)
+        if recipe_id not in RECIPES:
+            return await interaction.followup.send(f"Error: Recipe ID '{recipe_id}' not found.", ephemeral=True)
+
+        db_cog = self.bot.get_cog('Database')
+        # We need a new database function for this
+        await db_cog.add_recipe_to_player(interaction.user.id, recipe_id)
+
+        await interaction.followup.send(f"Successfully learned recipe: {RECIPES[recipe_id]['name']}.", ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))

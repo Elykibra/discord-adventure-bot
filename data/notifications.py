@@ -120,4 +120,36 @@ NOTIFICATIONS = {
         "⚠️ An unexpected error occurred. Please try again.",
         "❗ Something went wrong."
     ],
+
+    # --- Crafting Process Notifications ---
+
+    "CRAFT_SUCCESS": [
+        "🎉 You successfully crafted {quantity}x {item_name}!",
+        "✅ Success! {quantity}x {item_name} has been added to your inventory.",
+        "✨ With a final touch, you complete your work. You've made {quantity}x {item_name}!"
+    ],
+
+    #Trail Morsels Recipe
+    "CRAFT_GRIND_DRY": [
+        "You crush the dry ingredients into a rough paste...",
+        "Grinding the components together, you form a thick slurry...",
+        "You carefully mill the materials into a fine powder..."
+    ],
+    "CRAFT_FORM_PASTE": [
+        "After drying, the paste forms into simple, effective morsels.",
+        "You shape the mixture into small, travel-ready cakes.",
+        "The resulting paste is rolled into bite-sized pieces."
+    ],
+
+    #Hearty Stew Recipe
+    "CRAFT_SIMMER_INGREDIENTS": [
+        "The Chef simmers the ingredients in a large cauldron...",
+        "The ingredients are added to a bubbling pot...",
+        "You watch as the mixture slowly cooks over a low flame..."
+    ],
+    "CRAFT_STEW_AROMA": [
+        "The rich aroma of a well-made stew fills the air.",
+        "A delicious and savory smell begins to rise from the pot.",
+        "The scent of a hearty meal is unmistakable."
+    ],
 }

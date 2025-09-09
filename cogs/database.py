@@ -150,6 +150,17 @@ class Database(commands.Cog):
         records = await self.pool.fetch('SELECT user_id, username FROM players ORDER BY username')
         return self._records_to_list_of_dicts(records)
 
+    async def add_recipe_to_player(self, user_id: int, recipe_id: str) -> None:
+        """Adds a learned recipe to a player's recipe book."""
+        query = '''INSERT INTO player_recipes (user_id, recipe_id)
+                   VALUES ($1, $2) ON CONFLICT DO NOTHING'''
+        await self.pool.execute(query, user_id, recipe_id)
+
+    async def get_player_recipes(self, user_id: int) -> List[str]:
+        """Retrieves a list of recipe IDs a player has learned."""
+        records = await self.pool.fetch('SELECT recipe_id FROM player_recipes WHERE user_id = $1', user_id)
+        return [row['recipe_id'] for row in records]
+
     # --- Pet Management ---
     async def add_pet(self, owner_id: int, name: str, species: str, description: str, rarity: str, pet_type: any,
                       skills: list, current_hp: int, max_hp: int, attack: int, defense: int, special_attack: int,

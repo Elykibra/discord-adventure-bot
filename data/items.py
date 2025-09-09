@@ -296,4 +296,45 @@ ITEMS = {
             }
         }
     },
+
+    # --- NEW: Pet Food Items ---
+    "trail_morsels": {
+        "name": "Trail Morsels",
+        "description": "A basic but nutritious meal made from common ingredients. Restores 20 Hunger to a pet.",
+        "dropdown_description": "Restores pet hunger.",
+        "menu_description": "Restores 20 Hunger to a pet.",
+        "category": "Consumables",
+        "price": 15,
+        "actions": ["use", "drop", "inspect"],
+        "effect": {
+            "type": "restore_hunger",
+            "value": 20
+        }
+    },
+    "hearty_stew": {
+        "name": "Hearty Stew",
+        "description": "A thick, aromatic stew that restores 50 Hunger and slightly boosts a pet's Defense for their next battle.",
+        "dropdown_description": "Restores a large amount of hunger.",
+        "menu_description": "Restores 50 Hunger and grants a temporary Defense boost.",
+        "category": "Consumables",
+        "price": 50,
+        "actions": ["use", "drop", "inspect"],
+        "effect": {
+            "type": "restore_hunger",
+            "value": 50
+        }
+    },
+    "energy_biscuit": {
+        "name": "Energy Biscuit",
+        "description": "An enchanted biscuit that restores 30 Hunger and boosts a pet's Speed for their next battle.",
+        "dropdown_description": "Restores hunger and grants a temporary buff.",
+        "menu_description": "Restores 30 Hunger and grants a temporary Speed boost.",
+        "category": "Consumables",
+        "price": 75,
+        "actions": ["use", "drop", "inspect"],
+        "effect": {
+            "type": "restore_hunger",
+            "value": 30
+        }
+    }
 }
