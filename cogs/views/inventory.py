@@ -19,10 +19,36 @@ class BagView(discord.ui.View):
         self.main_pet_data = main_pet_data
         self.inventory = inventory
         self.message = None
-        self.current_filter = "All"
+        self.current_filter = "Consumables"
         self.selected_item_id = None
         self.is_selecting_pet = False
         self.pending_action = None
+
+    async def initial_setup(self):
+        """This function will be called right after creation."""
+        await self.rebuild_ui()
+
+    def add_filter_buttons(self):
+        """Rebuilds the filter buttons with the new dynamic emoji style."""
+        # --- THIS IS THE FIX ---
+        filters = {
+            "Consumables": "🍎",
+            "Gear": "🛡️",
+            "Crafting Materials": "⛏️",
+            "Orbs": "🔮",
+            "Key Items": "🔑"
+        }
+
+        for name, emoji in filters.items():
+            is_active = (self.current_filter == name)
+
+            label = f"{emoji} {name}" if is_active else emoji
+            style = discord.ButtonStyle.blurple if is_active else discord.ButtonStyle.secondary
+
+            # Use the full name in the custom_id for the callback
+            button = discord.ui.Button(label=label, style=style, custom_id=f"filter_{name}", row=0)
+            button.callback = self.filter_button_callback
+            self.add_item(button)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
@@ -78,33 +104,32 @@ class BagView(discord.ui.View):
         else:
             self.add_action_buttons()
 
-    def add_filter_buttons(self):
-        filters = ["All", "Consumables", "Gear", "Crafting Materials", "Key Items"]
-        for f in filters:
-            label = "Crafting" if f == "Crafting Materials" else f
-            button = discord.ui.Button(label=label,
-                                       style=discord.ButtonStyle.green if self.current_filter == f else discord.ButtonStyle.secondary,
-                                       custom_id=f"filter_{f}")
-            button.callback = self.filter_button_callback
-            self.add_item(button)
-
     def add_item_dropdown(self):
+        """Updates the dropdown logic to handle the new 'Orbs' category."""
         inventory_dict = {item['item_id']: item['quantity'] for item in self.inventory}
 
         options = []
         for item_id, data in ITEMS.items():
             if item_id in inventory_dict:
-                item_category = data.get('category', 'Misc')
-
                 # --- THIS IS THE FIX ---
-                # Check if the current filter is "All" OR
-                # if the category is a list and the filter is in it OR
-                # if the category is a string and it matches the filter.
-                is_in_category = (
-                        self.current_filter == "All" or
-                        (isinstance(item_category, list) and self.current_filter in item_category) or
-                        (isinstance(item_category, str) and self.current_filter == item_category)
-                )
+                # This logic now correctly filters for Orbs and other categories.
+                is_in_category = False
+                category = data.get('category')
+
+                if self.current_filter == "Orbs":
+                    # Special case for Orbs, which are Consumables with orb_data
+                    if category == "Consumables" and 'orb_data' in data:
+                        is_in_category = True
+                elif self.current_filter == "Consumables":
+                    # For the main Consumables tab, we now exclude Orbs
+                    if category == "Consumables" and 'orb_data' not in data:
+                        is_in_category = True
+                else:
+                    # Standard category check for Gear, Materials, Key Items
+                    if isinstance(category, list) and self.current_filter in category:
+                        is_in_category = True
+                    elif isinstance(category, str) and self.current_filter == category:
+                        is_in_category = True
 
                 if is_in_category:
                     options.append(

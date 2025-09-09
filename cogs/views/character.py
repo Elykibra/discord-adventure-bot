@@ -328,10 +328,11 @@ class CharacterView(discord.ui.View):
             self.bot,
             self.user_id,
             player_and_pet_data['player_data'],
-            player_and_pet_data['main_pet_data'], # Pass the pet data
+            player_and_pet_data['main_pet_data'],
             inventory_data
         )
-        await bag_view.rebuild_ui()
+        await bag_view.initial_setup()
+
         embed = bag_view.create_embed()
 
         message = await interaction.followup.send(embed=embed, view=bag_view, ephemeral=True)
