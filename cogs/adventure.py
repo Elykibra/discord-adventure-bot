@@ -38,13 +38,12 @@ class Adventure(commands.Cog):
         embed = None
 
         if location_data.get('is_wilds', False):
-            # We assume WildsView is now in cogs/views/towns.py
             view = WildsView(self.bot, interaction, location_id)
             embed = view.embed
         else:
             embed = await get_town_embed(self.bot, interaction.user.id, location_id)
-            # We assume TownView is now in cogs/views/towns.py
             view = TownView(self.bot, interaction, location_id)
+            await view.initial_setup()
 
         player_and_pet_data = await db_cog.get_player_and_pet_data(interaction.user.id)
         if player_and_pet_data:
@@ -189,6 +188,8 @@ class Adventure(commands.Cog):
                     silent=True
                 )
 
+                initial_log = f"A wild Level {wild_pet_instance['level']} **{wild_pet_instance['species']}** appeared!"
+
                 # Create the CombatView, passing it all the necessary information
                 combat_view = CombatView(
                     bot=self.bot,
@@ -198,7 +199,8 @@ class Adventure(commands.Cog):
                     message=combat_message,
                     parent_interaction=interaction,
                     origin_location_id=location_id,
-                    view_context=view_context
+                    view_context=view_context,
+                    initial_log_message=initial_log
                 )
 
         except Exception as e:

@@ -1,11 +1,8 @@
 # utils/helpers.py
-# This file contains all shared helper functions.
-
 import discord
 import random
 from typing import Any, Dict, List
 
-# We import from our new data and utils layers
 from data.items import ITEMS
 from data.notifications import NOTIFICATIONS
 from data.quests import QUESTS
@@ -14,7 +11,7 @@ from .constants import PET_IMAGE_URLS, CREST_RANKS, DEFENSIVE_TYPE_CHART
 from data.towns import TOWNS
 
 async def get_town_embed(bot, user_id, town_id):
-    """Creates a dynamic embed for a town, showing the correct description for day or night."""
+    """Creates a dynamic embed for a town without the status bar."""
     db_cog = bot.get_cog('Database')
     player_data = await db_cog.get_player(user_id)
     time_of_day = player_data.get('day_of_cycle', 'day')
@@ -28,15 +25,8 @@ async def get_town_embed(bot, user_id, town_id):
         description=description,
         color=discord.Color.blue()
     )
-    # --- NEW: This block adds the banner image ---
     if town_image_url := town_info.get("image_url"):
         embed.set_image(url=town_image_url)
-    # --- END OF NEW BLOCK ---
-
-    player_and_pet_data = await db_cog.get_player_and_pet_data(user_id)
-    if player_and_pet_data:
-        status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
-        embed.set_footer(text=status_bar)
     return embed
 
 def get_player_rank_info(num_crests):
@@ -190,11 +180,28 @@ async def apply_effect(db_cog, target, effect_data):
     # ... add more elifs for "apply_status", etc.
 
 
-def get_type_multiplier(attack_type: str, defender_types: list) -> float:
+def get_type_multiplier(attack_type: str, defender_types: list, active_effects: List[Dict[str, Any]] = None) -> float:
     """
     Calculates the damage multiplier based on the attack type and the defender's type(s).
-    Returns the final multiplier (e.g., 2.0 for super effective, 0.5 for not very effective, 0.0 for immune).
+    Returns the final multiplier (e.g., 2.0, 0.5, 0.0).
+    Now includes logic for status effects that alter type matchups.
     """
+    if active_effects is None:
+        active_effects = []
+
+    # --- NEW: Type Alteration Status Check ---
+    is_earthbound = any(eff.get("status_effect") == "earthbound" for eff in active_effects)  #
+
+    # Create a local copy to modify for this calculation only
+    local_defender_types = list(defender_types) if isinstance(defender_types, list) else [defender_types]
+
+    # If the pet is Earthbound, remove its Flying type for Ground attacks
+    if is_earthbound and attack_type == "Ground" and "Flying" in local_defender_types:
+        local_defender_types = [t for t in local_defender_types if t != "Flying"]
+        # If the pet was purely Flying type, it's now treated as Normal for this hit
+        if not local_defender_types:
+            local_defender_types.append("Normal")
+
     total_multiplier = 1.0
 
     # Ensure defender_types is a list
@@ -324,37 +331,30 @@ async def check_quest_progress(bot, user_id, action_type, context=None):
 
                 return messages_to_return  # Return the list, which might be empty or full of messages
 
+
 def get_notification(key: str, **kwargs) -> str:
     """
     Fetches a random notification template by its key, formats it with
     the provided arguments, and returns the final string.
     """
-    message_templates = NOTIFICATIONS.get(key)
-    if not message_templates:
-        # Return a clear error message if the key doesn't exist
+    templates = NOTIFICATIONS.get(key)
+    if not templates:
         return f"Error: Missing notification for key: {key}"
 
-    # Select a random message from the list
-    template = random.choice(message_templates)
+    # This handles cases where there's only one message (a string) vs a list
+    if isinstance(templates, str):
+        templates = [templates]
 
-    # Fill in the variables (e.g., amount, pet_name)
+    template = random.choice(templates)
     try:
         return template.format(**kwargs)
     except KeyError as e:
-        # Return an error if a required variable is missing
         return f"Error: Missing variable {e} for notification key: {key}"
 
 
 def format_log_block(log_list: list[str]) -> str:
-    """
-    Takes a list of log messages and formats them into a single
-    Discord block quote string, with each line italicized.
-    """
-    if not log_list:
-        return ""
-
-    # Add "> *" to the start and "*" to the end of each line
-    formatted_lines = [f"> *{line}*" for line in log_list]
-
-    # Join them into a single string
+    if not log_list: return ""
+    # Ensure all items in the list are strings
+    safe_list = [str(item) for item in log_list]
+    formatted_lines = [f"> {line.strip()}" for line in safe_list]
     return "\n".join(formatted_lines)
