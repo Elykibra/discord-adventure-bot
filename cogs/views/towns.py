@@ -4,6 +4,7 @@ import discord
 import traceback
 import textwrap
 
+from cogs.resources import ACTION_COSTS
 # --- REFACTORED IMPORTS ---
 from data.items import ITEMS
 from data.towns import TOWNS
@@ -75,19 +76,17 @@ class WildsView(discord.ui.View):
         await db_cog.update_player(self.user_id, current_location=town_connection_id)
         new_embed = await get_town_embed(self.bot, self.user_id, town_connection_id)
         new_view = TownView(self.bot, self.original_interaction, town_connection_id)
+        await new_view.initial_setup()
         await interaction.edit_original_response(embed=new_embed, view=new_view)
         new_view.message = await interaction.original_response()
 
-    async def update_with_activity_log(self, activity_log: str):
-        """Helper to refresh the WildsView with an activity log."""
+    async def update_with_activity_log(self, activity_log_list: list[str]):
         db_cog = self.bot.get_cog('Database')
         player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
-
-        new_embed = self.build_embed(activity_log)
+        new_embed = self.build_embed(activity_log_list)
         if player_and_pet_data:
             status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
             new_embed.set_footer(text=status_bar)
-
         await self.message.edit(embed=new_embed, view=self)
 
 
@@ -118,6 +117,7 @@ class TravelView(discord.ui.View):
         else:
             new_embed = await get_town_embed(self.bot, self.original_interaction.user.id, destination_id)
             new_view = TownView(self.bot, self.original_interaction, destination_id)
+            await new_view.initial_setup()
 
         player_and_pet_data = await db_cog.get_player_and_pet_data(self.original_interaction.user.id)
         if player_and_pet_data:
@@ -139,6 +139,9 @@ class TownView(discord.ui.View):
         self.message = None
         self.town_id = town_id
         self.current_sub_location_id = None
+
+    async def initial_setup(self):
+        """Asynchronously build the initial UI."""
         self.build_ui()
 
     # --- NEW HELPER TO BUILD THE SUB-LOCATION EMBED ---
@@ -321,20 +324,23 @@ class TownView(discord.ui.View):
         await interaction.edit_original_response(embed=new_embed, view=self)
 
     async def travel_callback(self, interaction: discord.Interaction):
-        # We will add the resource check and spending logic here.
-        # For now, this is a placeholder for where the logic would go
-        # as the travel action itself is not fully built out.
-
-        # --- Example of future logic ---
-        # resource_cog = self.bot.get_cog('Resources')
-        # if resource_cog:
-        #     await resource_cog.spend_resources(self.user_id, "travel")
-
         await interaction.response.defer(ephemeral=True)
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+
+        travel_cost = ACTION_COSTS.get("travel", {}).get("energy", 0)
+        if player_data['current_energy'] < travel_cost:
+            return await interaction.followup.send(
+                f"You don't have enough energy to travel. You need at least {travel_cost} energy.",
+                ephemeral=True
+            )
+
         town_data = TOWNS.get(self.town_id, {})
         connections = town_data.get('connections', {})
         if not connections:
             return await interaction.followup.send("There's nowhere to travel to from here.", ephemeral=True)
+
+        # We now pass the resource cog and user_id to the TravelView
         travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message)
         await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
 
@@ -351,11 +357,15 @@ class TownView(discord.ui.View):
         async def talk_callback(interaction: discord.Interaction):
             await interaction.response.defer()
             db_cog = self.bot.get_cog('Database')
-            node, npc_data = await self._get_dialogue_node(npc_id)
+            node, _ = await self._get_dialogue_node(npc_id)
+            log_list = []
+
+
             if not node:
-                dialogue_text = "They have nothing to say to you right now."
+                log_list.append("They have nothing to say to you right now.")
             else:
                 dialogue_text = node.get("text", "...")
+                log_list.append(dialogue_text)
 
                 if node.get("action") == "grant_item":
                     item_id = node.get("item_id")
@@ -367,12 +377,13 @@ class TownView(discord.ui.View):
 
                 if node.get("action") == "grant_quest":
                     await db_cog.add_quest(self.user_id, node.get("quest_id"))
-                await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id})
 
-            new_embed = await self._build_sublocation_embed(location_info, dialogue_log=dialogue_text)
-            await interaction.edit_original_response(embed=new_embed, view=self)
+                quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id})
+                if quest_updates:
+                    log_list.extend(quest_updates)
 
-        return talk_callback
+                await self.update_with_activity_log(log_list)
+            return talk_callback
 
     async def _get_dialogue_node(self, npc_id):
         npc_data = DIALOGUES.get(npc_id, {})
@@ -430,16 +441,7 @@ class TownView(discord.ui.View):
         await self.message.edit(embed=embed, view=self)
 
     async def update_with_activity_log(self, log_list: list[str]):
-        """
-        The single, authoritative function to refresh the TownView with a new activity log.
-        """
         location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
-
-        # Call our clean embed builder
         new_embed = await self._build_sublocation_embed(location_info, log_list=log_list)
-
-        # Rebuild the buttons to ensure their state is fresh
         self.build_ui()
-
-        # Edit the message with the updated embed and view
         await self.message.edit(embed=new_embed, view=self)

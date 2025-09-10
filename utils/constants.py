@@ -28,7 +28,7 @@ PET_IMAGE_URLS = {
     "Ignis": "https://placehold.co/100x100/D22B2B/FFFFFF?text=Ignis",
     "Chronomus": "https://placehold.co/100x100/9400D3/FFFFFF?text=Chronomus",
     "Nexus": "https://placehold.co/100x100/FFD700/000000?text=Nexus",
-    "Corroder": "https://placehold.co/100x100/696969/ffffff?text=Corroder",
+    "Corroder": "https://cdn.discordapp.com/attachments/1409396022022770759/1415058473976201226/Corroder.png?ex=68c1d366&is=68c081e6&hm=1a91e4d52132a90a46630def43568c383077e499e7bd1939a1a3ba7f40148b8a&",
 }
 
 #Pet types
