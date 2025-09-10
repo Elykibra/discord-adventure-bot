@@ -411,17 +411,13 @@ class BattleState:
                 )
 
         # --- Defender's Passive on_hit (Runs for all move types) ---
-
         defender_passive = defender.get('passive_ability')
         passive_name = defender_passive.get('name') if isinstance(defender_passive, dict) else defender_passive
         if passive_name and passive_name in PASSIVE_HANDLERS_ON_HIT:
             handler = PASSIVE_HANDLERS_ON_HIT[passive_name]
-
             attacker_fx = self.player_pet_effects if is_player else self.wild_pet_effects
-            defender_fx = self.wild_pet_effects if is_player else self.player_pet_effects
-
             await handler(attacker=attacker, defender=defender, turn_log_lines=log_list, skill_info=skill_info,
-                          attacker_effects_list=attacker_fx, defender_effects_list=defender_fx)
+                          attacker_effects_list=attacker_fx)
 
         return defender['current_hp'] <= 0, "\n".join(log_list)
 

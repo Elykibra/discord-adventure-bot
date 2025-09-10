@@ -500,19 +500,16 @@ async def handle_flame_body(attacker: dict, defender: dict, turn_log_lines: List
             attacker=defender,
         )
 
+async def handle_fortress_form(defender: dict, turn_log_lines: List[str], **kwargs):
+    """Handles the Fortress Form passive. Boosts defense when hit (placeholder)."""
+    turn_log_lines.append(f"› {defender.get('name', defender.get('species','Defender'))}'s Fortress Form activates, bolstering its defenses!")
+    # TODO: actually add a temporary defense buff via target_effects_list when called from combat flow.
 
-async def handle_fortress_form(defender: dict, turn_log_lines: List[str], defender_effects_list: List[dict], **kwargs):
-    """Handles the Fortress Form passive. Boosts defense when hit."""
-    turn_log_lines.append(f"› {format_pet_name(defender)}'s Fortress Form activates, bolstering its defenses!")
-
-    # Call our existing stat_change handler to apply the buff
-    await handle_stat_change(
-        target=defender,
-        target_effects_list=defender_effects_list,
-        effect_data={"stat": "defense", "modifier": 1.3, "duration": 3},  # +30% Def for 3 turns
-        turn_log_lines=turn_log_lines,
-        attacker=defender  # The pet is buffing itself
-    )
+# Register passives
+PASSIVE_HANDLERS_ON_HIT.update({
+    "Flame Body": handle_flame_body,
+    "Fortress Form": handle_fortress_form,
+})
 
 async def tick_effects_for_pet(pet: dict, effects_list: List[dict], is_player: bool, turn_log_lines: List[str], source_pet: dict = None, battle_state=None) -> bool:
     """Process lingering effects. Now checks for null_field."""
