@@ -7,12 +7,15 @@ RECIPES = {
         "type": "Field",
         "discipline": "Alchemy",
         "required_rank": "Novice",
-        "ingredients": { "whisperbark_shard": 3 },
+        "ingredients": {
+            "whisperbark_shard": 2,
+            "spiritspring_moss": 1},
         "dropdown_description": "Heals your pet for 20 HP.",
-        "menu_description": "A healing salve made from forest moss that restores 20 HP to a pet.",
+        "menu_description": "A healing salve made from forest moss. Heals for 20 HP.",
         "process_log": [
-            "You grind the whisperbark shards into a fine powder...",
-            "Mixing the powder with a bit of water, you form a soothing balm."
+            "You grind the whisperbark shards into a fine, aromatic powder...",
+            "Carefully mixing in the glowing moss with a bit of clean water...",
+            "The mixture thickens into a soothing, herbal balm."
         ]
     },
     "trail_morsels": {

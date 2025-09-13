@@ -156,14 +156,23 @@ class Admin(commands.Cog):
 
     @app_commands.command(name='additem', description='(Admin Only) Adds an item to your inventory.')
     @commands.is_owner()
-    async def add_item(self, interaction: discord.Interaction, item_id: str, quantity: int = 1):
+    # Add an optional 'data' parameter
+    async def add_item(self, interaction: discord.Interaction, item_id: str, quantity: int = 1, data: str = None):
         """Adds a specified quantity of an item to the player's inventory."""
         await interaction.response.defer(ephemeral=True)
+
         if item_id not in ITEMS:
             return await interaction.followup.send(f"Error: Item ID '{item_id}' not found.", ephemeral=True)
 
+        item_data = None
+        if data:
+            try:
+                item_data = json.loads(data)
+            except json.JSONDecodeError:
+                return await interaction.followup.send("Error: Invalid JSON format for data.", ephemeral=True)
+
         db_cog = self.bot.get_cog('Database')
-        await db_cog.add_item_to_inventory(interaction.user.id, item_id, quantity)
+        await db_cog.add_item_to_inventory(interaction.user.id, item_id, quantity, item_data)
         await interaction.followup.send(f"Successfully added {quantity}x {ITEMS[item_id]['name']} to your inventory.",
                                         ephemeral=True)
 

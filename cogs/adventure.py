@@ -122,6 +122,14 @@ class Adventure(commands.Cog):
                 return
 
             elif outcome == "tutorial_pet" or outcome == "pet":
+
+                player_roster = await db_cog.get_all_pets(user_id)
+                main_pet_id = player_data.get('main_pet_id')
+                active_player_pet = next((p for p in player_roster if p['pet_id'] == main_pet_id), player_roster[0])
+                if not active_player_pet or active_player_pet['current_hp'] <= 0:
+                    await interaction.followup.send("Your main pet is unable to battle! Heal it before exploring.", ephemeral=True)
+                    return
+
                 player_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
                 if not player_pet_data or player_pet_data['current_hp'] <= 0:
                     await interaction.followup.send("Your main pet is unable to battle! Heal it before exploring.",
@@ -168,40 +176,52 @@ class Adventure(commands.Cog):
                         elif isinstance(skills, dict) and "choice" in skills:
                             all_learnable_skills.append(random.choice(skills['choice']))
                 active_skills = all_learnable_skills[-4:] if all_learnable_skills else ["pound"]
-                wild_pet_instance = {"species": wild_pet_base['species'], "rarity": wild_pet_base['rarity'],
-                                     "pet_type": wild_pet_base['pet_type'], "level": level,
-                                     "current_hp": calculated_stats['hp'], "max_hp": calculated_stats['hp'],
-                                     "attack": calculated_stats['attack'], "defense": calculated_stats['defense'],
-                                     "special_attack": calculated_stats['special_attack'],
-                                     "special_defense": calculated_stats['special_defense'],
-                                     "speed": calculated_stats['speed'], "skills": active_skills,
-                                     "passive_ability": assigned_passive}
+                wild_pet_instance = {
+                    "species": wild_pet_base['species'], "rarity": wild_pet_base['rarity'],
+                    "pet_type": wild_pet_base['pet_type'], "level": level,
+                    "current_hp": calculated_stats['hp'], "max_hp": calculated_stats['hp'],
+                    "attack": calculated_stats['attack'], "defense": calculated_stats['defense'],
+                    "special_attack": calculated_stats['special_attack'],
+                    "special_defense": calculated_stats['special_defense'],
+                    "speed": calculated_stats['speed'], "skills": active_skills,
+                    "passive_ability": assigned_passive,
+                    "base_hp": base_stats['hp'],
+                    "base_attack": base_stats['attack'],
+                    "base_defense": base_stats['defense'],
+                    "base_special_attack": base_stats['special_attack'],
+                    "base_special_defense": base_stats['special_defense'],
+                    "base_speed": base_stats['speed']
+                }
 
                 wild_pet_instance['is_gloom_touched'] = wild_pet_base.get('is_gloom_touched', False)
+
 
                 resource_cog = self.bot.get_cog('Resources')
                 if resource_cog:
                     await resource_cog.spend_resources(user_id, "battle")
 
-                combat_message = await interaction.channel.send(
-                    f"A wild pet appears before {interaction.user.mention}...",
-                    silent=True
-                )
-
-                initial_log = f"A wild Level {wild_pet_instance['level']} **{wild_pet_instance['species']}** appeared!"
+                spectator_embed = discord.Embed(title="⚔️ A battle is starting...", description="Loading...",
+                                                color=discord.Color.dark_grey())
+                spectator_message = await interaction.channel.send(embed=spectator_embed)
 
                 # Create the CombatView, passing it all the necessary information
                 combat_view = CombatView(
                     bot=self.bot,
                     user_id=user_id,
-                    player_pet=player_pet_data,
+                    player_roster=player_roster, # Pass the full roster
                     wild_pet=wild_pet_instance,
-                    message=combat_message,
+                    spectator_message=spectator_message,
                     parent_interaction=interaction,
                     origin_location_id=location_id,
                     view_context=view_context,
-                    initial_log_message=initial_log
+                    initial_log_message=f"A wild Level {wild_pet_instance['level']} **{wild_pet_instance['species']}** appeared!"
                 )
+
+                control_message = await interaction.followup.send("⚔️ **It's your turn!**", view=combat_view,
+                                                                  ephemeral=True)
+
+                combat_view.message = control_message  # The view now controls this private message
+                await combat_view.initial_setup()
 
         except Exception as e:
             print(f"--- [FATAL ERROR] An exception occurred in explore: {e} ---")

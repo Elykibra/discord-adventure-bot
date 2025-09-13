@@ -42,6 +42,8 @@ class BattleState:
         self.turn_count = 1
         self.turn_log: List[str] = []
         self.gloom_meter = 0
+        self.pending_skill_learns = {}  # Stores {pet_id: skill_id}
+        self.pending_evolutions = []  # Stores [pet_id, pet_id, ...]
         self.purify_charges = 1
         self.pending_player_heal = 0.0
         self.disabled_moves: List[str] = []
@@ -598,7 +600,30 @@ class BattleState:
                     # If not revived, then proceed with the normal faint logic
                     await self.trigger_event("on_faint", subject_pet=defender, source_pet=attacker,
                                              context={"last_move_id": move['skill_id']})
-                    return {"log": "\n".join(self.turn_log), "is_over": True, "win": is_player}
+
+                    # If the player's pet defeated the opponent, grant XP
+                    if is_player:
+                        await self._grant_rewards_for_faint(fainted_pet=defender)
+
+                    # --- FAINT & SWITCH LOGIC ---
+                    # Determine which roster belongs to the fainted defender
+                    fainted_roster = self.opponent_roster if is_player else self.player_roster
+
+                    # Check if any pets in that roster are still conscious
+                    conscious_pets_left = any(p.get('current_hp', 0) > 0 for p in fainted_roster)
+
+                    if conscious_pets_left:
+                        # The battle is NOT over. Signal that a switch is required.
+                        return {
+                            "log": "\n".join(self.turn_log),
+                            "is_over": False,
+                            "switch_required": True,
+                            # Tell the CombatView which side needs to switch
+                            "fainted_side": "opponent" if is_player else "player"
+                        }
+                    else:
+                        # No pets are left on that team. NOW the battle is truly over.
+                        return {"log": "\n".join(self.turn_log), "is_over": True, "win": is_player}
 
         # -------------------------
         # End-of-turn effects
@@ -613,24 +638,118 @@ class BattleState:
         self.turn_count += 1
         return {"log": "\n".join(self.turn_log), "is_over": False}
 
+    async def set_active_player_pet(self, new_pet_id: int) -> str:
+        """
+        Swaps the player's active pet with one from the roster.
+        Returns a log string for the action.
+        """
+        new_pet = next((p for p in self.player_roster if p.get('pet_id') == new_pet_id), None)
+
+        if not new_pet:
+            return "> Error: Pet not found."
+
+        old_pet_name = self.player_pet.get('name', 'Pet')
+        self.player_pet = new_pet
+        self.player_pet_effects.clear()  # Clear temporary effects from the fainted pet
+
+        log_message = f"> You withdrew {old_pet_name} and sent out **{self.player_pet['name']}**!"
+        # Handle on_switch_in logic here in the future if needed
+
+        return log_message
+
+    async def process_player_item_use(self, item_id: str):
+        """
+        Handles the logic for a player using an item during their turn.
+        Returns a results dictionary similar to process_round.
+        """
+        self.turn_log = []
+        item_data = ITEMS.get(item_id)
+        if not item_data:
+            return {"log": "> Invalid item selected.", "is_over": False}
+
+        item_name = item_data.get('name', 'Item')
+        effect = item_data.get('effect')
+
+        # 1. Apply the item's effect
+        if effect and effect.get('type') == 'heal_pet':
+            if self.player_pet['current_hp'] >= self.player_pet['max_hp']:
+                self.turn_log.append(
+                    f"> You used a **{item_name}**, but {self.player_pet['name']} already has full health!")
+            else:
+                heal_amount = effect.get('value', 0)
+                old_hp = self.player_pet['current_hp']
+                self.player_pet['current_hp'] = min(self.player_pet['max_hp'], old_hp + heal_amount)
+                healed = self.player_pet['current_hp'] - old_hp
+                self.turn_log.append(
+                    f"> You used a **{item_name}**, restoring **{healed}** HP to {self.player_pet['name']}!")
+                # 2. Consume the item from inventory
+                await self.db_cog.remove_item_from_inventory(self.user_id, item_id, 1)
+        else:
+            self.turn_log.append(f"> You can't use the **{item_name}** right now.")
+
+        # 3. Process the AI's turn (using an item takes your action)
+        ai_results = await self.process_ai_turn()
+
+        # Combine the logs and return the final state
+        return {
+            "log": ai_results['log'],
+            "is_over": ai_results.get('is_over', False),
+            "win": ai_results.get('win', False)
+        }
+
+
     # -------------------------
     # Other convenience methods (capture / flee / rewards)
     # Keep your existing implementations; simplified here for clarity.
     # -------------------------
     async def attempt_capture(self, orb_id: str):
-        # Use your existing logic; simplified for skeleton
         await self.db_cog.remove_item_from_inventory(self.user_id, orb_id, 1)
         capture_info = await self.get_capture_info(orb_id)
         rate = capture_info['rate']
         orb_name = ITEMS.get(orb_id, {}).get('name', 'Orb')
         self.turn_log = [f"› You used a **{orb_name}**!"]
+
         if random.randint(1, 100) <= rate:
             self.turn_log.append(f"› Gotcha! **{self.wild_pet['species']}** was caught!")
-            # add pet to DB (keep your original call)
+
+            # Extract the name from the passive ability dictionary if it exists
+            passive = self.wild_pet.get('passive_ability')
+            passive_name_to_save = None
+            if isinstance(passive, dict):
+                passive_name_to_save = passive.get('name')
+            elif isinstance(passive, str):
+                passive_name_to_save = passive
+
+            # Call the database to add the pet to the player's collection
+            await self.db_cog.add_pet(
+                owner_id=self.user_id,
+                name=self.wild_pet['species'],  # Defaults to its species name
+                species=self.wild_pet['species'],
+                description=PET_DATABASE.get(self.wild_pet['species'], {}).get('description', ''),
+                rarity=self.wild_pet['rarity'],
+                pet_type=self.wild_pet['pet_type'],
+                skills=self.wild_pet['skills'],
+                # We use the pet's current HP from the battle
+                current_hp=self.wild_pet['current_hp'],
+                max_hp=self.wild_pet['max_hp'],
+                # Pass all the calculated and base stats
+                attack=self.wild_pet['attack'],
+                defense=self.wild_pet['defense'],
+                special_attack=self.wild_pet['special_attack'],
+                special_defense=self.wild_pet['special_defense'],
+                speed=self.wild_pet['speed'],
+                base_hp=self.wild_pet['base_hp'],
+                base_attack=self.wild_pet['base_attack'],
+                base_defense=self.wild_pet['base_defense'],
+                base_special_attack=self.wild_pet['base_special_attack'],
+                base_special_defense=self.wild_pet['base_special_defense'],
+                base_speed=self.wild_pet['base_speed'],
+                passive_ability=passive_name_to_save
+            )
+
             return {"log": "\n".join(self.turn_log), "is_over": True, "win": True, "captured": True}
         else:
             self.turn_log.append(f"› Oh no! The wild **{self.wild_pet['species']}** broke free!")
-            # Let AI take a turn for penalty (optional)
             return await self.process_ai_turn()
 
     async def get_capture_info(self, orb_id: str) -> dict:
@@ -763,45 +882,67 @@ class BattleState:
             return {"success": False, "log": log, "is_over": ai_turn_result.get('is_over', False)}
 
     async def grant_battle_rewards(self):
-        base_xp = XP_REWARD_BY_RARITY.get(self.wild_pet['rarity'], 20)
+        """Grants end-of-battle rewards like coins and items."""
+        coin_gain = random.randint(5, 15) * self.wild_pet['level']
+        await self.db_cog.add_coins(self.user_id, coin_gain)
 
+        # The log list now only needs to mention coins.
+        log_list = [f"› You earned {coin_gain} coins for the victory!"]
+
+        # In the future, you can add item drop logic here as well.
+
+        return log_list
+
+    async def _grant_rewards_for_faint(self, fainted_pet: dict):
+        """Grants XP to the player's pet and handles mid-battle level up."""
+        # --- ALL XP LOGIC IS NOW HERE ---
+        base_xp = XP_REWARD_BY_RARITY.get(fainted_pet['rarity'], 20)
         hunger_percentage = (self.player_pet.get('hunger', 0) / 100)
-        is_satiated = hunger_percentage >= 0.9  # 90-100% hunger
+        is_satiated = hunger_percentage >= 0.9
 
-        # Calculate EXP with the potential bonus
-        xp_gain = max(5, math.floor(base_xp * (self.wild_pet['level'] / self.player_pet['level']) * 1.5))
+        xp_gain = max(5, int(base_xp * (fainted_pet['level'] / self.player_pet['level'])))
         satiated_bonus_xp = 0
         if is_satiated:
             satiated_bonus_xp = math.ceil(xp_gain * 0.05)
             xp_gain += satiated_bonus_xp
 
-        coin_gain = random.randint(5, 15) * self.wild_pet['level']
+        # Call the database function that now returns three values
+        updated_pet, leveled_up, skill_to_learn = await self.db_cog.add_xp(self.player_pet['pet_id'], xp_gain)
 
-        updated_pet, leveled_up = await self.db_cog.add_xp(self.player_pet['pet_id'], xp_gain)
-        await self.db_cog.add_coins(self.user_id, coin_gain)
-        self.player_pet = updated_pet
+        if updated_pet:
+            self.player_pet = updated_pet  # Refresh the pet's stats in the battle
 
-        log_list = [get_notification(
-            "BATTLE_REWARD_BASE",
-            wild_pet_species=self.wild_pet['species'],
-            coin_gain=coin_gain,
-            xp_gain=xp_gain
-        )]
+        self.turn_log.append(f"› Your pet gained {xp_gain} EXP!")
 
         if is_satiated:
-            log_list.append(get_notification(
-                "BATTLE_REWARD_SATIATED_BONUS",
-                bonus_xp=satiated_bonus_xp
-            ))
+            self.turn_log.append(get_notification("BATTLE_REWARD_SATIATED_BONUS", bonus_xp=satiated_bonus_xp))
 
         if leveled_up:
-            log_list.append(get_notification(
-                "BATTLE_REWARD_LEVEL_UP",
-                pet_name=self.player_pet['name'],
-                new_level=self.player_pet['level']
-            ))
+            self.turn_log.append(get_notification("BATTLE_REWARD_LEVEL_UP", pet_name=self.player_pet['name'],
+                                                  new_level=self.player_pet['level']))
 
-        return log_list
+            # --- Check for Evolution ---
+            pet_base_data = PET_DATABASE.get(self.player_pet['species'], {})
+            evolutions = pet_base_data.get('evolutions', {})
+            if evolutions:
+                first_evo_data = next(iter(evolutions.values()), None)
+                if first_evo_data and self.player_pet['level'] >= first_evo_data.get('evolves_at'):
+                    self.turn_log.append(f"› What's this?! **{self.player_pet['name']} is evolving!**")
+                    self.pending_evolutions.append(self.player_pet['pet_id'])
+
+        if skill_to_learn:
+            await self.db_cog.add_skill_to_library(self.player_pet['pet_id'], skill_to_learn)
+            skill_name = PET_SKILLS.get(skill_to_learn, {}).get('name', 'a new skill')
+            self.turn_log.append(f"› **{self.player_pet['name']} wants to learn {skill_name}!**")
+
+            if len(self.player_pet.get('skills', [])) >= 4:
+                self.pending_skill_learns[self.player_pet['pet_id']] = skill_to_learn
+            else:
+                # If less than 4 skills, learn and equip it automatically
+                new_skills = self.player_pet.get('skills', []) + [skill_to_learn]
+                await self.db_cog.update_pet(self.player_pet['pet_id'], skills=new_skills)
+                self.player_pet['skills'] = new_skills
+                self.turn_log.append(f"› **{self.player_pet['name']} learned {skill_name}!**")
 
     async def process_player_switch(self, new_pet_id: str):
         """
@@ -846,10 +987,63 @@ class BattleState:
 
         # The opponent gets a free turn after a switch
         ai_turn_result = await self.process_ai_turn()
-        self.turn_log.append(ai_turn_result['log'])
 
         return {
             "success": True,
-            "log": "\n".join(self.turn_log),
+            "log": ai_turn_result['log'],
             "is_over": ai_turn_result.get('is_over', False)
         }
+
+    def check_for_pending_actions(self):
+        """
+        Checks for and returns the next pending action to be handled.
+        Returns a dictionary describing the action or None if there are none.
+        """
+        # Prioritize evolutions over skill learning
+        if self.pending_evolutions:
+            pet_id_to_evolve = self.pending_evolutions[0]
+            return {"type": "evolution", "pet_id": pet_id_to_evolve}
+
+        if self.pending_skill_learns:
+            # Get the first pet_id and skill_id from the dictionary
+            pet_id_to_learn, skill_id_to_learn = next(iter(self.pending_skill_learns.items()))
+            return {"type": "learn_skill", "pet_id": pet_id_to_learn, "skill_id": skill_id_to_learn}
+
+        return None
+
+    def clear_pending_skill_learn(self, pet_id: int):
+        """Removes a pending skill learn from the queue."""
+        if pet_id in self.pending_skill_learns:
+            del self.pending_skill_learns[pet_id]
+
+    async def finalize_evolution(self, pet_id: int):
+        """Updates a pet's data after evolution and clears the pending action."""
+        # This is a simplified evolution; you can add stat recalculations here
+        pet_to_evolve = self.player_pet  # Assuming only the active pet can evolve for now
+        base_data = PET_DATABASE.get(pet_to_evolve['species'], {})
+        evo_data = next(iter(base_data.get('evolutions', {}).values()), None)
+
+        if evo_data:
+            new_species = evo_data['species']
+            await self.db_cog.update_pet(pet_id, species=new_species)
+            # Refresh the pet data in the battle state
+            self.player_pet = await self.db_cog.get_pet(pet_id)
+
+        if pet_id in self.pending_evolutions:
+            self.pending_evolutions.remove(pet_id)
+
+    async def finalize_skill_learn(self, pet_id: int, new_skill: str, skill_to_forget: str):
+        """Updates a pet's skill list and clears the pending action."""
+        pet_data = self.player_pet  # Assuming only active pet
+        current_skills = pet_data.get('skills', [])
+
+        if skill_to_forget in current_skills:
+            index = current_skills.index(skill_to_forget)
+            current_skills[index] = new_skill
+        else:
+            # Failsafe if something goes wrong
+            current_skills.append(new_skill)
+
+        await self.db_cog.update_pet(pet_id, skills=current_skills)
+        self.player_pet['skills'] = current_skills  # Update the skills in the battle state
+        self.clear_pending_skill_learn(pet_id)

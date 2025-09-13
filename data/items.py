@@ -3,6 +3,14 @@
 # This is now the single source of truth for all item data.
 
 ITEMS = {
+    "skill_tome": {
+        "name": "Skill Tome",  # Generic Name
+        "description": "A book containing the knowledge of a single skill.",
+        "category": "Consumables",
+        "price": 250,  # A base price
+        "actions": ["use", "drop", "inspect"],
+        "effect": {"type": "teach_skill"}  # Generic effect
+    },
     # Consumables
     "moss_balm": {
         "name": "Moss Balm",
