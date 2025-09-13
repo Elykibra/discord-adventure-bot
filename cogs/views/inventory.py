@@ -1,9 +1,11 @@
 # In views/inventory.py
 
 import discord
+import json
 from discord.types import embed
 
 from data.items import ITEMS
+from data.skills import PET_SKILLS
 from .modals import QuantityModal
 from utils.helpers import get_notification, format_log_block, apply_effect, get_status_bar
 
@@ -25,27 +27,15 @@ class BagView(discord.ui.View):
         self.pending_action = None
 
     async def initial_setup(self):
-        """This function will be called right after creation."""
         await self.rebuild_ui()
 
     def add_filter_buttons(self):
-        """Rebuilds the filter buttons with the new dynamic emoji style."""
-        # --- THIS IS THE FIX ---
-        filters = {
-            "Consumables": "🍎",
-            "Gear": "🛡️",
-            "Crafting Materials": "⛏️",
-            "Orbs": "🔮",
-            "Key Items": "🔑"
-        }
-
+        # This function is correct.
+        filters = {"Consumables": "🍎", "Gear": "🛡️", "Crafting Materials": "⛏️", "Orbs": "🔮", "Key Items": "🔑"}
         for name, emoji in filters.items():
             is_active = (self.current_filter == name)
-
             label = f"{emoji} {name}" if is_active else emoji
             style = discord.ButtonStyle.blurple if is_active else discord.ButtonStyle.secondary
-
-            # Use the full name in the custom_id for the callback
             button = discord.ui.Button(label=label, style=style, custom_id=f"filter_{name}", row=0)
             button.callback = self.filter_button_callback
             self.add_item(button)
@@ -57,46 +47,51 @@ class BagView(discord.ui.View):
         return True
 
     async def rebuild_and_edit(self, log_list: list[str] = None):
-        """The single, authoritative function to refresh the view."""
-        if not self.message:
-            print("[DEBUG] rebuild_and_edit called but self.message is None. Aborting.")
-            return
-
-        # --- NEW: Error Handling Block ---
+        if not self.message: return
         try:
             db_cog = self.bot.get_cog('Database')
             self.player_data = await db_cog.get_player(self.user_id)
             self.inventory = await db_cog.get_player_inventory(self.user_id)
-            if self.selected_item_id and not any(i['item_id'] == self.selected_item_id for i in self.inventory):
-                self.selected_item_id = None
+
+            # --- FIX: Properly check if the selected item still exists ---
+            if self.selected_item_id:
+                try:
+                    inventory_index = int(self.selected_item_id.split(':')[0])
+                    if inventory_index >= len(self.inventory):
+                        self.selected_item_id = None
+                except (ValueError, IndexError):
+                    self.selected_item_id = None
 
             await self.rebuild_ui()
             embed = self.create_embed(log_list=log_list)
-
             await self.message.edit(embed=embed, view=self)
-
         except Exception as e:
-            # This will catch ANY error that happens inside the block
-            # and print it to your console.
-            print("--- [INVENTORY VIEW ERROR] ---")
-            print(f"An error occurred in rebuild_and_edit: {e}")
+            print(f"--- [INVENTORY VIEW ERROR] --- \nAn error occurred in rebuild_and_edit: {e}")
             import traceback
             traceback.print_exc()
-            print("------------------------------")
 
     async def rebuild_ui(self):
+        # This function is correct.
         self.clear_items()
         self.add_filter_buttons()
         self.add_item_dropdown()
         if self.is_selecting_pet:
             db_cog = self.bot.get_cog('Database')
-            party_pets = [p for p in await db_cog.get_all_pets(self.user_id) if p.get('is_in_party', 1) == 1][:6]
+            party_pets = [p for p in await db_cog.get_all_pets(self.user_id) if p.get('is_in_party', True)][:6]
             options = [discord.SelectOption(label=f"{p['name']} (Lvl {p['level']})", value=str(p['pet_id'])) for p in
                        party_pets]
             if options:
-                placeholder = "Choose a pet to equip this on..." if self.pending_action == "equip_charm" else "Choose a pet to use this on..."
+                if self.pending_action == "equip_charm":
+                    placeholder = "Choose a pet to equip this on..."
+                    callback = self.equip_charm_on_pet_callback
+                elif self.pending_action == "teach_skill":
+                    placeholder = "Choose a pet to teach this skill to..."
+                    callback = self.teach_skill_to_pet_callback
+                else:
+                    placeholder = "Choose a pet to use this on..."
+                    callback = self.give_item_to_pet_callback
                 pet_select = discord.ui.Select(placeholder=placeholder, options=options, row=2)
-                pet_select.callback = self.equip_charm_on_pet_callback if self.pending_action == "equip_charm" else self.give_item_to_pet_callback
+                pet_select.callback = callback
                 self.add_item(pet_select)
             cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.grey, row=3)
             cancel_button.callback = self.cancel_pet_select_callback
@@ -105,42 +100,37 @@ class BagView(discord.ui.View):
             self.add_action_buttons()
 
     def add_item_dropdown(self):
-        """Updates the dropdown logic to handle the new 'Orbs' category."""
-        inventory_dict = {item['item_id']: item['quantity'] for item in self.inventory}
-
+        # This function is correct.
         options = []
-        for item_id, data in ITEMS.items():
-            if item_id in inventory_dict:
-                # --- THIS IS THE FIX ---
-                # This logic now correctly filters for Orbs and other categories.
-                is_in_category = False
-                category = data.get('category')
-
-                if self.current_filter == "Orbs":
-                    # Special case for Orbs, which are Consumables with orb_data
-                    if category == "Consumables" and 'orb_data' in data:
-                        is_in_category = True
-                elif self.current_filter == "Consumables":
-                    # For the main Consumables tab, we now exclude Orbs
-                    if category == "Consumables" and 'orb_data' not in data:
-                        is_in_category = True
-                else:
-                    # Standard category check for Gear, Materials, Key Items
-                    if isinstance(category, list) and self.current_filter in category:
-                        is_in_category = True
-                    elif isinstance(category, str) and self.current_filter == category:
-                        is_in_category = True
-
-                if is_in_category:
-                    options.append(
-                        discord.SelectOption(
-                            label=f"{data['name']} (x{inventory_dict[item_id]})",
-                            value=item_id,
-                            description=data.get('dropdown_description'),
-                            default=(self.selected_item_id == item_id)
-                        )
-                    )
-
+        for i, item_instance in enumerate(self.inventory):
+            item_id = item_instance['item_id']
+            quantity = item_instance['quantity']
+            item_data_from_db = item_instance.get('item_data')
+            base_item_data = ITEMS.get(item_id, {})
+            category = base_item_data.get('category')
+            display_name = base_item_data.get('name', 'Unknown')
+            display_desc = base_item_data.get('dropdown_description', '')
+            if item_id == 'skill_tome' and item_data_from_db:
+                skill_id = item_data_from_db.get('skill')
+                if skill_id:
+                    skill_name = PET_SKILLS.get(skill_id, {}).get('name', 'Unknown Skill')
+                    display_name = f"Tome of {skill_name}"
+                    display_desc = f"Teaches the skill '{skill_name}'."
+            is_in_category = False
+            if self.current_filter == "Orbs":
+                if category == "Consumables" and 'orb_data' in base_item_data: is_in_category = True
+            elif self.current_filter == "Consumables":
+                if category == "Consumables" and 'orb_data' not in base_item_data: is_in_category = True
+            else:
+                if isinstance(category, list) and self.current_filter in category:
+                    is_in_category = True
+                elif isinstance(category, str) and self.current_filter == category:
+                    is_in_category = True
+            if is_in_category:
+                unique_value = f"{i}:{item_id}"
+                options.append(
+                    discord.SelectOption(label=f"{display_name} (x{quantity})", value=unique_value,
+                                         description=display_desc, default=(self.selected_item_id == unique_value)))
         if options:
             select = discord.ui.Select(placeholder="Select an item to see details...", options=options, row=1)
             select.callback = self.item_select_callback
@@ -149,42 +139,38 @@ class BagView(discord.ui.View):
             self.add_item(discord.ui.Button(label=f"No {self.current_filter} items", disabled=True, row=1))
 
     def create_embed(self, log_list: list[str] = None):
+        # This function is correct.
         embed = discord.Embed(title="🎒 Your Inventory", color=discord.Color.dark_gold())
         embed.description = f"💰 **Coins:** {self.player_data.get('coins', 0)}\n"
-
-        #Adventurer's Gear
-        equipped_text = (
-            f"**Head:** {ITEMS.get(self.player_data.get('equipped_head'), {}).get('name', 'None')}\n"
-            f"**Tunic:** {ITEMS.get(self.player_data.get('equipped_tunic'), {}).get('name', 'None')}\n"
-            f"**Boots:** {ITEMS.get(self.player_data.get('equipped_boots'), {}).get('name', 'None')}\n"
-            f"**Accessory:** {ITEMS.get(self.player_data.get('equipped_accessory'), {}).get('name', 'None')}")
+        equipped_text = (f"**Head:** {ITEMS.get(self.player_data.get('equipped_head'), {}).get('name', 'None')}\n"
+                         f"**Tunic:** {ITEMS.get(self.player_data.get('equipped_tunic'), {}).get('name', 'None')}\n"
+                         f"**Boots:** {ITEMS.get(self.player_data.get('equipped_boots'), {}).get('name', 'None')}\n"
+                         f"**Accessory:** {ITEMS.get(self.player_data.get('equipped_accessory'), {}).get('name', 'None')}")
         embed.add_field(name="🛡️ Adventurer's Gear", value=equipped_text, inline=False)
-
-        #Selected Item
         if self.selected_item_id:
-            item_data = ITEMS.get(self.selected_item_id, {})
-            quantity = next((item['quantity'] for item in self.inventory if item['item_id'] == self.selected_item_id),
-                            0)
-
-            if image_url := item_data.get("image_url"):
-                embed.set_thumbnail(url=image_url)
-
-            display_description = item_data.get('menu_description', item_data.get('description', 'No description.'))
-            selected_item_text = (
-                f"**{item_data.get('name', 'Unknown')} (x{quantity})**\n"
-                f"_{display_description}_"
-            )
-            embed.add_field(name="👉 Selected Item", value=selected_item_text, inline=False)
-
+            try:
+                inventory_index, item_id = self.selected_item_id.split(':')
+                item_instance = self.inventory[int(inventory_index)]
+                base_item_data = ITEMS.get(item_id, {})
+                quantity = item_instance['quantity']
+                display_name = base_item_data.get('name', 'Unknown')
+                if item_id == 'skill_tome' and item_instance.get('item_data'):
+                    skill_id = item_instance.get('item_data', {}).get('skill')
+                    if skill_id:
+                        skill_name = PET_SKILLS.get(skill_id, {}).get('name', 'Unknown Skill')
+                        display_name = f"Tome of {skill_name}"
+                if image_url := base_item_data.get("image_url"):
+                    embed.set_thumbnail(url=image_url)
+                display_description = base_item_data.get('menu_description',
+                                                         base_item_data.get('description', 'No description.'))
+                selected_item_text = f"**{display_name} (x{quantity})**\n_{display_description}_"
+                embed.add_field(name="👉 Selected Item", value=selected_item_text, inline=False)
+            except (ValueError, IndexError):
+                self.selected_item_id = None
         if log_list:
             embed.add_field(name="Activity Log", value=format_log_block(log_list), inline=False)
-        if not self.selected_item_id and not log_list:
-            embed.set_footer(text="Select an item from the dropdown to see its details and actions.")
-
-        #status bar
         status_bar = get_status_bar(self.player_data, self.main_pet_data)
         embed.set_footer(text=status_bar)
-
         return embed
 
     async def filter_button_callback(self, interaction: discord.Interaction):
@@ -200,96 +186,108 @@ class BagView(discord.ui.View):
         await self.rebuild_and_edit()
 
     async def handle_action_callback(self, interaction: discord.Interaction):
+        # This function is correct.
         action = interaction.data['custom_id'].split('_')[1]
-        item_id = self.selected_item_id
-        item_data = ITEMS.get(item_id, {})
         db_cog = self.bot.get_cog('Database')
-
-        if (action == "use" and item_data.get('effect', {}).get('type') == 'heal_pet') or \
-                (action == "equip" and item_data.get('slot') == "charm"):
+        if not self.selected_item_id: return
+        try:
+            inventory_index, item_id = self.selected_item_id.split(':')
+            item_instance = self.inventory[int(inventory_index)]
+            base_item_data = ITEMS.get(item_id, {})
+        except (ValueError, IndexError):
+            return
+        effect_type = base_item_data.get('effect', {}).get('type')
+        if (action == "use" and effect_type in ['heal_pet', 'teach_skill', 'restore_hunger']) or \
+                (action == "equip" and base_item_data.get('slot') == "charm"):
             await interaction.response.defer()
             self.is_selecting_pet = True
-            self.pending_action = "use_consumable" if action == "use" else "equip_charm"
+            if action == "equip":
+                self.pending_action = "equip_charm"
+            elif effect_type == 'heal_pet' or effect_type == 'restore_hunger':
+                self.pending_action = "use_consumable"
+            elif effect_type == 'teach_skill':
+                self.pending_action = "teach_skill"
             await self.rebuild_and_edit()
             return
-
         elif action in ["use", "drop"]:
-            inv_item = next((i for i in self.inventory if i['item_id'] == item_id), None)
-            max_qty = inv_item['quantity'] if inv_item else 0
-            modal = QuantityModal(item_name=item_data.get('name', 'Item'), max_quantity=max_qty)
+            max_qty = item_instance['quantity']
+            modal = QuantityModal(item_name=base_item_data.get('name', 'Item'), max_quantity=max_qty)
             await interaction.response.send_modal(modal)
             await modal.wait()
-
             quantity_to_use = modal.quantity
             log_list = []
-            if quantity_to_use > 0 and quantity_to_use <= max_qty:
+            if 0 < quantity_to_use <= max_qty:
                 if action == "use":
-                    await db_cog.remove_item_from_inventory(self.user_id, item_id, quantity_to_use)
-                    log_list.append(
-                        get_notification("ITEM_USE_SUCCESS", quantity=quantity_to_use, item_name=item_data['name']))
+                    await db_cog.remove_item_from_inventory(self.user_id, item_id, quantity_to_use,
+                                                            item_instance.get('item_data'))
+                    log_list.append(get_notification("ITEM_USE_SUCCESS", quantity=quantity_to_use,
+                                                     item_name=base_item_data['name']))
                 elif action == "drop":
-                    await db_cog.remove_item_from_inventory(self.user_id, item_id, quantity_to_use)
-                    log_list.append(
-                        get_notification("ITEM_DROP_SUCCESS", quantity=quantity_to_use, item_name=item_data['name']))
+                    await db_cog.remove_item_from_inventory(self.user_id, item_id, quantity_to_use,
+                                                            item_instance.get('item_data'))
+                    log_list.append(get_notification("ITEM_DROP_SUCCESS", quantity=quantity_to_use,
+                                                     item_name=base_item_data['name']))
             else:
                 log_list.append(get_notification("ACTION_FAIL_INVALID_QUANTITY", max_quantity=max_qty))
             await self.rebuild_and_edit(log_list=log_list)
             return
-
         elif action in ["equip", "unequip"]:
             await interaction.response.defer()
             log_message = ""
-            slot = item_data.get('slot')
+            slot = base_item_data.get('slot')
             if slot:
                 if action == "equip":
                     await db_cog.update_player(self.user_id, **{f"equipped_{slot}": item_id})
-                    log_message = get_notification("ITEM_EQUIP_SUCCESS", item_name=item_data.get('name', 'item'))
+                    log_message = get_notification("ITEM_EQUIP_SUCCESS", item_name=base_item_data.get('name', 'item'))
                 elif action == "unequip":
                     await db_cog.update_player(self.user_id, **{f"equipped_{slot}": None})
-                    log_message = get_notification("ITEM_UNEQUIP_SUCCESS", item_name=item_data.get('name', 'item'))
+                    log_message = get_notification("ITEM_UNEQUIP_SUCCESS", item_name=base_item_data.get('name', 'item'))
             await self.rebuild_and_edit(log_list=[log_message])
 
     def add_action_buttons(self):
         if not self.selected_item_id:
             self.add_item(discord.ui.Button(label="Select an item", disabled=True, row=2))
             return
-        item_data = ITEMS.get(self.selected_item_id, {})
-        possible_actions = item_data.get("actions", [])
+
+        # --- FIX: Parse unique ID to get correct data for buttons ---
+        try:
+            inventory_index, item_id = self.selected_item_id.split(':')
+            base_item_data = ITEMS.get(item_id, {})
+        except (ValueError, IndexError):
+            self.add_item(discord.ui.Button(label="Error reading item", disabled=True, row=2))
+            return
+
+        possible_actions = base_item_data.get("actions", [])
         possible_actions.sort(key=lambda action: ACTION_ORDER.index(action) if action in ACTION_ORDER else 99)
         if not possible_actions:
             self.add_item(discord.ui.Button(label="No actions available", disabled=True, row=2))
             return
-
         for action in possible_actions:
             button = discord.ui.Button(row=2)
-            original_action = action
             if action == "use":
                 button.style = discord.ButtonStyle.green
-                button.label = "Give" if item_data.get('effect', {}).get('type') == 'heal_pet' else "Use"
-
-                if 'effect' not in item_data:
+                button.label = "Give" if base_item_data.get('effect', {}).get('type') == 'heal_pet' else "Use"
+                if 'effect' not in base_item_data:
                     button.disabled = True
-
             elif action == "drop":
                 button.style = discord.ButtonStyle.red
                 button.label = "Drop"
             elif action == "equip":
-                slot = item_data.get('slot')
+                slot = base_item_data.get('slot')
                 if slot == "charm":
                     button.label = "Equip on Pet"
                     button.style = discord.ButtonStyle.blurple
                 else:
-                    if self.player_data.get(f"equipped_{slot}") == self.selected_item_id:
+                    if self.player_data.get(f"equipped_{slot}") == item_id:
                         action = "unequip"
                         button.label = "Unequip"
                         button.style = discord.ButtonStyle.blurple
                     else:
                         button.label = "Equip"
                         button.style = discord.ButtonStyle.green
-            else:  # Inspect
+            else:
                 button.label = action.capitalize()
                 button.style = discord.ButtonStyle.secondary
-
             button.custom_id = f"action_{action}"
             button.callback = self.handle_action_callback
             self.add_item(button)
@@ -300,15 +298,21 @@ class BagView(discord.ui.View):
         db_cog = self.bot.get_cog('Database')
         target_pet = await db_cog.get_pet(target_pet_id)
         log_list = []
-        if target_pet:
-            item_data = ITEMS.get(self.selected_item_id, {})
-            healed_amount = await apply_effect(db_cog, target_pet, item_data.get('effect', {}))
+
+        if target_pet and self.selected_item_id:
+            # --- FIX: Parse unique ID ---
+            inventory_index, item_id = self.selected_item_id.split(':')
+            item_instance = self.inventory[int(inventory_index)]
+            base_item_data = ITEMS.get(item_id, {})
+
+            healed_amount = await apply_effect(db_cog, target_pet, base_item_data.get('effect', {}))
             if healed_amount > 0:
-                await db_cog.remove_item_from_inventory(self.user_id, self.selected_item_id, 1)
+                await db_cog.remove_item_from_inventory(self.user_id, item_id, 1, item_instance.get('item_data'))
                 log_list.append(
                     get_notification("ITEM_HEAL_PET_SUCCESS", pet_name=target_pet['name'], heal_amount=healed_amount))
             else:
                 log_list.append(get_notification("ACTION_FAIL_PET_MAX_HP", pet_name=target_pet['name']))
+
         self.is_selecting_pet = False
         self.pending_action = None
         await self.rebuild_and_edit(log_list=log_list)
@@ -319,14 +323,15 @@ class BagView(discord.ui.View):
         db_cog = self.bot.get_cog('Database')
         target_pet = await db_cog.get_pet(target_pet_id)
         log_list = []
-        if target_pet:
-            item_data = ITEMS.get(self.selected_item_id, {})
-            await db_cog.update_pet(target_pet_id, equipped_charm=self.selected_item_id)
-            log_list.append(get_notification(
-                "PET_EQUIP_SUCCESS",
-                item_name=item_data.get('name', 'charm'),
-                pet_name=target_pet.get('name', 'your pet')
-            ))
+
+        if target_pet and self.selected_item_id:
+            # --- FIX: Parse unique ID ---
+            inventory_index, item_id = self.selected_item_id.split(':')
+            base_item_data = ITEMS.get(item_id, {})
+
+            await db_cog.update_pet(target_pet_id, equipped_charm=item_id)
+            log_list.append(get_notification("PET_EQUIP_SUCCESS", item_name=base_item_data.get('name', 'charm'),
+                                             pet_name=target_pet.get('name', 'your pet')))
         else:
             log_list.append(get_notification("ACTION_FAIL_GENERIC"))
 
@@ -339,3 +344,27 @@ class BagView(discord.ui.View):
         self.is_selecting_pet = False
         self.pending_action = None
         await self.rebuild_and_edit()
+
+    async def teach_skill_to_pet_callback(self, interaction: discord.Interaction):
+        # This function is correct.
+        await interaction.response.defer()
+        target_pet_id = int(interaction.data['values'][0])
+        db_cog = self.bot.get_cog('Database')
+        target_pet = await db_cog.get_pet(target_pet_id)
+        log_list = []
+        if target_pet and self.selected_item_id:
+            inventory_index, item_id = self.selected_item_id.split(':')
+            tome_instance = self.inventory[int(inventory_index)]
+            skill_id_to_learn = tome_instance.get('item_data', {}).get('skill')
+            if skill_id_to_learn:
+                await db_cog.add_skill_to_library(target_pet_id, skill_id_to_learn)
+                await db_cog.remove_item_from_inventory(self.user_id, item_id, 1, tome_instance.get('item_data'))
+                skill_name = PET_SKILLS.get(skill_id_to_learn, {}).get('name', 'a new skill')
+                log_list.append(f"Success! **{target_pet['name']}** has learned **{skill_name}**.")
+            else:
+                log_list.append("Error: This tome seems to be blank.")
+        else:
+            log_list.append(get_notification("ACTION_FAIL_GENERIC"))
+        self.is_selecting_pet = False
+        self.pending_action = None
+        await self.rebuild_and_edit(log_list=log_list)

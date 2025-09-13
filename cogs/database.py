@@ -6,10 +6,12 @@ import asyncio
 import asyncpg
 from discord.ext import commands
 from typing import Any, Dict, List, Optional
+import random
 
 from core import config
 from data.items import ITEMS
 from core.pet_system import Pet
+from data.pets import PET_DATABASE
 
 
 class Database(commands.Cog):
@@ -167,6 +169,14 @@ class Database(commands.Cog):
                       special_defense: int, speed: int, base_hp: int, base_attack: int, base_defense: int,
                       base_special_attack: int, base_special_defense: int, base_speed: int,
                       passive_ability: Optional[str] = None) -> int:
+
+        # Ensure passive_ability is a string or None before saving
+        passive_to_save = None
+        if isinstance(passive_ability, dict):
+            passive_to_save = passive_ability.get('name')
+        elif isinstance(passive_ability, str):
+            passive_to_save = passive_ability
+
         skills_json = json.dumps(skills if skills else [])
         pet_type_to_save = json.dumps(pet_type) if isinstance(pet_type, list) else pet_type
         query = '''INSERT INTO pets (owner_id, name, species, description, rarity, pet_type, skills,
@@ -179,7 +189,7 @@ class Database(commands.Cog):
             query, owner_id, name, species, description, rarity, pet_type_to_save, skills_json,
             current_hp, max_hp, attack, defense, special_attack, special_defense, speed,
             base_hp, base_attack, base_defense, base_special_attack, base_special_defense,
-            base_speed, passive_ability
+            base_speed, passive_to_save
         )
 
     async def get_pet(self, pet_id: int) -> Optional[Dict[str, Any]]:
@@ -216,37 +226,120 @@ class Database(commands.Cog):
         await self.pool.execute('UPDATE players SET main_pet_id = $1 WHERE user_id = $2', pet_id, user_id)
 
     async def add_xp(self, pet_id: int, amount: int) -> tuple:
+        """
+        Adds XP to a pet, handles leveling up, and checks for new skills.
+        Returns: (updated_pet_data, has_leveled_up, skill_id_to_learn | None)
+        """
         pet_data = await self.get_pet(pet_id)
-        if not pet_data: return None, False
+        if not pet_data:
+            return None, False, None
 
         pet_object = Pet(pet_data)
+        # Store the level BEFORE adding XP to compare against the new level
+        original_level = pet_object.level
+
         leveled_up = pet_object.add_xp(amount)
+        new_level = pet_object.level
+
+        skill_to_learn = None
+        # --- NEW: Check for newly learned skills ---
+        if leveled_up:
+            pet_base_data = PET_DATABASE.get(pet_object.species, {})
+            skill_tree = pet_base_data.get('skill_tree', {})
+
+            # Loop through the levels the pet just gained
+            for level in range(original_level + 1, new_level + 1):
+                level_key = str(level)
+                if level_key in skill_tree:
+                    skills_at_level = skill_tree[level_key]
+
+                    # Handle both ["skill"] and {"choice": ["skill"]} formats
+                    if isinstance(skills_at_level, list):
+                        skill_to_learn = skills_at_level[0]
+                    elif isinstance(skills_at_level, dict) and "choice" in skills_at_level:
+                        skill_to_learn = random.choice(skills_at_level['choice'])
+
+                    # Stop after finding the first new skill to handle one at a time
+                    break
+
         data_to_save = pet_object.to_dict_for_saving()
-
         await self.update_pet(pet_id, **data_to_save)
-
         updated_pet = await self.get_pet(pet_id)
-        return updated_pet, leveled_up
+
+        # Return the new third value
+        return updated_pet, leveled_up, skill_to_learn
+
+    async def add_skill_to_library(self, pet_id: int, skill_id: str):
+        """Adds a skill to a pet's permanent skill library."""
+        query = "INSERT INTO pet_skill_library (pet_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+        await self.pool.execute(query, pet_id, skill_id)
+
+    async def get_skill_library(self, pet_id: int) -> list[str]:
+        """Retrieves a list of all skill IDs a pet has learned."""
+        records = await self.pool.fetch("SELECT skill_id FROM pet_skill_library WHERE pet_id = $1", pet_id)
+        return [r['skill_id'] for r in records]
 
     # --- Inventory & Item Management ---
-    async def add_item_to_inventory(self, user_id: int, item_id: str, quantity: int = 1) -> None:
-        query = '''INSERT INTO player_items (user_id, item_id, quantity)
-                   VALUES ($1, $2, $3) ON CONFLICT(user_id, item_id) DO
-                   UPDATE SET quantity = player_items.quantity + $3'''
-        await self.pool.execute(query, user_id, item_id, quantity)
+    async def add_item_to_inventory(self, user_id: int, item_id: str, quantity: int = 1, item_data: Optional[Dict] = None) -> None:
+        """
+        Adds an item to a player's inventory.
+        - Stacks items if item_data is None.
+        - Adds a new row for items with unique item_data (like Skill Tomes).
+        """
+        if item_data:
+            # This is a unique item (e.g., a Skill Tome). Always insert a new row.
+            data_json = json.dumps(item_data)
+            query = '''
+                INSERT INTO player_items (user_id, item_id, quantity, item_data)
+                VALUES ($1, $2, $3, $4)
+            '''
+            await self.pool.execute(query, user_id, item_id, quantity, data_json)
+        else:
+            # This is a regular, stackable item. Use ON CONFLICT with the correct columns.
+            query = '''
+                INSERT INTO player_items (user_id, item_id, quantity)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id, item_id) DO UPDATE
+                SET quantity = player_items.quantity + EXCLUDED.quantity;
+            '''
+            await self.pool.execute(query, user_id, item_id, quantity)
 
-    async def remove_item_from_inventory(self, user_id: int, item_id: str, quantity: int = 1) -> None:
+    async def remove_item_from_inventory(self, user_id: int, item_id: str, quantity: int = 1,
+                                         item_data: Optional[Dict] = None) -> None:
+        """
+        Removes an item from a player's inventory.
+        If item_data is provided, it targets a specific item instance.
+        """
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute(
-                    'UPDATE player_items SET quantity = quantity - $1 WHERE user_id = $2 AND item_id = $3',
-                    quantity, user_id, item_id)
-                await conn.execute('DELETE FROM player_items WHERE user_id = $1 AND item_id = $2 AND quantity <= 0',
-                                   user_id, item_id)
+                # Base query and parameters
+                update_query = 'UPDATE player_items SET quantity = quantity - $1 WHERE user_id = $2 AND item_id = $3'
+                delete_query = 'DELETE FROM player_items WHERE user_id = $1 AND item_id = $2 AND quantity <= 0'
+                params = [quantity, user_id, item_id]
+
+                # If specific item_data is provided (like for a Skill Tome),
+                # add it to the query to target the exact item row.
+                if item_data:
+                    data_json = json.dumps(item_data)
+                    update_query += ' AND item_data = $4'
+                    delete_query += ' AND item_data = $3'  # Note: param index changes for delete
+                    params.append(data_json)
+                    # Parameters for the delete query are different
+                    delete_params = [user_id, item_id, data_json]
+                else:
+                    delete_params = [user_id, item_id]
+
+                await conn.execute(update_query, *params)
+                await conn.execute(delete_query, *delete_params)
 
     async def get_player_inventory(self, user_id: int) -> List[Dict[str, Any]]:
-        records = await self.pool.fetch('SELECT item_id, quantity FROM player_items WHERE user_id = $1', user_id)
-        return self._records_to_list_of_dicts(records)
+        # Update the query to select the new column
+        records = await self.pool.fetch('SELECT item_id, quantity, item_data FROM player_items WHERE user_id = $1',
+                                        user_id)
+
+        inventory = self._records_to_list_of_dicts(records)
+        # The database driver (asyncpg) automatically parses JSONB into dicts
+        return inventory
 
     # --- Quest & Crest Management ---
     async def add_quest(self, user_id: int, quest_id: str, progress: Optional[Dict] = None) -> None:

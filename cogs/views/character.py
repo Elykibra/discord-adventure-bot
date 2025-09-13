@@ -128,6 +128,84 @@ class ProfileView(discord.ui.View):
                 pass
 
 
+class ManageSkillsView(discord.ui.View):
+    def __init__(self, bot, user_id, pet_object, parent_pet_view):
+        super().__init__(timeout=180)
+        self.bot = bot
+        self.user_id = user_id
+        self.pet_object = pet_object
+        self.parent_pet_view = parent_pet_view
+        self.message = None
+
+        self.db_cog = self.bot.get_cog('Database')
+        self.selected_skills = self.pet_object.skills[:]  # Start with currently equipped skills
+
+        # This task will build the UI after we get the skill library
+        asyncio.create_task(self.build_ui())
+
+    async def build_ui(self):
+        """Asynchronously builds the UI components."""
+        skill_library = await self.db_cog.get_skill_library(self.pet_object.pet_id)
+        if not skill_library:
+            # Failsafe if the pet has no learned skills for some reason
+            skill_library = self.pet_object.skills[:]
+
+        options = [
+            discord.SelectOption(
+                label=PET_SKILLS[skill_id]['name'],
+                value=skill_id,
+                description=PET_SKILLS[skill_id].get('description', '')[:100],
+                default=skill_id in self.selected_skills
+            ) for skill_id in skill_library
+        ]
+
+        self.skill_select = discord.ui.Select(
+            placeholder="Select up to 4 skills to equip...",
+            min_values=1,
+            max_values=4,
+            options=options
+        )
+        self.skill_select.callback = self.select_callback
+        self.add_item(self.skill_select)
+
+        self.confirm_button = discord.ui.Button(label="Confirm Selection", style=discord.ButtonStyle.green)
+        self.confirm_button.callback = self.confirm_callback
+        self.add_item(self.confirm_button)
+
+    def create_embed(self):
+        """Creates the embed for the skill management view."""
+        embed = discord.Embed(
+            title=f"Manage Skills for {self.pet_object.name}",
+            description="Select up to 4 skills from the dropdown. These will be the skills your pet uses in battle.",
+            color=discord.Color.blue()
+        )
+
+        equipped_skills_str = "\n".join(
+            f"• {PET_SKILLS[skill_id]['name']}" for skill_id in self.selected_skills
+        ) if self.selected_skills else "None"
+
+        embed.add_field(name="Currently Equipped", value=equipped_skills_str, inline=False)
+        embed.set_footer(text=f"You can select up to {4 - len(self.selected_skills)} more skills.")
+        return embed
+
+    async def select_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        self.selected_skills = self.skill_select.values
+        await self.message.edit(embed=self.create_embed())
+
+    async def confirm_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        # Save the new set of active skills to the database
+        await self.db_cog.update_pet(self.pet_object.pet_id, skills=self.selected_skills)
+
+        # Update the parent PetView
+        self.parent_pet_view.main_pet_object.skills = self.selected_skills
+        await self.parent_pet_view.message.edit(embed=await self.parent_pet_view.get_pet_status_embed())
+
+        await interaction.followup.send(f"Successfully updated {self.pet_object.name}'s active skills!", ephemeral=True)
+        await self.message.delete()
+        self.stop()
+
 class PetView(discord.ui.View):
     def __init__(self, bot, user_id, player_data, main_pet_data, all_pets_data):
         super().__init__(timeout=180)

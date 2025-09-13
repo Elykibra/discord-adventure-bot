@@ -119,7 +119,7 @@ def choose_template(NOTIFICATIONS: Optional[dict] = None):
     return random.choice(templates)
 
 def compute_base_damage(power: float, attack: float, defense: float) -> int:
-    """Centralized damage formula. Ensures at least 1 damage."""
+    """Centralized damage formula. Ensures at least 1 dama  ge."""
     return max(1, int((power / 10) + (attack / 2 - defense / 4)))
 
 def format_pet_name(pet: dict, is_player: bool = False, is_wild: bool = False) -> str:
@@ -133,6 +133,67 @@ def format_pet_name(pet: dict, is_player: bool = False, is_wild: bool = False) -
 
 def is_status_effect(effect: dict) -> bool:
     return effect.get("type") == "status"
+
+# =================================================================================
+# GENERIC ACTION-BLOCKING STATUS HANDLER
+# =================================================================================\
+
+def check_and_consume_action_blockers(effects_list: List[dict], pet: dict, turn_log_lines: List[str]) -> bool:
+    """Checks for statuses that block action (flinch, sleep, stun, etc.), applies chance logic,
+    executes optional on_block behavior, decrements duration, and returns True if action is blocked."""
+    for effect in effects_list[:]:
+        if effect.get("type") != "status" or not effect.get("blocks_action", False):
+            continue
+
+
+        # Roll chance (default 100%)
+        block_chance = effect.get("block_chance", 1.0)
+        if random.random() <= block_chance:
+            pet_name = format_pet_name(pet)
+            msg = effect.get("block_message", f"› {pet_name} couldn't act!")
+            turn_log_lines.append(msg.replace("{pet_name}", pet_name))
+
+            # Optional on_block behavior (e.g. confusion self-damage)
+            if effect.get("on_block"):
+                _execute_on_block_behavior(effect["on_block"], pet, turn_log_lines)
+
+
+            # Decrement or remove duration
+            if effect.get("duration", -1) != -1:
+                effect["duration"] -= 1
+                if effect["duration"] <= 0:
+                    try:
+                        effects_list.remove(effect)
+                    except ValueError:
+                        pass
+            return True # Action blocked
+
+
+        # If block chance fails, still tick duration
+        if effect.get("duration", -1) != -1:
+            effect["duration"] -= 1
+            if effect["duration"] <= 0:
+                try:
+                    effects_list.remove(effect)
+                except ValueError:
+                    pass
+    return False
+
+def _execute_on_block_behavior(behavior: dict, pet: dict, turn_log_lines: List[str]):
+    """Executes special on_block behaviors like confusion self-damage."""
+    btype = behavior.get("type")
+    if btype == "self_damage":
+        formula = behavior.get("formula", "attack/4")
+        # Simple formula parser - currently only supports 'attack/4' style
+        attack_val = pet.get("attack", 1)
+        try:
+            dmg = max(1, int(eval(formula, {"attack": attack_val})))
+        except Exception:
+            dmg = max(1, attack_val // 4)
+        pet["current_hp"] = max(0, pet["current_hp"] - dmg)
+        turn_log_lines.append(f"› {format_pet_name(pet)} took {dmg} damage!")
+        if pet["current_hp"] <= 0:
+            turn_log_lines.append(f"› {format_pet_name(pet)} fainted!")
 
 # =================================================================================
 #  EFFECT HANDLERS
@@ -511,17 +572,26 @@ PASSIVE_HANDLERS_ON_HIT.update({
     "Fortress Form": handle_fortress_form,
 })
 
-async def tick_effects_for_pet(pet: dict, effects_list: List[dict], is_player: bool, turn_log_lines: List[str], source_pet: dict = None, battle_state=None) -> bool:
-    """Process lingering effects. Now checks for null_field."""
+# =================================================================================
+# TICK EFFECTS
+# =================================================================================
 
-    # --- Check for Null Field ---
+async def tick_effects_for_pet(
+    pet: dict,
+    effects_list: List[dict],
+    is_player: bool,
+    turn_log_lines: List[str],
+    source_pet: dict = None,
+    battle_state=None
+) -> bool:
     is_null_field_active = False
     if battle_state:
         is_null_field_active = any(
-            eff.get("status_effect") == "null_field" for eff in battle_state.field_effects["player"])
+            eff.get("status_effect") == "null_field"
+            for eff in battle_state.field_effects["player"]
+        )
 
     if is_null_field_active:
-        # If field is null, only decrement durations, don't apply effects
         for effect in effects_list[:]:
             if 'duration' in effect and effect.get('duration') != -1:
                 effect['duration'] -= 1
@@ -530,7 +600,7 @@ async def tick_effects_for_pet(pet: dict, effects_list: List[dict], is_player: b
                         effects_list.remove(effect)
                     except ValueError:
                         pass
-        return False  # No one can faint from effects if the field is null
+        return False
 
     pet_name = format_pet_name(pet, is_player=is_player)
     fainted = False
@@ -538,81 +608,40 @@ async def tick_effects_for_pet(pet: dict, effects_list: List[dict], is_player: b
     for effect in effects_list[:]:
         etype = effect.get("type")
 
-        # --- All end-of-turn logic ---
         if etype == "status":
+            if effect.get("blocks_action", False):
+                if 'duration' in effect and effect['duration'] != -1:
+                    effect['duration'] -= 1
+                    if effect['duration'] <= 0:
+                        try:
+                            effects_list.remove(effect)
+                        except ValueError:
+                            pass
+                        turn_log_lines.append(
+                            f"› {pet_name} is no longer {effect.get('status_effect')}."
+                        )
+                        continue
+
             on_turn_end = effect.get("on_turn_end")
             if on_turn_end:
                 et = on_turn_end.get("type")
-
-                # Simple damage over time (replaces the old "dot" kind)
                 if et == "dot":
                     damage = on_turn_end.get("damage_per_turn", 5)
                     pet['current_hp'] = max(0, pet['current_hp'] - damage)
-                    turn_log_lines.append(f"› {pet_name} took {damage} damage from {effect.get('status_effect')}!")
-
-                # Percentage-based heal
+                    turn_log_lines.append(
+                        f"› {pet_name} took {damage} damage from {effect.get('status_effect')}!"
+                    )
                 elif et == "heal":
-                    if "amount_percent" in on_turn_end:
-                        heal_amount = math.floor(pet.get('max_hp', 1) * on_turn_end["amount_percent"])
-                        pet['current_hp'] = min(pet['max_hp'], pet['current_hp'] + heal_amount)
-                        turn_log_lines.append(f"› {pet_name} recovered {heal_amount} HP from a lingering effect!")
-
-                # Ramping damage
-                elif et == "toxic_dot":
-                    turn_index = effect.get("turn_index", 0)
-                    base_damage = on_turn_end.get("base_damage", 5)
-                    damage_ramp = on_turn_end.get("damage_ramp", 5)
-                    dot_damage = base_damage + (turn_index * damage_ramp)
-                    pet['current_hp'] = max(0, pet['current_hp'] - dot_damage)
-                    turn_log_lines.append(f"› {pet_name} took {dot_damage} damage from {effect.get('status_effect')}!")
-                    effect['turn_index'] = turn_index + 1
-
-                # Damage and Leech
-                elif et == "damage_and_leech_hp":
-                    damage_per_turn = on_turn_end.get("damage_per_turn", 0)
-                    pet['current_hp'] = max(0, pet['current_hp'] - damage_per_turn)
-                    turn_log_lines.append(f"› {pet_name} took {damage_per_turn} damage from being entangled!")
-                    if source_pet:
-                        source_pet['current_hp'] = min(source_pet['max_hp'], source_pet['current_hp'] + damage_per_turn)
-                        source_name = format_pet_name(source_pet)
-                        turn_log_lines.append(f"› {source_name} drained {damage_per_turn} HP!")
-
-                # Sequenced Damage
-                elif et == "damage_sequence":
-                    damage_array = on_turn_end.get("damage", [])
-                    turn_index = effect.get("turn_index", 0)
-                    if turn_index < len(damage_array):
-                        dot_damage = damage_array[turn_index]
-                        pet['current_hp'] = max(0, pet['current_hp'] - dot_damage)
-                        turn_log_lines.append(
-                            f"› {pet_name} took {dot_damage} damage from {effect.get('status_effect', et)}!")
-                        effect['turn_index'] = turn_index + 1
-
-            # --- Faint & Duration Logic ---
-            if pet.get('current_hp', 0) <= 0:
-                fainted = True
-                break
-
-            if 'duration' in effect and effect.get('duration') != -1:
-                effect['duration'] -= 1
-                if effect['duration'] <= 0:
-                    try:
-                        effects_list.remove(effect)
-                    except ValueError:
-                        pass
-                    status_name = effect.get('status_effect', 'effect').replace('_', ' ')
-                    turn_log_lines.append(f"› {pet_name} is no longer afflicted with {status_name}.")
-
-        elif etype == "stat_change":
-            if 'duration' in effect and effect.get('duration') != -1:
-                effect['duration'] -= 1
-                if effect['duration'] <= 0:
-                    try:
-                        effects_list.remove(effect)
-                    except ValueError:
-                        pass
-                    stat_name = effect.get('stat', 'stats')
-                    turn_log_lines.append(f"› {pet_name}'s {stat_name} change wore off.")
+                    heal_amount = math.floor(
+                        pet.get('max_hp', 1) * on_turn_end.get("amount_percent", 0)
+                    )
+                    pet['current_hp'] = min(
+                        pet['max_hp'],
+                        pet['current_hp'] + heal_amount
+                    )
+                    turn_log_lines.append(
+                        f"› {pet_name} recovered {heal_amount} HP from a lingering effect!"
+                    )
 
     return fainted
 
