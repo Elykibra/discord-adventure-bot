@@ -20,10 +20,22 @@ from core.narrative import Narrative
 from data.section_0.story import STORY as STORY_SECTION_0
 
 app = FastAPI(title="Aethelgard API")
+origins_env = os.getenv("CORS_ORIGINS", "")
+ALLOW_ORIGINS = [o.strip() for o in origins_env.split(",") if o.strip()]
+
+# sensible dev defaults if none provided
+if not ALLOW_ORIGINS:
+    ALLOW_ORIGINS = [
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:5174", "http://127.0.0.1:5174",
+    ]
+
+allow_origin_regex = r"^https?://(localhost|127\.0\.0\.1|192\.168\.1\.8)(:\d+)?$"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # << DEV ONLY. Replace with explicit origins later.
+    allow_origins=ALLOW_ORIGINS,     # keep explicit ones
+    allow_origin_regex=allow_origin_regex,  # plus regex for any port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -172,14 +184,22 @@ async def story_continue(user_id: int, repo=Depends(get_repo), narr: Narrative =
 class SubmitBody(BaseModel):
     user_id: int
     value: str
+    step_id: str | None = None
 
 @app.post("/story/submit", response_model=StepState)
 async def story_submit(body: SubmitBody, repo=Depends(get_repo), narr: Narrative = Depends(get_narr)):
     await ensure_player(repo, narr, body.user_id)
     state = await repo.get_story_state(body.user_id)
     step = narr.get_step(state["story_step_id"])
+
+    # If the client sent the step_id and it doesn’t match, just return the real current step
+    if body.step_id and body.step_id != step["id"]:
+        return await serialize_step(repo, narr, body.user_id)
+
     if step.get("type") != "modal":
-        raise HTTPException(status_code=400, detail="Not a modal step.")
+        # Be forgiving: return current step instead of error
+        return await serialize_step(repo, narr, body.user_id)
+
     await narr.apply_effects(body.user_id, step.get("effects"), modal_value=body.value)
     next_id = step.get("next")
     if next_id:
@@ -189,30 +209,96 @@ async def story_submit(body: SubmitBody, repo=Depends(get_repo), narr: Narrative
 class ChooseBody(BaseModel):
     user_id: int
     option_id: str
+    step_id: str | None = None
 
 @app.post("/story/choose", response_model=StepState)
 async def story_choose(body: ChooseBody, repo=Depends(get_repo), narr: Narrative = Depends(get_narr)):
     await ensure_player(repo, narr, body.user_id)
     state = await repo.get_story_state(body.user_id)
     step = narr.get_step(state["story_step_id"])
+
+    # If client’s idea of the step doesn’t match, just return the real current step
+    if body.step_id and body.step_id != step["id"]:
+        return await serialize_step(repo, narr, body.user_id)
+
     st = step.get("type")
     if st not in ("choice", "dyn_choice"):
-        raise HTTPException(status_code=400, detail="Not a choice step.")
+        # Be forgiving: return current step instead of error
+        return await serialize_step(repo, narr, body.user_id)
 
     if st == "choice":
         choice = next((o for o in step.get("options", []) if o["id"] == body.option_id), None)
         if not choice:
-            raise HTTPException(status_code=404, detail="Option not found.")
+            # If the option isn’t valid anymore, also just return current step
+            return await serialize_step(repo, narr, body.user_id)
         await narr.apply_effects(body.user_id, choice.get("effects"))
-        next_id = choice.get("next") or step.get( "next") or step["id"]
+        next_id = choice.get("next") or step.get("next") or step["id"]
     else:
+        # dyn_choice: flag the selected talent
         await narr.apply_effects(body.user_id, [{"op": "set_flag", "flag": f"starter_talent:{body.option_id}"}])
         next_id = step.get("next") or step["id"]
 
     await repo.set_story_state(body.user_id, "section_0", next_id)
     return await serialize_step(repo, narr, body.user_id)
 
+class PlayerState(BaseModel):
+    name: str
+    energy: int
+    max_energy: int
+    main_pet_species: str | None = None
+    flags: list[str] = []
+
+# --- helper to get flags as list ---
+async def get_player_state(repo, user_id: int) -> PlayerState:
+    p = await repo.get_player(user_id)
+    flags = p.get("flags", set())
+    if not isinstance(flags, set):
+        flags = set(flags or [])
+    return PlayerState(
+        name=p.get("name") or "Adventurer",
+        energy=int(p.get("energy", 0)),
+        max_energy=int(p.get("max_energy", 0)),
+        main_pet_species=p.get("main_pet_species"),
+        flags=sorted(list(flags)),
+    )
+
+# --- endpoints ---
+@app.get("/player/state", response_model=PlayerState)
+async def player_state(user_id: int, repo=Depends(get_repo), narr: Narrative = Depends(get_narr)):
+    await ensure_player(repo, narr, user_id)
+    return await get_player_state(repo, user_id)
+
 @app.post("/session/reset")
 async def session_reset(user_id: int, repo=Depends(get_repo), narr: Narrative = Depends(get_narr)):
-    await repo.set_story_state(user_id, "section_0", narr.first_step_id())
+    first = narr.first_step_id()
+    if hasattr(repo, "pool"):  # SqlRepository
+        async with repo.pool.acquire() as con:
+            async with con.transaction():
+                await con.execute("DELETE FROM pets WHERE player_id=$1", user_id)
+                await con.execute(
+                    "DELETE FROM player_flags WHERE player_id=$1 "
+                    "AND (flag LIKE 'starter_pet:%' OR flag LIKE 'starter_talent:%')",
+                    user_id,
+                )
+                await con.execute(
+                    "UPDATE players "
+                    "SET story_step_id=$1, section_id='section_0', main_pet_species=NULL "
+                    "WHERE user_id=$2",
+                    first, user_id,
+                )
+    else:
+        p = await repo.get_player(user_id)
+        if p:
+            p["story_step_id"] = first
+            p["section_id"] = "section_0"
+            p["main_pet_species"] = None
+            if isinstance(p.get("flags"), set):
+                p["flags"] = {f for f in p["flags"]
+                              if not (isinstance(f, str) and (f.startswith("starter_pet:") or f.startswith("starter_talent:")))}
+            else:
+                p["flags"] = [f for f in (p.get("flags") or [])
+                              if not (isinstance(f, str) and (f.startswith("starter_pet:") or f.startswith("starter_talent:")))]
+            await repo.save_player(user_id, p)
+
+    await repo.set_story_state(user_id, "section_0", first)
     return await serialize_step(repo, narr, user_id)

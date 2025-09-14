@@ -41,6 +41,11 @@ class Narrative:
             elif op == "set_main_pet_by_species":
                 # optional op: set player's main pet to the first pet matching species
                 await self.repo.set_main_pet_by_species(user_id, eff["pet_id"])
+
+            elif op == "goto":
+                # effects: {"op":"goto", "section":"section_1", "step":"intro_1"}
+                await self.repo.set_story_state(user_id, eff["section"], eff["step"])
+
             # Add more ops over time; engine stays the same.
 
     async def choose(self, user_id: int, current_step_id: str, choice_id: str) -> str:

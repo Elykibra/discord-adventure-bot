@@ -12,6 +12,14 @@ type StepState = {
   needs_input?: boolean;
 };
 
+type PlayerState = {
+  name: string;
+  energy: number;
+  max_energy: number;
+  main_pet_species?: string | null;
+  flags: string[];
+};
+
 const API_BASE =
   import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "") || "http://127.0.0.1:8000";
 
@@ -24,15 +32,10 @@ function useUserId(): string {
   return uid;
 }
 
-async function postJson(path: string, body?: any) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+async function getJson(path: string) {
+  const res = await fetch(`${API_BASE}${path}`);
   const text = await res.text();
   if (!res.ok) {
-    // try to parse JSON error, else throw text
     try {
       const j = JSON.parse(text);
       throw new Error(j?.detail ? JSON.stringify(j.detail) : text);
@@ -43,7 +46,28 @@ async function postJson(path: string, body?: any) {
   try {
     return JSON.parse(text);
   } catch {
-    // if server ever returned HTML or plain text by mistake
+    throw new Error(`Invalid JSON from API: ${text.slice(0, 120)}…`);
+  }
+}
+
+async function postJson(path: string, body?: any) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    try {
+      const j = JSON.parse(text);
+      throw new Error(j?.detail ? JSON.stringify(j.detail) : text);
+    } catch {
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
     throw new Error(`Invalid JSON from API: ${text.slice(0, 120)}…`);
   }
 }
@@ -58,12 +82,15 @@ export default function App() {
   }, []);
 
   const uid = useUserId();
+  const uidNum = Number(uid); // ensure numeric when sending in JSON bodies
+
   const [step, setStep] = useState<StepState | null>(null);
+  const [player, setPlayer] = useState<PlayerState | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalValue, setModalValue] = useState("");
 
-  // load/refresh current step
+  // ---- loaders ----
   const loadStart = async () => {
     setPending(true);
     setError(null);
@@ -77,11 +104,32 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    loadStart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid, API_BASE]);
+  const fetchPlayer = async () => {
+    try {
+      const p: PlayerState = await getJson(`/player/state?user_id=${encodeURIComponent(uid)}`);
+      setPlayer(p);
+    } catch (e: any) {
+      console.warn("player/state error:", e?.message || e);
+    }
+  };
 
+  const reloadAll = async () => {
+    await loadStart();
+    await fetchPlayer();
+  };
+
+  useEffect(() => {
+    reloadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
+
+  // whenever step changes (e.g., after choose/submit), refresh player state
+  useEffect(() => {
+    if (step) fetchPlayer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step?.step_id]);
+
+  // ---- actions ----
   const onContinue = async () => {
     if (!step) return;
     setPending(true);
@@ -101,7 +149,11 @@ export default function App() {
     setPending(true);
     setError(null);
     try {
-      const s = await postJson(`/story/submit`, { user_id: uid, value: modalValue });
+      const s = await postJson(`/story/submit`, {
+        user_id: uid,
+        value: modalValue,
+        step_id: step.step_id,   // <— add this
+        });
       setStep(s);
       setModalValue("");
     } catch (e: any) {
@@ -111,13 +163,31 @@ export default function App() {
     }
   };
 
-  const onChoose = async (option_id: string) => {
-    if (!step) return;
+ const onChoose = async (option_id: string) => {
+  if (!step) return;
+  setPending(true);
+  setError(null);
+  try {
+    const s = await postJson(`/story/choose`, {
+      user_id: uid,
+      option_id,
+      step_id: step.step_id,   // <— add this
+    });
+    setStep(s);
+  } catch (e: any) {
+    setError(e?.message || String(e));
+  } finally {
+    setPending(false);
+  }
+};
+
+  const onReset = async () => {
     setPending(true);
     setError(null);
     try {
-      const s = await postJson(`/story/choose`, { user_id: uid, option_id });
+      const s = await postJson(`/session/reset?user_id=${encodeURIComponent(uid)}`);
       setStep(s);
+      await fetchPlayer();
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -127,20 +197,34 @@ export default function App() {
 
   const options = useMemo(() => step?.options ?? [], [step]);
 
+  // ---- UI ----
   return (
     <div style={{ maxWidth: 680, margin: "40px auto", padding: 16 }}>
       <h1 style={{ margin: "0 0 8px" }}>Aethelgard (dev)</h1>
+
+      {/* player header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 14 }}>
+          <div><b>{player?.name ?? "…"}</b></div>
+          <div style={{ opacity: 0.7, fontSize: 12 }}>
+            Energy {player?.energy ?? 0}/{player?.max_energy ?? 0}
+            {player?.main_pet_species ? ` · Pet: ${player.main_pet_species}` : ""}
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button onClick={onReset} disabled={pending}>Reset tutorial</button>
+          <button
+            onClick={() => { localStorage.removeItem("aethel_uid"); location.href = location.pathname; }}
+            disabled={pending}
+          >
+            reset uid
+          </button>
+        </div>
+      </div>
+
+      {/* small debug line */}
       <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 16 }}>
-        API: <code>{API_BASE}</code> &nbsp;|&nbsp; UID: <code>{uid}</code>{" "}
-        <button
-          style={{ marginLeft: 8 }}
-          onClick={() => {
-            localStorage.removeItem("aethel_uid");
-            location.href = location.pathname; // reload without ?uid
-          }}
-        >
-          reset uid
-        </button>
+        API: <code>{API_BASE}</code> &nbsp;|&nbsp; UID: <code>{uid}</code>
       </div>
 
       {error && (
@@ -154,7 +238,7 @@ export default function App() {
       {step && (
         <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 16 }}>
           <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
-            step: <code>{step.step_id}</code> &middot; kind: <code>{step.kind}</code>
+            step: <code>{step.step_id}</code> · kind: <code>{step.kind}</code>
           </div>
 
           {/* NARRATION */}
@@ -191,7 +275,12 @@ export default function App() {
               <div style={{ marginBottom: 12 }}>{step.prompt || "Choose:"}</div>
               <div style={{ display: "grid", gap: 8 }}>
                 {options.map((o) => (
-                  <button key={o.id} onClick={() => onChoose(o.id)} disabled={pending} style={{ textAlign: "left", padding: "10px 12px" }}>
+                  <button
+                    key={o.id}
+                    onClick={() => onChoose(o.id)}
+                    disabled={pending}
+                    style={{ textAlign: "left", padding: "10px 12px" }}
+                  >
                     <div style={{ fontWeight: 600 }}>{o.label}</div>
                     <div style={{ fontSize: 12, opacity: 0.6 }}>{o.id}</div>
                   </button>
