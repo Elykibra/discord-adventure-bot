@@ -95,17 +95,12 @@ class SqlRepository:
                 user_id, name
             )
 
-    async def set_main_pet_by_species(self, user_id: int, pet_species: str) -> None:
+    async def set_main_pet_by_species(self, user_id: int, species: str):
         async with self.pool.acquire() as con:
-            pet_row = await con.fetchrow(
-                "SELECT pet_id FROM pets WHERE owner_id=$1 AND species=$2 ORDER BY pet_id ASC LIMIT 1",
-                user_id, pet_species
+            await con.execute(
+                "UPDATE players SET main_pet_species=$2 WHERE user_id=$1",
+                user_id, species
             )
-            if pet_row:
-                await con.execute(
-                    "UPDATE players SET main_pet_id=$2 WHERE user_id=$1",
-                    user_id, pet_row["pet_id"]
-                )
 
     async def get_player(self, user_id: int):
         async with self.pool.acquire() as con:
@@ -162,11 +157,11 @@ class SqlRepository:
                 user_id, item_id, qty
             )
 
-    async def add_pet(self, user_id: int, pet_id: str):
+    async def add_pet(self, player_id: int, species: str):
         async with self.pool.acquire() as con:
             await con.execute(
-                "INSERT INTO pets (player_id, pet_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                user_id, pet_id
+                "INSERT INTO pets (player_id, species) VALUES ($1, $2)",
+                player_id, species
             )
 
     async def set_flag(self, user_id: int, flag: str):
