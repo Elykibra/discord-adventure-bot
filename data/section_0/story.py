@@ -73,6 +73,51 @@ STORY = {
             "id": "intro_3",
             "type": "narration",
             "text": "With your companion by your side, the guildmaster nods approvingly.\nYour journey begins.",
+            "next": "hub_1"
+        },
+
+        # --- simple "town hub" loop for testing ---
+        {
+            "id": "hub_1",
+            "type": "choice",
+            "prompt": "You're in Oakhaven's guild hall. What do you do?",
+            "options": [
+                {"id": "hub_gm", "label": "Talk to the guildmaster", "next": "hub_gm_say"},
+                {"id": "hub_market", "label": "Visit the market", "next": "hub_market_say"},
+                {"id": "hub_training", "label": "Training yard", "next": "hub_training_say"},
+
+                # Put effects here (on the option), not on the next narration.
+                {"id": "hub_end", "label": "Call it a day (end demo)",
+                 "effects": [
+                     {"op": "set_flag", "flag": "finished_tutorial"},
+                     {"op": "goto", "section": "section_1", "step": "intro_1"}
+                 ],
+                 "next": "hub_end_say"}
+            ]
+        },
+        {
+            "id": "hub_gm_say",
+            "type": "narration",
+            "text": "The guildmaster reviews a stack of requests. \"Come back tomorrow—more work will be posted.\"",
+            "next": "hub_1"
+        },
+        {
+            "id": "hub_market_say",
+            "type": "narration",
+            "text": "Vendors haggle, blades glitter, and a baker hands you a sample roll. Tastes like hope.",
+            "next": "hub_1"
+        },
+        {
+            "id": "hub_training_say",
+            "type": "narration",
+            "text": "You stretch and run drills with your companion. Spirits high; muscles burning—good burn.",
+            "next": "hub_1"
+        },
+        {
+            "id": "hub_end_say",
+            "type": "narration",
+            "text": "You call it a day. Thanks for testing this early build!"
+            # no next — ends demo cleanly
         }
     ]
 }
