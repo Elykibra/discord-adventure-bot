@@ -1,21 +1,31 @@
-# Python cache
+# ---------- Python ----------
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.pyd
 
-# Virtual env
+# Virtual environments
 .venv/
 env/
 venv/
 
-# IDE stuff
+# ---------- Editors / IDE ----------
 .idea/
 .vscode/
 
-# Logs and databases
+# ---------- Logs / temp DBs ----------
 *.log
 *.db
 
-# Environment variables
-.env
+# ---------- Node / JS outputs (any subfolder) ----------
+**/node_modules/
+**/dist/
+**/dist-ssr/
+
+# ---------- Environment files (any subfolder) ----------
+# Ignore ALL env files…
+**/.env
+**/.env.*
+
+# …but DO track the example env files
+!**/.env.example
+!**/.env.local.example
