@@ -112,6 +112,7 @@ STORY = {
             "id": "hub_training_say",
             "type": "narration",
             "text": "You stretch and run drills with your companion. Spirits high; muscles burning—good burn.",
+            "effects": [{"op": "spend_energy", "amount": 1}],
             "next": "hub_1"
         },
         {

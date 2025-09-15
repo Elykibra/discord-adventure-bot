@@ -26,7 +26,7 @@ class MemoryRepository:
         p = self.players[user_id]
         for pet in p["pets"]:
             if pet.get("pet_id") == pet_species:
-                p["main_pet_id"] = pet_species
+                p["main_pet_species"] = pet_species
                 return
     async def get_player(self, user_id: int) -> Optional[Dict[str, Any]]:
         return self.players.get(user_id)
@@ -133,7 +133,7 @@ class SqlRepository:
         async with self.pool.acquire() as con:
             row = await con.fetchrow(
                 """SELECT user_id, username, section_id, story_step_id,
-                          current_energy, max_energy, main_pet_id
+                          energy, max_energy, main_pet_species
                    FROM players WHERE user_id=$1""",
                 user_id,
             )
@@ -147,16 +147,16 @@ class SqlRepository:
                 "name": row["username"],
                 "section_id": row["section_id"],
                 "story_step_id": row["story_step_id"],
-                "energy": row["current_energy"],
+                "energy": row["energy"],
                 "max_energy": row["max_energy"],
-                "main_pet_id": row["main_pet_id"],
+                "main_pet_species": row["main_pet_species"],
                 "flags": flags,
             }
 
     async def create_player(self, user_id: int, defaults: dict):
         async with self.pool.acquire() as con:
             await con.execute(
-                """INSERT INTO players (user_id, username, section_id, story_step_id, current_energy, max_energy)
+                """INSERT INTO players (user_id, username, section_id, story_step_id, energy, max_energy)
                    VALUES ($1, $2, $3, $4, $5, $6)
                    ON CONFLICT (user_id) DO NOTHING""",
                 user_id,
@@ -171,8 +171,21 @@ class SqlRepository:
     async def save_player(self, user_id: int, data: dict):
         async with self.pool.acquire() as con:
             await con.execute(
-                "UPDATE players SET name=$2, section_id=$3, story_step_id=$4, energy=$5 WHERE id=$1",
-                user_id, data.get("name"), data.get("section_id"), data.get("story_step_id"), data.get("energy", 10)
+                """UPDATE players
+                     SET username=COALESCE($2, username),
+                         section_id=COALESCE($3, section_id),
+                         story_step_id=COALESCE($4, story_step_id),
+                         energy=COALESCE($5, energy),
+                         max_energy=COALESCE($6, max_energy),
+                         main_pet_species=COALESCE($7, main_pet_species)
+                   WHERE user_id=$1""",
+                user_id,
+                data.get("name"),
+                data.get("section_id"),
+                data.get("story_step_id"),
+                data.get("energy"),
+                data.get("max_energy"),
+                data.get("main_pet_species"),
             )
 
     async def add_item(self, user_id: int, item_id: str, qty: int = 1):
@@ -180,7 +193,8 @@ class SqlRepository:
             await con.execute(
                 """INSERT INTO inventory (player_id, item_id, qty)
                    VALUES ($1, $2, $3)
-                   ON CONFLICT (player_id, item_id) DO UPDATE SET qty = inventory.qty + EXCLUDED.qty""",
+                   ON CONFLICT (player_id, item_id)
+                   DO UPDATE SET qty = inventory.qty + EXCLUDED.qty""",
                 user_id, item_id, qty
             )
 
@@ -235,15 +249,14 @@ class SqlRepository:
             ['id', 'player_id', 'user_id']
         )
         cols = {r['column_name'] for r in rows}
-        if 'id' in cols:        self._player_pk = 'id'
+        if 'id' in cols:          self._player_pk = 'id'
         elif 'player_id' in cols: self._player_pk = 'player_id'
-        elif 'user_id' in cols: self._player_pk = 'user_id'
+        elif 'user_id' in cols:   self._player_pk = 'user_id'
         else:
             raise RuntimeError("players table has no id/player_id/user_id column")
         return self._player_pk
 
-    # --- energy helpers ---
-
+    # --- energy helpers (all use `energy`/`max_energy`) ---
     async def restore_energy_full(self, user_id: int) -> None:
         async with self.pool.acquire() as con:
             pk = await self._get_player_pk(con)
