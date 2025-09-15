@@ -83,10 +83,37 @@ class MemoryRepository:
     async def set_session_message_id(self, user_id: int, message_id: int) -> None:
         self.players[user_id]["session_message_id"] = int(message_id)
 
+    async def restore_energy_full(self, user_id: int) -> None:
+        p = await self.get_player(user_id)
+        if p:
+            p["energy"] = int(p.get("max_energy", p.get("energy", 0)))
+            await self.save_player(user_id, p)
+
+    async def add_energy(self, user_id: int, amount: int) -> None:
+        p = await self.get_player(user_id)
+        if p:
+            cur = int(p.get("energy", 0))
+            mx = int(p.get("max_energy", cur))
+            p["energy"] = min(cur + int(amount), mx)
+            await self.save_player(user_id, p)
+
+    async def spend_energy(self, user_id: int, amount: int) -> bool:
+        p = await self.get_player(user_id)
+        if not p:
+            return False
+        need = int(amount)
+        cur = int(p.get("energy", 0))
+        if cur < need:
+            return False
+        p["energy"] = cur - need
+        await self.save_player(user_id, p)
+        return True
+
 # ---------- Your real DB repo (skeleton) ----------
 class SqlRepository:
     def __init__(self, pool):
         self.pool = pool
+        self._player_pk = None
 
     async def update_player_name(self, user_id: int, name: str) -> None:
         async with self.pool.acquire() as con:
@@ -198,3 +225,44 @@ class SqlRepository:
                 "UPDATE players SET session_message_id=$2 WHERE user_id=$1",
                 user_id, int(message_id)
             )
+
+    async def _get_player_pk(self, con) -> str:
+        if self._player_pk:
+            return self._player_pk
+        rows = await con.fetch(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'players' AND column_name = ANY($1::text[])",
+            ['id', 'player_id', 'user_id']
+        )
+        cols = {r['column_name'] for r in rows}
+        if 'id' in cols:        self._player_pk = 'id'
+        elif 'player_id' in cols: self._player_pk = 'player_id'
+        elif 'user_id' in cols: self._player_pk = 'user_id'
+        else:
+            raise RuntimeError("players table has no id/player_id/user_id column")
+        return self._player_pk
+
+    # --- energy helpers ---
+
+    async def restore_energy_full(self, user_id: int) -> None:
+        async with self.pool.acquire() as con:
+            pk = await self._get_player_pk(con)
+            await con.execute(f"UPDATE players SET energy = max_energy WHERE {pk} = $1", user_id)
+
+    async def add_energy(self, user_id: int, amount: int) -> None:
+        async with self.pool.acquire() as con:
+            pk = await self._get_player_pk(con)
+            await con.execute(
+                f"UPDATE players SET energy = LEAST(energy + $2, max_energy) WHERE {pk} = $1",
+                user_id, amount,
+            )
+
+    async def spend_energy(self, user_id: int, amount: int) -> bool:
+        async with self.pool.acquire() as con:
+            pk = await self._get_player_pk(con)
+            row = await con.fetchrow(
+                f"UPDATE players SET energy = energy - $2 "
+                f"WHERE {pk} = $1 AND energy >= $2 RETURNING energy",
+                user_id, amount,
+            )
+            return row is not None

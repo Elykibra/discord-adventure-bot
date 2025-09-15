@@ -271,20 +271,32 @@ async def player_state(user_id: int, repo=Depends(get_repo), narr: Narrative = D
 @app.post("/session/reset")
 async def session_reset(user_id: int, repo=Depends(get_repo), narr: Narrative = Depends(get_narr)):
     first = narr.first_step_id()
-    if hasattr(repo, "pool"):  # SqlRepository
+    if hasattr(repo, "pool"):  # SqlRepository path
         async with repo.pool.acquire() as con:
+            # detect the players PK column just like the repo does
+            rows = await con.fetch(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'players' AND column_name = ANY($1::text[])",
+                ['id', 'player_id', 'user_id']
+            )
+            cols = {r['column_name'] for r in rows}
+            if 'id' in cols:        pk = 'id'
+            elif 'player_id' in cols: pk = 'player_id'
+            elif 'user_id' in cols: pk = 'user_id'
+            else:
+                raise HTTPException(status_code=500, detail="players table missing PK column")
+
             async with con.transaction():
                 await con.execute("DELETE FROM pets WHERE player_id=$1", user_id)
                 await con.execute(
                     "DELETE FROM player_flags WHERE player_id=$1 "
                     "AND (flag LIKE 'starter_pet:%' OR flag LIKE 'starter_talent:%')",
-                    user_id,
+                    user_id
                 )
                 await con.execute(
-                    "UPDATE players "
-                    "SET story_step_id=$1, section_id='section_0', main_pet_species=NULL "
-                    "WHERE user_id=$2",
-                    first, user_id,
+                    f"UPDATE players SET story_step_id=$1, section_id='section_0', main_pet_species=NULL "
+                    f"WHERE {pk}=$2",
+                    first, user_id
                 )
     else:
         p = await repo.get_player(user_id)
