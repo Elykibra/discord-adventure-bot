@@ -46,6 +46,16 @@ class Narrative:
                 # effects: {"op":"goto", "section":"section_1", "step":"intro_1"}
                 await self.repo.set_story_state(user_id, eff["section"], eff["step"])
 
+            elif op == "restore_energy_full":
+                await self.repo.restore_energy_full(user_id)
+
+            elif op == "spend_energy":
+                amt = int(eff.get("amount", 1))
+                ok = await self.repo.spend_energy(user_id, amt)
+                if not ok:
+                    # Soft failure: mark a flag so the step text can acknowledge it if desired
+                    await self.repo.set_flag(user_id, "no_energy")
+
             # Add more ops over time; engine stays the same.
 
     async def choose(self, user_id: int, current_step_id: str, choice_id: str) -> str:

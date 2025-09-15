@@ -85,6 +85,7 @@ STORY = {
                 {"id": "hub_gm", "label": "Talk to the guildmaster", "next": "hub_gm_say"},
                 {"id": "hub_market", "label": "Visit the market", "next": "hub_market_say"},
                 {"id": "hub_training", "label": "Training yard", "next": "hub_training_say"},
+                {"id": "hub_rest", "label": "Rest at the bunks (restore energy)", "next": "hub_rest_say"},
 
                 # Put effects here (on the option), not on the next narration.
                 {"id": "hub_end", "label": "Call it a day (end demo)",
@@ -111,6 +112,13 @@ STORY = {
             "id": "hub_training_say",
             "type": "narration",
             "text": "You stretch and run drills with your companion. Spirits high; muscles burning—good burn.",
+            "next": "hub_1"
+        },
+        {
+            "id": "hub_rest_say",
+            "type": "narration",
+            "effects": [ { "op": "restore_energy_full" } ],
+            "text": "You take a proper rest. Your energy is fully restored.",
             "next": "hub_1"
         },
         {
