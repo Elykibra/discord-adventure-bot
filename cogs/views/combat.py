@@ -422,8 +422,7 @@ class CombatView(discord.ui.View):
             flee_result = await self.battle.attempt_flee()
 
             if flee_result['success']:
-                # On success, return to the wilds with the dynamic success message
-                await self._return_to_wilds(flee_result['log'])
+                await self._return_to_wilds([f"🏃 **Fled**\n*You escaped from the battle.*"])
                 # No need to unlock here, the view is being replaced
                 return
             else:
@@ -576,28 +575,31 @@ class CombatView(discord.ui.View):
         )
         captured = results.get("captured", False)
         channel = self.parent_interaction.channel
-        # Always carry over the winning round's log — contains XP, level up, satiated bonus etc.
-        final_log_list = results.get('log', '').split('\n') if results.get('log') else []
+        wild_name = self.battle.wild_pet.get('name', 'the wild pet')
+
+        # Build a clean post-battle summary — no blow-by-blow, just outcome + rewards
+        summary = []
         if captured:
+            summary.append(f"⚔️ **Battle Won**\n*{wild_name} was captured!*")
             quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_capture",
                                                        {"species": self.battle.wild_pet['species']}, channel=channel)
         else:
+            summary.append(f"⚔️ **Battle Won**\n*{wild_name} was defeated.*")
             reward_log = await self.battle.grant_battle_rewards()
-            final_log_list.extend(reward_log)
+            if reward_log:
+                summary.extend(reward_log)
             quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_victory",
                                                        {"species": self.battle.wild_pet['species']}, channel=channel)
         if quest_updates:
-            final_log_list.extend(quest_updates)
+            summary.extend(quest_updates)
 
         await self._post_public_victory(captured)
-        await self._return_to_wilds(final_log_list)
+        await self._return_to_wilds(summary)
 
     async def _handle_loss(self, results: dict):
         await self.battle.db_cog.update_pet(self.battle.player_pet['pet_id'], current_hp=0)
-        # Carry over the final round's log (includes faint message), then append defeat notification
-        final_log_list = results.get('log', '').split('\n') if results.get('log') else []
-        final_log_list.append(get_notification("BATTLE_DEFEAT"))
-        await self._return_to_wilds(final_log_list)
+        summary = [f"💔 **Defeated**\n*{get_notification('BATTLE_DEFEAT')}*"]
+        await self._return_to_wilds(summary)
 
     async def _return_to_wilds(self, result_log_list: list[str]):
         """
