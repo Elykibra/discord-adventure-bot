@@ -414,11 +414,19 @@ class TownView(discord.ui.View):
             )
 
         town_data = TOWNS.get(self.town_id, {})
-        connections = town_data.get('connections', {})
+        all_connections = town_data.get('connections', {})
+        connection_reqs = town_data.get('connection_requirements', {})
+        player_flags = player_data.get('flags', set())
+
+        # Filter out destinations the player hasn't unlocked yet
+        connections = {
+            loc_id: name for loc_id, name in all_connections.items()
+            if loc_id not in connection_reqs or connection_reqs[loc_id] in player_flags
+        }
+
         if not connections:
             return await interaction.followup.send("There's nowhere to travel to from here.", ephemeral=True)
 
-        # We now pass the resource cog and user_id to the TravelView
         travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message)
         travel_msg = await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
         travel_view.message = travel_msg

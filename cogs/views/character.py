@@ -25,6 +25,9 @@ class ProfileView(discord.ui.View):
         self.bot = bot
         self.user_id = user_id
         self.message = None
+        self._avatar_url = None   # cached after first build
+        self._channel = None      # cached for the Flex button
+        self._flexed = False      # one flex per panel open (no spam)
 
     async def get_profile_embed(self, interaction: discord.Interaction):
         db_cog = self.bot.get_cog('Database')
@@ -47,9 +50,12 @@ class ProfileView(discord.ui.View):
             color=rank_display['color']
         )
 
+        # Cache for the Flex button
+        self._avatar_url = interaction.user.display_avatar.url
+        self._channel = interaction.channel
+
         # --- PLAYER'S DISCORD AVATAR ---
-        # We use .display_avatar.url to ensure it always has a fallback.
-        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        embed.set_thumbnail(url=self._avatar_url)
 
         # --- GUILD CRESTS ---
         earned_crests = await db_cog.get_player_crests(self.user_id)
@@ -60,28 +66,23 @@ class ProfileView(discord.ui.View):
 
         # --- ADVENTURE STATS ---
         stats_block = (
-            f"```\n"
-            f"├─ Rank:        {rank_info['rank']}\n"
-            f"├─ Coins:       {player_data.get('coins', 0)} 🪙\n"
-            f"├─ Reputation:  {player_data.get('reputation', 0)} ✨\n"
-            f"└─ Pets Owned:  {len(all_pets)}\n"
-            f"```"
+            f"🏅 **Rank:** {rank_info['rank']}\n"
+            f"🪙 **Coins:** {player_data.get('coins', 0)}\n"
+            f"✨ **Reputation:** {player_data.get('reputation', 0)}\n"
+            f"🐾 **Pets Owned:** {len(all_pets)}"
         )
         embed.add_field(name="Adventurer Stats", value=stats_block, inline=True)
 
         # --- EQUIPPED GEAR ---
         gear_info = (
-            f"```\n"
-            f"├─ Head:  {head_item}\n"
-            f"├─ Charm: {charm_item}\n"
-            f"└─ Pet Items: None\n"
-            f"```"
+            f"🪖 **Head:** {head_item}\n"
+            f"🔮 **Charm:** {charm_item}\n"
+            f"🎽 **Pet Items:** None"
         )
         embed.add_field(name="Equipped Gear", value=gear_info, inline=True)
 
         current_location_name = TOWNS.get(player_data['current_location'], {}).get('name', 'Unknown')
-        current_location = f"{current_location_name}."
-        embed.add_field(name="Current Location", value=f"`{current_location}`", inline=False)
+        embed.add_field(name="📍 Current Location", value=current_location_name, inline=False)
 
         # --- MAIN PET STATUS ---
         if main_pet_data:
@@ -114,6 +115,86 @@ class ProfileView(discord.ui.View):
         embed.set_footer(text=status_bar)
 
         return embed
+
+    @discord.ui.button(label="Flex 💪", style=discord.ButtonStyle.green, row=1)
+    async def flex_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self._flexed:
+            return await interaction.response.send_message(
+                "You've already flexed from this panel. Open `/character` again to flex once more.",
+                ephemeral=True
+            )
+        if not self._channel:
+            return await interaction.response.send_message("Couldn't find the channel.", ephemeral=True)
+
+        # Build the public embed — same as the private one but with a public footer
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        num_crests = await db_cog.count_player_crests(self.user_id)
+        rank_info = get_player_rank_info(num_crests)
+        rank_display = RANK_DISPLAY_DATA.get(rank_info["rank"], RANK_DISPLAY_DATA["Novice"])
+        main_pet_data = await db_cog.get_pet(player_data['main_pet_id']) if player_data.get('main_pet_id') else None
+        all_pets = await db_cog.get_all_pets(self.user_id)
+        head_item = ITEMS.get(player_data.get('equipped_head'), {}).get('name', 'None')
+        charm_item = ITEMS.get(player_data.get('equipped_charm'), {}).get('name', 'None')
+        earned_crests = await db_cog.get_player_crests(self.user_id)
+
+        pub_embed = discord.Embed(
+            title=f"{rank_display['title_prefix']}: {player_data['username']}",
+            description=rank_display['description'],
+            color=rank_display['color']
+        )
+        pub_embed.set_thumbnail(url=self._avatar_url)
+
+        crests_display = "".join(
+            f"{emoji} " if c in earned_crests else f"{UNEARNED_CREST_EMOJI} "
+            for c, emoji in CREST_DATA.items()
+        )
+        pub_embed.add_field(name="Guild Crests", value=crests_display.strip(), inline=False)
+
+        stats_block = (
+            f"🏅 **Rank:** {rank_info['rank']}\n"
+            f"🪙 **Coins:** {player_data.get('coins', 0)}\n"
+            f"✨ **Reputation:** {player_data.get('reputation', 0)}\n"
+            f"🐾 **Pets Owned:** {len(all_pets)}"
+        )
+        pub_embed.add_field(name="Adventurer Stats", value=stats_block, inline=True)
+
+        gear_info = (
+            f"🪖 **Head:** {head_item}\n"
+            f"🔮 **Charm:** {charm_item}\n"
+            f"🎽 **Pet Items:** None"
+        )
+        pub_embed.add_field(name="Equipped Gear", value=gear_info, inline=True)
+
+        if main_pet_data:
+            pet_hp_bar = _create_progress_bar(main_pet_data['current_hp'], main_pet_data['max_hp'])
+            pub_embed.add_field(
+                name=f"Companion: {main_pet_data['name']}",
+                value=(
+                    f"**Lvl {main_pet_data['level']} {main_pet_data['species']}**\n"
+                    f"❤️ {pet_hp_bar} ({main_pet_data['current_hp']}/{main_pet_data['max_hp']})"
+                ),
+                inline=False
+            )
+
+        progress_current = rank_info.get('progress_current', 0)
+        progress_total = rank_info.get('progress_total', 1)
+        progress_percent = progress_current / progress_total if progress_total > 0 else 1
+        filled_blocks = math.floor(progress_percent * 15)
+        pub_embed.add_field(
+            name="Progress to Next Rank",
+            value=f"{'🟦' * filled_blocks}{'⬛' * (15 - filled_blocks)} `{progress_current}/{progress_total}`",
+            inline=False
+        )
+        pub_embed.set_footer(text="Aethelgard")
+
+        await self._channel.send(embed=pub_embed)
+
+        # Mark as used and dim the button
+        self._flexed = True
+        button.disabled = True
+        button.label = "Flexed ✓"
+        await interaction.response.edit_message(view=self)
 
     async def on_timeout(self):
         if self.message:
@@ -354,7 +435,6 @@ class PetView(discord.ui.View):
                 # This prevents errors from appearing in your console.
                 pass
 
-# This CharacterView now correctly loads data and passes it to the other views
 class CharacterView(discord.ui.View):
     def __init__(self, bot, user_id):
         super().__init__(timeout=180)
@@ -362,95 +442,82 @@ class CharacterView(discord.ui.View):
         self.user_id = user_id
         self.message = None
 
+    async def get_hub_embed(self) -> discord.Embed:
+        db_cog = self.bot.get_cog('Database')
+        player_and_pet = await db_cog.get_player_and_pet_data(self.user_id)
+        status_bar = get_status_bar(
+            player_and_pet['player_data'],
+            player_and_pet['main_pet_data']
+        )
+        embed = discord.Embed(
+            title="👤 Character Menu",
+            description="Select an option to view your profile, manage your pets, or check your bag.",
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text=status_bar)
+        return embed
+
     @discord.ui.button(label="Profile", emoji="👤", style=discord.ButtonStyle.primary)
     async def profile_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-
-        # Create an instance of the ProfileView
         profile_view = ProfileView(self.bot, self.user_id)
-        # Create the embed using the view's helper method
         embed = await profile_view.get_profile_embed(interaction)
-
-        # Send the new view and embed
         message = await interaction.followup.send(embed=embed, view=profile_view, ephemeral=True)
-        profile_view.message = await interaction.original_response()
+        profile_view.message = message
 
-    @discord.ui.button(label="Pet", emoji="🐾", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Pet", emoji="🐾", style=discord.ButtonStyle.secondary)
     async def pet_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         db_cog = self.bot.get_cog('Database')
-
         player_data = await db_cog.get_player(self.user_id)
         if not player_data or not player_data.get('main_pet_id'):
             return await interaction.followup.send("You don't have a main pet set.", ephemeral=True)
-
         main_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
         all_pets_data = await db_cog.get_all_pets(self.user_id)
-
         view = PetView(self.bot, self.user_id, player_data, main_pet_data, all_pets_data)
         embed = await view.get_pet_status_embed()
-
         message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         view.message = message
 
-    @discord.ui.button(label="Bag", emoji="🎒", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Bag", emoji="🎒", style=discord.ButtonStyle.secondary)
     async def bag_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         db_cog = self.bot.get_cog('Database')
-
         player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
         inventory_data = await db_cog.get_player_inventory(self.user_id)
-
-        # Create an instance of the BagView
         bag_view = BagView(
-            self.bot,
-            self.user_id,
+            self.bot, self.user_id,
             player_and_pet_data['player_data'],
             player_and_pet_data['main_pet_data'],
             inventory_data,
             channel=interaction.channel
         )
         await bag_view.initial_setup()
-
-        embed = bag_view.create_embed()
-
-        message = await interaction.followup.send(embed=embed, view=bag_view, ephemeral=True)
+        message = await interaction.followup.send(embed=bag_view.create_embed(), view=bag_view, ephemeral=True)
         bag_view.message = message
 
-    @discord.ui.button(label="Crafting", emoji="🛠️", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Crafting", emoji="🛠️", style=discord.ButtonStyle.secondary)
     async def crafting_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-
         db_cog = self.bot.get_cog('Database')
         player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
-
         crafting_view = CraftingView(
-            self.bot,
-            self.user_id,
+            self.bot, self.user_id,
             player_and_pet_data['player_data'],
             player_and_pet_data['main_pet_data']
         )
         await crafting_view.initial_setup()
-
-        embed = crafting_view.create_embed()
-
-        message = await interaction.followup.send(embed=embed, view=crafting_view, ephemeral=True)
+        message = await interaction.followup.send(embed=crafting_view.create_embed(), view=crafting_view, ephemeral=True)
         crafting_view.message = message
 
     async def on_timeout(self):
         if self.message:
             try:
                 await self.message.edit(
-                    content="Character Menu timed out. Please run `/character` again to see your character.",
-                    embed=None,
-                    view=None
+                    content="Character Menu timed out. Please run `/character` again.",
+                    embed=None, view=None
                 )
-
                 await asyncio.sleep(15)
                 await self.message.delete()
-
             except discord.NotFound:
-                # If at any point the message is not found (because the user
-                # dismissed it), just ignore the error and do nothing.
-                # This prevents errors from appearing in your console.
                 pass

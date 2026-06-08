@@ -6,7 +6,6 @@ from discord.ext import commands
 
 # --- REFACTORED IMPORTS ---
 from .views.character import CharacterView
-from utils.helpers import get_status_bar
 
 # --- ADD THIS IMPORT FOR THE DEBUGGER ---
 import inspect
@@ -23,15 +22,8 @@ class Character(commands.Cog):
         if not player_and_pet_data:
             return await interaction.followup.send("You have not started your adventure! Use `/start` to begin.", ephemeral=True)
 
-        status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
-        embed = discord.Embed(
-            title="👤 Character Menu",
-            description="Select an option to view your profile, manage your pets, or check your bag.",
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text=status_bar)
-
         view = CharacterView(self.bot, interaction.user.id)
+        embed = await view.get_hub_embed()
         message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         view.message = message
 

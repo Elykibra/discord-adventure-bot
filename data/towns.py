@@ -16,10 +16,14 @@ TOWNS = {
         "description_day": "The scent of fresh-cut pine fills the air. A single, ancient oak tree stands as a silent sentinel over this humble collection of sturdy log cabins.",
 
         # --- THIS IS FOR THE "TRAVEL" BUTTON ---
-        # Defines where you can travel to from this hub.
+        # Oakhaven Wilds is NOT here — it's accessed via Explore Wilds, not Travel.
         "connections": {
-            "oakhavenWilds": "Oakhaven Wilds"
-            # "theWeepingChasm": "The Weeping Chasm" # We can add this back later
+            "whisperwoodGrove": "Whisperwood Grove"
+        },
+        # Optional flag required per destination. If set, the destination is hidden
+        # from the travel menu until the player has that flag.
+        "connection_requirements": {
+            "whisperwoodGrove": "quest_a_guildsmans_first_steps_completed"
         },
 
         # --- THIS IS FOR THE DROPDOWN MENU ---
