@@ -132,6 +132,9 @@ class ProfileView(discord.ui.View):
         if not self._channel:
             return await interaction.response.send_message("Couldn't find the channel.", ephemeral=True)
 
+        # Defer immediately — DB queries below would exceed the 3s interaction window
+        await interaction.response.defer()
+
         # Build the public embed — same as the private one but with a public footer
         db_cog         = self.bot.get_cog('Database')
         player_data    = await db_cog.get_player(self.user_id)
@@ -205,7 +208,7 @@ class ProfileView(discord.ui.View):
         self._flexed = True
         button.disabled = True
         button.label = "Flexed ✓"
-        await interaction.response.edit_message(view=self)
+        await interaction.edit_original_response(view=self)
 
     async def on_timeout(self):
         if self.message:
