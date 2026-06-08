@@ -106,6 +106,25 @@ async def on_ready():
 
     print("🧹 Guild-scoped commands cleared. Global commands are now the single source.")
 
+    # 3) Clean up any orphaned battle spectator messages from before the restart
+    db_cog = bot.get_cog('Database')
+    if db_cog:
+        try:
+            orphaned = await db_cog.get_all_active_battles()
+            for record in orphaned:
+                try:
+                    channel = bot.get_channel(record['spectator_channel_id'])
+                    if channel:
+                        msg = await channel.fetch_message(record['spectator_message_id'])
+                        await msg.delete()
+                except Exception:
+                    pass
+                await db_cog.clear_active_battle(record['user_id'])
+            if orphaned:
+                print(f"🧹 Cleaned up {len(orphaned)} orphaned battle panel(s).")
+        except Exception as e:
+            print(f"⚠️ Battle cleanup error: {e}")
+
 bot.run(config.DISCORD_TOKEN)
 
 

@@ -142,6 +142,28 @@ class Database(commands.Cog):
             user_id, flag
         )
 
+    async def set_active_battle(self, user_id: int, spectator_message_id: int, spectator_channel_id: int) -> None:
+        """Record an active battle's spectator message so it can be cleaned up on restart."""
+        await self.pool.execute(
+            'UPDATE players SET spectator_message_id = $1, spectator_channel_id = $2 WHERE user_id = $3',
+            spectator_message_id, spectator_channel_id, user_id
+        )
+
+    async def clear_active_battle(self, user_id: int) -> None:
+        """Clear the active battle record after it ends normally."""
+        await self.pool.execute(
+            'UPDATE players SET spectator_message_id = NULL, spectator_channel_id = NULL WHERE user_id = $1',
+            user_id
+        )
+
+    async def get_all_active_battles(self) -> list:
+        """Return all players with an active spectator message (used on startup cleanup)."""
+        records = await self.pool.fetch(
+            'SELECT user_id, spectator_message_id, spectator_channel_id FROM players '
+            'WHERE spectator_message_id IS NOT NULL'
+        )
+        return [dict(r) for r in records]
+
     async def get_player_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         record = await self.pool.fetchrow('SELECT * FROM players WHERE username = $1', username)
         return self._record_to_dict(record)

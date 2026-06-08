@@ -42,6 +42,15 @@ class CombatView(discord.ui.View):
     async def initial_setup(self):
         """Builds the initial UI and sends the first embed."""
         await self._update_display()
+        # Track the spectator message in DB so we can clean it up if the bot restarts
+        if self.spectator_message:
+            db_cog = self.bot.get_cog('Database')
+            if db_cog:
+                await db_cog.set_active_battle(
+                    self.user_id,
+                    self.spectator_message.id,
+                    self.spectator_message.channel.id
+                )
 
     async def rebuild_ui(self):
         """Dynamically rebuilds the entire view based on the current state."""
@@ -617,6 +626,11 @@ class CombatView(discord.ui.View):
         except (discord.NotFound, AttributeError):
             pass  # Ignore if it's already gone
 
+        # Clear the battle record from DB now that it ended cleanly
+        db_cog = self.bot.get_cog('Database')
+        if db_cog:
+            await db_cog.clear_active_battle(self.user_id)
+
         # Update the original view (WildsView/TownView) with the battle results
         if hasattr(self.view_context, 'update_with_activity_log'):
             await self.view_context.update_with_activity_log(result_log_list)
@@ -697,17 +711,31 @@ class CombatView(discord.ui.View):
                 await skill_message.delete()
 
     async def on_timeout(self):
-        # This function runs automatically when the view expires
-        if self.message:
+        """Battle timed out due to inactivity — clean up and return player to safety."""
+        # Delete spectator panel
+        try:
+            await self.spectator_message.delete()
+        except (discord.NotFound, AttributeError):
+            pass
+
+        # Save pet HP as-is and clear the battle DB record
+        db_cog = self.bot.get_cog('Database')
+        if db_cog:
             try:
-                await self.spectator_message.delete()
-                await self.message.edit(
-                    content="⚔️ The battle has timed out due to inactivity.",
-                    embed=None,
-                    view=None
+                await db_cog.update_pet(
+                    self.battle.player_pet['pet_id'],
+                    current_hp=self.battle.player_pet['current_hp']
                 )
-                await asyncio.sleep(15)
-                await self.message.delete()
-            except discord.NotFound:
+            except Exception:
                 pass
+            await db_cog.clear_active_battle(self.user_id)
+
+        # Return player to location view with a timeout notice
+        timeout_log = ["⏱️ **Battle Timed Out**\n*You retreated from the battle due to inactivity.*"]
+        if hasattr(self.view_context, 'update_with_activity_log'):
+            try:
+                await self.view_context.update_with_activity_log(timeout_log)
+            except Exception:
+                pass
+
         self.stop()
