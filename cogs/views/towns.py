@@ -414,7 +414,7 @@ class TownView(discord.ui.View):
                     log_list.extend(quest_updates)
 
                 await self.update_with_activity_log(log_list)
-            return talk_callback
+        return talk_callback
 
     async def _get_dialogue_node(self, npc_id):
         npc_data = DIALOGUES.get(npc_id, {})
