@@ -118,9 +118,29 @@ class Database(commands.Cog):
     async def get_player(self, user_id: int) -> Optional[Dict[str, Any]]:
         record = await self.pool.fetchrow('SELECT * FROM players WHERE user_id = $1', user_id)
         player = self._record_to_dict(record)
-        if player and 'unlocked_towns' in player and isinstance(player['unlocked_towns'], str):
-            player['unlocked_towns'] = json.loads(player['unlocked_towns'])
+        if player:
+            if 'unlocked_towns' in player and isinstance(player['unlocked_towns'], str):
+                player['unlocked_towns'] = json.loads(player['unlocked_towns'])
+            # Load flags as a set so callers can do `flag in player['flags']`
+            flag_records = await self.pool.fetch(
+                'SELECT flag FROM player_flags WHERE player_id = $1', user_id
+            )
+            player['flags'] = {r['flag'] for r in flag_records}
         return player
+
+    async def set_flag(self, user_id: int, flag: str) -> None:
+        """Persistently set a player flag (idempotent — safe to call multiple times)."""
+        await self.pool.execute(
+            'INSERT INTO player_flags (player_id, flag) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            user_id, flag
+        )
+
+    async def remove_flag(self, user_id: int, flag: str) -> None:
+        """Remove a player flag if it exists."""
+        await self.pool.execute(
+            'DELETE FROM player_flags WHERE player_id = $1 AND flag = $2',
+            user_id, flag
+        )
 
     async def get_player_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         record = await self.pool.fetchrow('SELECT * FROM players WHERE username = $1', username)

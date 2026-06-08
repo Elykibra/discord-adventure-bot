@@ -1,6 +1,7 @@
 # cogs/views/towns.py
 
 import asyncio
+import random
 import discord
 import traceback
 import textwrap
@@ -468,7 +469,8 @@ class TownView(discord.ui.View):
             if not node:
                 log_list.append(f"🗣️ **{npc_name}**\n*They have nothing to say to you right now.*")
             else:
-                dialogue_text = node.get("text") or node.get("default", "...")
+                raw = node.get("text") or node.get("default", "...")
+                dialogue_text = random.choice(raw) if isinstance(raw, list) else raw
                 log_list.append(f"🗣️ **{npc_name}**\n*\"{dialogue_text}\"*")
 
                 if node.get("action") == "grant_item":
@@ -538,10 +540,14 @@ class TownView(discord.ui.View):
         player_quests = await db_cog.get_active_quests(self.user_id)
         player_data = await db_cog.get_player(self.user_id)
         player_flags = player_data.get('flags', set())
+        time_of_day = player_data.get('day_of_cycle', 'morning')
 
         # Build owned item set for required_item checks
         inventory = await db_cog.get_player_inventory(self.user_id)
         owned_items = {i['item_id'] for i in inventory}
+
+        _req_keys = ("required_flag", "required_item", "required_quest_status",
+                     "required_quest_step", "required_time")
 
         for node in dialogue_tree:
             # --- required_flag ---
@@ -549,7 +555,7 @@ class TownView(discord.ui.View):
                 if node["required_flag"] not in player_flags:
                     continue
 
-            # --- required_item: player must have item in inventory ---
+            # --- required_item ---
             if "required_item" in node:
                 if node["required_item"] not in owned_items:
                     continue
@@ -575,20 +581,27 @@ class TownView(discord.ui.View):
                 if not (quest and quest['progress'].get('count', 0) == req['step']):
                     continue
 
-            # Node passed all checks — return it
-            if any(k in node for k in ("required_flag", "required_item", "required_quest_status", "required_quest_step")):
+            # --- required_time: list of valid time-of-day phases ---
+            if "required_time" in node:
+                if time_of_day not in node["required_time"]:
+                    continue
+
+            # Node passed all checks — return it if it has any required key
+            if any(k in node for k in _req_keys):
                 return node, npc_data
 
-        _req_keys = ("required_flag", "required_item", "required_quest_status", "required_quest_step")
+        # Fallback 1: unconditional grant_quest nodes (quest not yet active)
         grant_quest_node = next(
             (n for n in dialogue_tree
              if n.get("action") == "grant_quest"
-             and not any(k in n for k in _req_keys)          # unconditional grant nodes only
+             and not any(k in n for k in _req_keys)
              and not any(q['quest_id'] == n.get("quest_id") for q in player_quests)),
             None,
         )
         if grant_quest_node:
             return grant_quest_node, npc_data
+
+        # Fallback 2: default node
         default_node = next((n for n in dialogue_tree if "default" in n), None)
         return default_node, npc_data
 
