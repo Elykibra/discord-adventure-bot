@@ -43,12 +43,13 @@ async def build_repo():
     return SqlRepository(pool)
 
 async def sync_commands_global(bot: commands.Bot):
-    print("--- Syncing Commands (GLOBAL) ---")
+    print("--- Syncing Commands (GUILD) ---")
     try:
-        await bot.tree.sync()
-        print("  > Globally synced commands")
+        for guild in bot.guilds:
+            await bot.tree.sync(guild=guild)
+            print(f"  > Synced commands to guild: {guild.name} ({guild.id})")
     except Exception as e:
-        print(f"  > An error with global syncing occurred: {e}")
+        print(f"  > An error with syncing occurred: {e}")
     print("----------------------")
 
 class GuildBot(commands.Bot):
