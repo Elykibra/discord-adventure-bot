@@ -55,7 +55,14 @@ class Game(commands.Cog):
     async def _edit_session(self, interaction: discord.Interaction, *, content: str, view: discord.ui.View | None):
         """Edit the persistent session message regardless of interaction type."""
         msg_id = await self._ensure_session_message(interaction)
-        await interaction.followup.edit_message(msg_id, content=content, view=view)
+        try:
+            await interaction.followup.edit_message(msg_id, content=content, view=view)
+        except Exception:
+            # Fallback: edit original response directly
+            try:
+                await interaction.edit_original_response(content=content, view=view)
+            except Exception as e:
+                print(f"[_edit_session] Failed to edit message: {e}")
 
     # ---------- Story rendering ----------
 
