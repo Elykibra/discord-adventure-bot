@@ -1,5 +1,6 @@
 # cogs/crafting.py
 
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -8,6 +9,14 @@ from discord.ext import commands
 # These paths are already correct for our new structure.
 from data.recipes import RECIPES
 from data.items import ITEMS
+
+
+async def _auto_delete(msg, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await msg.delete()
+    except discord.NotFound:
+        pass
 
 
 class Crafting(commands.Cog):
@@ -48,8 +57,8 @@ class Crafting(commands.Cog):
         # The item_name we receive from the autocomplete is the item_id (e.g., "greater_potion")
         recipe = RECIPES.get(item_name)
         if not recipe:
-            await interaction.followup.send(f"I don't know the recipe for that item. Please select one from the list.",
-                                            ephemeral=True, delete_after=30)
+            msg = await interaction.followup.send("I don't know the recipe for that item. Please select one from the list.", ephemeral=True)
+            asyncio.create_task(_auto_delete(msg, 30))
             return
 
         player_inventory = await db_cog.get_player_inventory(interaction.user.id)
@@ -63,10 +72,11 @@ class Crafting(commands.Cog):
 
         if missing_items:
             missing_text = "\n".join(missing_items)
-            await interaction.followup.send(
+            msg = await interaction.followup.send(
                 f"You are missing the following ingredients to craft **{ITEMS[item_name]['name']}**:\n{missing_text}",
-                ephemeral=True, delete_after=30
+                ephemeral=True
             )
+            asyncio.create_task(_auto_delete(msg, 30))
             return
 
         # Consume ingredients and add the crafted item
@@ -75,7 +85,8 @@ class Crafting(commands.Cog):
 
         await db_cog.add_item_to_inventory(interaction.user.id, item_name, 1)
 
-        await interaction.followup.send(f"You successfully crafted **1x {ITEMS[item_name]['name']}**!", ephemeral=True, delete_after=30)
+        msg = await interaction.followup.send(f"You successfully crafted **1x {ITEMS[item_name]['name']}**!", ephemeral=True)
+        asyncio.create_task(_auto_delete(msg, 30))
 
 
 async def setup(bot):

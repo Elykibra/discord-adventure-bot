@@ -1,4 +1,5 @@
 # cogs/quests.py
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -22,7 +23,13 @@ class Quests(commands.Cog):
                 description="You have no active quests.\n*Explore the world and talk to people to find new adventures!*",
                 color=discord.Color.dark_gold()
             )
-            return await interaction.followup.send(embed=embed, ephemeral=True, delete_after=60)
+            msg = await interaction.followup.send(embed=embed, ephemeral=True)
+            async def _dismiss():
+                await asyncio.sleep(60)
+                try: await msg.delete()
+                except discord.NotFound: pass
+            asyncio.create_task(_dismiss())
+            return
 
         embed = discord.Embed(
             title="📜 Quest Log",
@@ -54,7 +61,12 @@ class Quests(commands.Cog):
                         inline=False
                     )
 
-        await interaction.followup.send(embed=embed, ephemeral=True, delete_after=60)
+        msg = await interaction.followup.send(embed=embed, ephemeral=True)
+        async def _dismiss():
+            await asyncio.sleep(60)
+            try: await msg.delete()
+            except discord.NotFound: pass
+        asyncio.create_task(_dismiss())
 
 
 async def setup(bot):
