@@ -506,7 +506,7 @@ class TownView(discord.ui.View):
                     required_item = node.get("required_item")
                     if required_item:
                         await db_cog.remove_item_from_inventory(self.user_id, required_item, 1)
-                    # Complete the quest (deletes the row)
+                    # Complete the quest (marks as completed in DB)
                     await db_cog.complete_quest(self.user_id, quest_id)
                     # Set completion flag so post-quest dialogue can fire
                     await db_cog.set_flag(self.user_id, f"quest_{quest_id}_completed")

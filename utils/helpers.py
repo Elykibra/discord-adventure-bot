@@ -328,6 +328,8 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
 
         # Player's current progress from the database
         player_progress = quest['progress']
+        if player_progress.get('status') == 'completed':
+            continue  # Skip already-completed quests
         current_step_index = player_progress.get('count', 0)
 
         objectives = quest_data.get('objectives', [])

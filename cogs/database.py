@@ -412,10 +412,10 @@ class Database(commands.Cog):
         )
 
     async def complete_quest(self, user_id: int, quest_id: str) -> None:
-        """Marks a quest as complete by removing it from active quests."""
+        """Marks a quest as complete. Keeps the record so the quest log can show it."""
         await self.pool.execute(
-            "DELETE FROM player_quests WHERE user_id = $1 AND quest_id = $2",
-            user_id, quest_id
+            "UPDATE player_quests SET progress = $1 WHERE user_id = $2 AND quest_id = $3",
+            json.dumps({"status": "completed"}), user_id, quest_id
         )
 
     async def get_player_crests(self, user_id: int) -> List[str]:
