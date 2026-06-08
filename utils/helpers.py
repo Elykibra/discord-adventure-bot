@@ -354,21 +354,18 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                         item_name = ITEMS.get(item_id, {}).get('name', 'an item')
                         reward_messages.append(f"🎁 {quantity}x {item_name}")
 
-                    # Send completion message
-                    rewards_text = "\n".join(reward_messages)
-                    embed = discord.Embed(
-                        title=f"🎉 Quest Complete: {quest_data['title']}",
-                        description=f"**Rewards:**\n{rewards_text}",
-                        color=discord.Color.gold()
-                    )
-                    messages_to_return.append(f"🎉 **Quest Complete:** {quest_data['title']}")
                     await db_cog.complete_quest(user_id, quest_id)
+
+                    # Add completion + rewards to the private activity log
+                    messages_to_return.append(f"🎉 **Quest Complete:** {quest_data['title']}")
+                    if reward_messages:
+                        messages_to_return.append("**Rewards:** " + "  •  ".join(reward_messages))
 
                     # Post a public announcement if a channel was provided
                     if channel:
                         try:
-                            discord_user = channel.guild.get_member(user_id)
-                            display_name = discord_user.display_name if discord_user else 'An adventurer'
+                            player_data = await db_cog.get_player(user_id)
+                            display_name = player_data.get('username') or 'An adventurer'
                             quest_type = quest_data.get('type', 'main')
                             color = discord.Color.gold() if quest_type == 'main' else discord.Color.green()
                             type_label = {'main': '⭐ Main Quest', 'side': '🔷 Side Quest'}.get(quest_type, '📜 Quest')
@@ -381,6 +378,8 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                                 description=body,
                                 color=color
                             )
+                            if reward_messages:
+                                pub_embed.add_field(name="Rewards", value="  •  ".join(reward_messages), inline=False)
                             pub_embed.set_footer(text=f"{type_label}  •  Aethelgard")
                             await channel.send(embed=pub_embed)
                         except Exception:

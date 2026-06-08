@@ -11,6 +11,7 @@ PLAYER_COMMANDS = [
     ("/start",      "Create your character and choose your starter pet."),
     ("/adventure",  "Open your current location — explore, fight, rest, travel."),
     ("/character",  "View your profile, pet status, bag, and crafting bench."),
+    ("/bag",        "Open your inventory bag directly."),
     ("/quests",     "Check your active quest log and current objectives."),
     ("/pets",       "Manage and browse all your companions."),
     ("/fish",       "Go fishing — a chance at items and rare encounters."),

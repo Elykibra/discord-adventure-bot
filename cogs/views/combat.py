@@ -537,16 +537,20 @@ class CombatView(discord.ui.View):
             player_pet = self.battle.player_pet
             wild_pet = self.battle.wild_pet
             user = self.parent_interaction.user
+            # Use in-game username if available, fall back to Discord display name
+            player_data = await self.battle.db_cog.get_player(self.user_id)
+            player_name = player_data.get('username') if player_data else None
+            player_name = player_name or user.display_name
 
             location_name = get_location_display_name(self.origin_location_id)
             if captured:
                 title = get_notification("PUBLIC_CAPTURE_TITLE",
-                                         player_name=user.display_name, species=wild_pet['species'])
+                                         player_name=player_name, species=wild_pet['species'])
                 description = get_notification("PUBLIC_CAPTURE_BODY",
                                                pet_name=player_pet['name'], species=wild_pet['species'])
                 color = discord.Color.purple()
             else:
-                title = get_notification("PUBLIC_VICTORY_TITLE", player_name=user.display_name)
+                title = get_notification("PUBLIC_VICTORY_TITLE", player_name=player_name)
                 description = get_notification("PUBLIC_VICTORY_BODY",
                                                pet_name=player_pet['name'], species=wild_pet['species'],
                                                location=location_name)
