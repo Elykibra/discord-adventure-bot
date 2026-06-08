@@ -54,7 +54,7 @@ class StartModal(discord.ui.Modal, title="Guild Registration"):
 
 class GenderSelectView(discord.ui.View):
     def __init__(self, bot, user_id, username):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.bot = bot
         self.user_id = user_id
         self.username = username
@@ -126,7 +126,7 @@ class GenderSelectView(discord.ui.View):
 
 class StarterPetView(discord.ui.View):
     def __init__(self, bot, user_id, username, gender):
-        super().__init__(timeout=180)
+        super().__init__(timeout=None)
         self.bot = bot
         self.user_id = user_id
         self.username = username
@@ -276,7 +276,7 @@ class StarterPetView(discord.ui.View):
 
 class TalentChoiceView(discord.ui.View):
     def __init__(self, bot, user_id, pet_id, pet_species, final_embed):
-        super().__init__(timeout=180)
+        super().__init__(timeout=None)
         self.bot = bot
         self.user_id = user_id
         self.pet_id = pet_id
