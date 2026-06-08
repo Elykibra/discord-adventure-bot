@@ -468,7 +468,7 @@ class TownView(discord.ui.View):
             if not node:
                 log_list.append("They have nothing to say to you right now.")
             else:
-                dialogue_text = node.get("text", "...")
+                dialogue_text = node.get("text") or node.get("default", "...")
                 log_list.append(dialogue_text)
 
                 if node.get("action") == "grant_item":
