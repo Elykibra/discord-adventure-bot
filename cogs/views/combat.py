@@ -7,7 +7,7 @@ import math
 # --- REFACTORED IMPORTS ---
 from core.battle_engine import BattleState
 from utils.helpers import get_pet_image_url, get_status_bar, _create_progress_bar, check_quest_progress, \
-    get_type_multiplier, _pet_tuple_to_dict, format_log_block, get_notification
+    get_type_multiplier, _pet_tuple_to_dict, format_log_block, get_notification, get_location_display_name
 from .battle_actions import ForcedSwitchView, EvolvingView, LearnSkillView
 from .towns import WildsView, TownView # Assuming views_towns.py is renamed to towns.py in this folder
 from data.items import ITEMS
@@ -523,7 +523,7 @@ class CombatView(discord.ui.View):
             wild_pet = self.battle.wild_pet
             user = self.parent_interaction.user
 
-            location_name = self.origin_location_id.replace('_', ' ').title()
+            location_name = get_location_display_name(self.origin_location_id)
             if captured:
                 title = get_notification("PUBLIC_CAPTURE_TITLE",
                                          player_name=user.display_name, species=wild_pet['species'])

@@ -64,6 +64,23 @@ def get_player_rank_info(num_crests):
         progress_bar = "Max Rank Reached! ✨"
     return {"rank": rank, "description": description, "progress_bar": progress_bar, "next_rank_threshold": next_threshold, "progress_current": progress_current, "progress_total": progress_total}
 
+def get_location_display_name(location_id: str) -> str:
+    """
+    Returns a human-readable name for a location ID.
+    Checks top-level towns first, then sub-location explore zones, then falls back to a clean ID format.
+    """
+    # Top-level town (e.g. "oakhavenWilds", "oakhavenOutpost")
+    if location_id in TOWNS:
+        return TOWNS[location_id]['name']
+    # Sub-location explore zone (e.g. "oakhavenOutpost_rottingPits")
+    for town in TOWNS.values():
+        for loc_data in town.get('locations', {}).values():
+            if loc_data.get('services', {}).get('explore_zone') == location_id:
+                return loc_data['name']
+    # Fallback: split on underscores only
+    return location_id.replace('_', ' ').title()
+
+
 def get_pet_image_url(pet_species):
     """Returns the image URL for a given pet species."""
     return PET_IMAGE_URLS.get(pet_species, "https://placehold.co/100x100")
