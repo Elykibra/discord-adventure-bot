@@ -139,6 +139,25 @@ class TravelView(discord.ui.View):
         await self.main_message_to_edit.edit(embed=new_embed, view=new_view)
         new_view.message = self.main_message_to_edit
         await interaction.delete_original_response()
+
+        # Check if arriving here completes a travel assignment
+        quest_updates = await check_quest_progress(
+            self.bot, self.original_interaction.user.id,
+            "travel", {"location_id": destination_id},
+            channel=self.original_interaction.channel
+        )
+        if quest_updates:
+            try:
+                await self.original_interaction.followup.send(
+                    embed=discord.Embed(
+                        description=format_log_block(quest_updates),
+                        color=discord.Color.gold()
+                    ),
+                    ephemeral=True
+                )
+            except Exception:
+                pass
+
         self.stop()
 
     async def on_timeout(self):

@@ -1,12 +1,55 @@
 # data/quests.py
-# This file contains a dictionary of all quests in the game, organized by location.
+# Quests organized by location.
+#
+# Quest types:
+#   main             ⭐ — Story quest with full objectives, narrative, and rewards
+#   side             🔵 — Optional NPC quest, completable anytime
+#   repeatable_bounty 🔄 — Repeatable kill/gather task
+#   assignment       📋 — Guild directive: lightweight task or travel order, no fanfare on complete
+#
+# Special fields:
+#   grants_assignment — quest_id of an assignment to auto-grant when this quest completes
 
 QUESTS = {
     "oakhavenOutpost": {
+
+        # ------------------------------------------------------------------
+        # ASSIGNMENTS — lightweight directives, auto-granted by the system
+        # ------------------------------------------------------------------
+
+        "report_to_elara": {
+            "title": "Report to Recruitment Officer Elara",
+            "description": "You've arrived at Oakhaven Outpost. Head to the Guild Recruitment Hut and introduce yourself.",
+            "type": "assignment",
+            "objectives": [
+                {
+                    "text": "Speak with Recruitment Officer Elara at the Guild Recruitment Hut.",
+                    "type": "talk_npc", "target": "elara"
+                }
+            ]
+        },
+
+        "head_to_whisperwood": {
+            "title": "Head to Whisperwood Grove",
+            "description": "Your training at Oakhaven is complete. Travel to Whisperwood Grove and continue your work as a Guildsman.",
+            "type": "assignment",
+            "objectives": [
+                {
+                    "text": "Travel to Whisperwood Grove.",
+                    "type": "travel", "target": "whisperwoodGrove"
+                }
+            ]
+        },
+
+        # ------------------------------------------------------------------
+        # MAIN QUESTS
+        # ------------------------------------------------------------------
+
         "a_guildsmans_first_steps": {
             "title": "A Guildsman's First Steps",
             "description": "Recruitment Officer Elara is teaching you the basics of being a Guild Adventurer.",
             "type": "main",
+            "grants_assignment": "head_to_whisperwood",  # auto-granted on completion
             "objectives": [
                 {
                     "text": "Speak with Recruitment Officer Elara.",
@@ -30,7 +73,7 @@ QUESTS = {
                 },
                 {
                     "text": "Capture a wild pet using the Tether Orb.",
-                    "type": "combat_capture", "target": "any"  # A new type for our engine
+                    "type": "combat_capture", "target": "any"
                 },
                 {
                     "text": "Rest at the `Weary Wanderer's Bench` to recover.",
@@ -51,12 +94,16 @@ QUESTS = {
             "reward_item_quantity": 5
         },
 
+        # ------------------------------------------------------------------
+        # SIDE QUESTS
+        # ------------------------------------------------------------------
+
         "sunk_cost": {
             "title": "Sunk Cost",
             "description": "Grit Galen, a scavenger, has lost his satchel of tools in the Rotting Pits. He's asked for your help to retrieve it before it sinks for good.",
             "type": "side",
             "time_sensitive": True,
-            "time_limit_ticks": 2,  # Fails after 2 time advances (roughly nightfall if accepted at day)
+            "time_limit_ticks": 2,
             "failure_dialogue": "You took too long... my tools are gone for good now. A shame.",
             "objectives": [
                 {
@@ -86,5 +133,4 @@ QUESTS = {
             "reward_items": {"mana_stone": 2}
         }
     },
-    # Future towns like sunstoneOasis would have their own sections here
 }

@@ -7,8 +7,17 @@ from data.quests import QUESTS
 
 TYPE_EMOJI = {
     'main':              '⭐',
+    'assignment':        '📋',
     'side':              '🔵',
     'repeatable_bounty': '🔄',
+}
+
+# Lower number = shown first in the quest panel
+TYPE_ORDER = {
+    'main': 0,
+    'assignment': 1,
+    'side': 2,
+    'repeatable_bounty': 3,
 }
 PAGE_SIZE = 5  # quests per page
 
@@ -78,6 +87,17 @@ def _build_completed_embed(completed_quests: list, page: int, total_pages: int) 
     return embed
 
 
+def _sort_quests(quest_list: list) -> list:
+    """Sort quests by type priority: main → assignment → side → bounty."""
+    def _priority(quest):
+        quest_data = next(
+            (q for town_quests in QUESTS.values() for q_id, q in town_quests.items()
+             if q_id == quest['quest_id']), None)
+        quest_type = quest_data.get('type', 'side') if quest_data else 'side'
+        return TYPE_ORDER.get(quest_type, 99)
+    return sorted(quest_list, key=_priority)
+
+
 def _page_count(quest_list: list) -> int:
     return max(1, -(-len(quest_list) // PAGE_SIZE))  # ceiling division
 
@@ -87,8 +107,8 @@ class QuestLogView(discord.ui.View):
 
     def __init__(self, active_quests: list, completed_quests: list):
         super().__init__(timeout=120)
-        self.active_quests    = active_quests
-        self.completed_quests = completed_quests
+        self.active_quests    = _sort_quests(active_quests)
+        self.completed_quests = completed_quests  # completed order is fine as-is
         self._tab  = "active"
         self._page = 0
         self._rebuild()

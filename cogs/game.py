@@ -228,6 +228,9 @@ class StarterPetView(discord.ui.View):
 
             await db_cog.set_main_pet(user_id=self.user_id, pet_id=pet_id)
 
+            # Grant the first assignment so new players have a quest log entry immediately
+            await db_cog.add_quest(self.user_id, "report_to_elara")
+
             final_embed = discord.Embed(
                 title=f"Welcome to Aethelgard, {self.username}! 🎉",
                 description=(

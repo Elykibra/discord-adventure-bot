@@ -353,50 +353,50 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
             target_matches = True
         elif action_type == "combat_capture" and (objective_target == "any" or context.get("species") == objective_target):
             target_matches = True
+        elif action_type == "travel" and context.get("location_id") == objective_target:
+            target_matches = True
 
         if target_matches:
-            # --- NEW LOGIC FOR HANDLING COUNTS ---
+            # --- COUNT HANDLING ---
             required_count = current_objective.get('required_count', 1)
             current_count = player_progress.get('current_count', 0) + 1
 
             if current_count < required_count:
-                # Update the current count but don't advance to the next objective yet
                 player_progress['current_count'] = current_count
                 await db_cog.update_quest_progress(user_id, quest_id, player_progress)
                 messages_to_return.append(
                     f"📊 **Quest Progress**\n*{current_objective['text']} ({current_count}/{required_count})*")
             else:
+                is_assignment = quest_data.get('type') == 'assignment'
                 completed_objective_text = current_objective['text']
-                messages_to_return.append(f"✅ **Objective Complete**\n*{completed_objective_text}*")
+
+                # Assignments complete quietly — no objective complete message
+                if not is_assignment:
+                    messages_to_return.append(f"✅ **Objective Complete**\n*{completed_objective_text}*")
 
                 new_progress_step = current_step_index + 1
                 new_progress_data = {'status': 'in_progress', 'count': new_progress_step, 'current_count': 0}
 
                 if new_progress_step < len(objectives):
-                    # Move to the next objective
                     await db_cog.update_quest_progress(user_id, quest_id, new_progress_data)
-                    next_objective_text = objectives[new_progress_step]['text']
-                    messages_to_return.append(f"📍 **New Objective**\n*{next_objective_text}*")
-
+                    if not is_assignment:
+                        next_objective_text = objectives[new_progress_step]['text']
+                        messages_to_return.append(f"📍 **New Objective**\n*{next_objective_text}*")
                 else:
-                    # --- THIS IS THE NEW REWARD LOGIC ---
-                    # All objectives are done, complete the quest and give rewards.
+                    # All objectives done — give rewards and complete
                     reward_messages = []
 
-                    # Coins
                     coins = quest_data.get('reward_coins', 0)
                     if coins > 0:
                         await db_cog.add_coins(user_id, coins)
                         reward_messages.append(f"💰 {coins} Coins")
 
-                    # Reputation
                     rep = quest_data.get('reward_reputation', 0)
                     if rep > 0:
                         player_data = await db_cog.get_player(user_id)
                         await db_cog.update_player(user_id, reputation=player_data['reputation'] + rep)
                         reward_messages.append(f"✨ {rep} Reputation")
 
-                    # Item(s)
                     item_id = quest_data.get('reward_item')
                     if item_id:
                         quantity = quest_data.get('reward_item_quantity', 1)
@@ -407,37 +407,52 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                     await db_cog.complete_quest(user_id, quest_id)
                     await db_cog.set_flag(user_id, f"quest_{quest_id}_completed")
 
-                    # Add completion + rewards to the private activity log
-                    reward_str = "  •  ".join(reward_messages) if reward_messages else "No rewards"
-                    messages_to_return.append(
-                        f"🎉 **Quest Complete: {quest_data['title']}**\n*{reward_str}*"
-                    )
+                    if is_assignment:
+                        # Quiet completion — just a brief note, no rewards fanfare or public post
+                        messages_to_return.append(f"📋 **Assignment Complete: {quest_data['title']}**")
+                    else:
+                        reward_str = "  •  ".join(reward_messages) if reward_messages else "No rewards"
+                        messages_to_return.append(
+                            f"🎉 **Quest Complete: {quest_data['title']}**\n*{reward_str}*"
+                        )
+                        # Public announcement for non-assignment quests
+                        if channel:
+                            try:
+                                player_data = await db_cog.get_player(user_id)
+                                display_name = player_data.get('username') or 'An adventurer'
+                                quest_type = quest_data.get('type', 'main')
+                                color = discord.Color.gold() if quest_type == 'main' else discord.Color.green()
+                                type_label = {'main': '⭐ Main Quest', 'side': '🔷 Side Quest'}.get(quest_type, '📜 Quest')
+                                body = get_notification("PUBLIC_QUEST_COMPLETE_BODY", quest_title=quest_data['title'])
+                                quest_description = quest_data.get('description', '')
+                                if quest_description:
+                                    body = f"{body}\n> *{quest_description}*"
+                                pub_embed = discord.Embed(
+                                    title=get_notification("PUBLIC_QUEST_COMPLETE_TITLE", player_name=display_name),
+                                    description=body,
+                                    color=color
+                                )
+                                if reward_messages:
+                                    pub_embed.add_field(name="Rewards", value="  •  ".join(reward_messages), inline=False)
+                                pub_embed.set_footer(text=f"{type_label}  •  Aethelgard")
+                                await channel.send(embed=pub_embed)
+                            except Exception:
+                                pass
 
-                    # Post a public announcement if a channel was provided
-                    if channel:
-                        try:
-                            player_data = await db_cog.get_player(user_id)
-                            display_name = player_data.get('username') or 'An adventurer'
-                            quest_type = quest_data.get('type', 'main')
-                            color = discord.Color.gold() if quest_type == 'main' else discord.Color.green()
-                            type_label = {'main': '⭐ Main Quest', 'side': '🔷 Side Quest'}.get(quest_type, '📜 Quest')
-                            body = get_notification("PUBLIC_QUEST_COMPLETE_BODY", quest_title=quest_data['title'])
-                            quest_description = quest_data.get('description', '')
-                            if quest_description:
-                                body = f"{body}\n> *{quest_description}*"
-                            pub_embed = discord.Embed(
-                                title=get_notification("PUBLIC_QUEST_COMPLETE_TITLE", player_name=display_name),
-                                description=body,
-                                color=color
+                    # Auto-grant follow-up assignment if specified
+                    next_assignment_id = quest_data.get('grants_assignment')
+                    if next_assignment_id:
+                        await db_cog.add_quest(user_id, next_assignment_id)
+                        next_assignment_data = next(
+                            (d for town in QUESTS.values() for qid, d in town.items() if qid == next_assignment_id), None
+                        )
+                        if next_assignment_data:
+                            messages_to_return.append(
+                                f"📋 **New Assignment: {next_assignment_data['title']}**\n"
+                                f"*{next_assignment_data.get('description', '')}*"
                             )
-                            if reward_messages:
-                                pub_embed.add_field(name="Rewards", value="  •  ".join(reward_messages), inline=False)
-                            pub_embed.set_footer(text=f"{type_label}  •  Aethelgard")
-                            await channel.send(embed=pub_embed)
-                        except Exception:
-                            pass  # Never let a vanity post break quest flow
 
-                return messages_to_return  # Return the list, which might be empty or full of messages
+    return messages_to_return
 
 
 def get_notification(key: str, **kwargs) -> str:
