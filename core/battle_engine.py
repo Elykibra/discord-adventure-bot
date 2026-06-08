@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 
 # External project imports (keep these as in your project)
 from data.notifications import NOTIFICATIONS
-from data.pets import PET_DATABASE
+from data.pets import PET_DATABASE, get_pet_data
 from data.items import ITEMS
 from data.skills import PET_SKILLS
 from utils.constants import XP_REWARD_BY_RARITY
@@ -728,7 +728,7 @@ class BattleState:
                 owner_id=self.user_id,
                 name=self.wild_pet['species'],  # Defaults to its species name
                 species=self.wild_pet['species'],
-                description=PET_DATABASE.get(self.wild_pet['species'], {}).get('description', ''),
+                description=get_pet_data(self.wild_pet['species']).get('description', ''),
                 rarity=self.wild_pet['rarity'],
                 pet_type=self.wild_pet['pet_type'],
                 skills=self.wild_pet['skills'],
@@ -790,7 +790,7 @@ class BattleState:
             return {"rate": 0, "text": "The Gloom's hold is too strong. A pact is impossible."}
 
         species = self.wild_pet.get("species") if self.wild_pet else None
-        pet_data = PET_DATABASE.get(species, {}) if species else {}
+        pet_data = get_pet_data(species) if species else {}
         base_rate = pet_data.get("base_capture_rate", 30)
 
         max_hp = self.wild_pet.get('max_hp', 1)
@@ -925,7 +925,7 @@ class BattleState:
                                                   new_level=self.player_pet['level']))
 
             # --- Check for Evolution ---
-            pet_base_data = PET_DATABASE.get(self.player_pet['species'], {})
+            pet_base_data = get_pet_data(self.player_pet['species'])
             evolutions = pet_base_data.get('evolutions', {})
             if evolutions:
                 first_evo_data = next(iter(evolutions.values()), None)
@@ -1023,7 +1023,7 @@ class BattleState:
         """Updates a pet's data after evolution and clears the pending action."""
         # This is a simplified evolution; you can add stat recalculations here
         pet_to_evolve = self.player_pet  # Assuming only the active pet can evolve for now
-        base_data = PET_DATABASE.get(pet_to_evolve['species'], {})
+        base_data = get_pet_data(pet_to_evolve['species'])
         evo_data = next(iter(base_data.get('evolutions', {}).values()), None)
 
         if evo_data:

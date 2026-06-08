@@ -11,7 +11,7 @@ import random
 from core import config
 from data.items import ITEMS
 from core.pet_system import Pet
-from data.pets import PET_DATABASE
+from data.pets import PET_DATABASE, get_pet_data
 
 
 class Database(commands.Cog):
@@ -249,7 +249,7 @@ class Database(commands.Cog):
         skill_to_learn = None
         # --- NEW: Check for newly learned skills ---
         if leveled_up:
-            pet_base_data = PET_DATABASE.get(pet_object.species, {})
+            pet_base_data = get_pet_data(pet_object.species)
             skill_tree = pet_base_data.get('skill_tree', {})
 
             # Loop through the levels the pet just gained

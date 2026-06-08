@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from data.pets import PET_DATABASE
+from data.pets import PET_DATABASE, PET_LOOKUP
 from data.skills import PET_SKILLS
 from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE, STARTER_TALENTS
@@ -141,24 +141,20 @@ def _build_passive_lookup():
 
 _PASSIVE_LOOKUP = _build_passive_lookup()
 
-# Pet lookup by species name (flattened, includes evolutions)
-def _build_pet_lookup():
+# Pet lookup — use the shared flat lookup from data/pets.py, augmented with _parent info
+def _build_search_pet_lookup():
     lookup = {}
-
-    def add_pet(data, parent=None):
+    def _add(data, parent=None):
         name = data.get("species")
         if name:
             lookup[name] = {**data, "_parent": parent}
-        for evo_data in data.get("evolutions", {}).values():
-            add_pet(evo_data, parent=name)
-
-    for pet_data in PET_DATABASE.values():
-        add_pet(pet_data)
-
+        for evo in data.get("evolutions", {}).values():
+            _add(evo, parent=name)
+    for pet in PET_DATABASE.values():
+        _add(pet)
     return lookup
 
-
-_PET_LOOKUP = _build_pet_lookup()
+_PET_LOOKUP = _build_search_pet_lookup()
 
 # ---------------------------------------------------------------------------
 # Embed builders

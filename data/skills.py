@@ -1661,4 +1661,146 @@ PET_SKILLS = {
 
         #New Skills here
 
+    # --- Sunpetal Moth / Flying Skills ---
+    "gust": {
+        "name": "Gust",
+        "power": 40,
+        "type": "Flying",
+        "category": "Special",
+        "verb_type": "blast",
+        "description": "A sharp burst of wind that has a small chance to lower the target's Speed.",
+        "effect": {
+            "type": "stat_change",
+            "stat": "speed",
+            "modifier": 0.9,
+            "duration": 2,
+            "chance": 0.15,
+            "target": "opponent"
+        }
+    },
+
+    # --- Pineling / Barkback Skills ---
+    "needle_shot": {
+        "name": "Needle Shot",
+        "power": 40,
+        "type": "Normal",
+        "category": "Physical",
+        "verb_type": "projectile",
+        "description": "Fires a volley of sharp needles at the opponent. Has a small chance to lower their Speed.",
+        "effect": {
+            "type": "stat_change",
+            "stat": "speed",
+            "modifier": 0.9,
+            "duration": 2,
+            "chance": 0.15,
+            "target": "opponent"
+        }
+    },
+    "bark_up": {
+        "name": "Bark Up",
+        "power": 0,
+        "type": "Normal",
+        "category": "Status",
+        "verb_type": "buff",
+        "description": "Hardens the outer bark, raising the user's Defense for a few turns.",
+        "effect": {
+            "type": "stat_change",
+            "stat": "defense",
+            "modifier": 1.2,
+            "duration": 3,
+            "chance": 1.0,
+            "target": "self"
+        }
+    },
+    "splinter_strike": {
+        "name": "Splinter Strike",
+        "power": 55,
+        "type": "Normal",
+        "category": "Physical",
+        "verb_type": "slash",
+        "description": "A sharp, splintering blow that has a chance to lower the target's Defense.",
+        "effect": {
+            "type": "stat_change",
+            "stat": "defense",
+            "modifier": 0.85,
+            "duration": 2,
+            "chance": 0.25,
+            "target": "opponent"
+        }
+    },
+    "ironbark": {
+        "name": "Ironbark",
+        "power": 65,
+        "type": "Grass",
+        "category": "Physical",
+        "verb_type": "impact",
+        "description": "Strikes with bark hardened to the density of iron. Deals solid damage and slightly raises the user's own Defense.",
+        "effect": {
+            "type": "stat_change",
+            "stat": "defense",
+            "modifier": 1.1,
+            "duration": 2,
+            "chance": 1.0,
+            "target": "self"
+        }
+    },
+    "wood_hammer": {
+        "name": "Wood Hammer",
+        "power": 80,
+        "type": "Grass",
+        "category": "Physical",
+        "verb_type": "impact",
+        "description": "A powerful blow with a tree-trunk-like limb. The user takes a small amount of recoil damage.",
+        "effect": {
+            "type": "recoil",
+            "value": 0.1
+        }
+    },
+    "leech_seed": {
+        "name": "Leech Seed",
+        "power": 0,
+        "type": "Grass",
+        "category": "Status",
+        "verb_type": "curse",
+        "description": "Plants a draining seed on the target. At the end of each turn, it siphons a small amount of HP.",
+        "effect": {
+            "type": "status",
+            "status_effect": "leech_seed",
+            "duration": 4,
+            "chance": 1.0,
+            "target": "opponent"
+        }
+    },
+    "nature_shield": {
+        "name": "Nature Shield",
+        "power": 0,
+        "type": "Grass",
+        "category": "Status",
+        "verb_type": "buff",
+        "description": "Wraps itself in a protective shell of living wood, raising Defense for a few turns.",
+        "effect": {
+            "type": "stat_change",
+            "stat": "defense",
+            "modifier": 1.2,
+            "duration": 3,
+            "chance": 1.0,
+            "target": "self"
+        }
+    },
+    "branch_whip": {
+        "name": "Branch Whip",
+        "power": 70,
+        "type": "Grass",
+        "category": "Physical",
+        "verb_type": "slash",
+        "description": "Lashes the opponent with a long, whip-like branch. Has a chance to leave them Confused.",
+        "effect": {
+            "type": "status",
+            "status_effect": "confused",
+            "duration": 2,
+            "chance": 0.2,
+            "target": "opponent"
+        }
+    },
+
     }
