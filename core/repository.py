@@ -125,9 +125,14 @@ class SqlRepository:
 
     async def set_main_pet_by_species(self, user_id: int, species: str):
         async with self.pool.acquire() as con:
-            await con.execute(
-                "UPDATE players SET main_pet_species=$2 WHERE user_id=$1",
+            # Look up the actual pet_id so the old cogs (which use main_pet_id) also work
+            pet_id = await con.fetchval(
+                "SELECT pet_id FROM pets WHERE player_id=$1 AND species=$2 ORDER BY pet_id DESC LIMIT 1",
                 user_id, species
+            )
+            await con.execute(
+                "UPDATE players SET main_pet_species=$2, main_pet_id=$3 WHERE user_id=$1",
+                user_id, species, pet_id
             )
 
     async def get_player(self, user_id: int):
@@ -200,16 +205,55 @@ class SqlRepository:
             )
 
     async def add_pet(self, player_id: int, species: str):
+        import random, math
         pet_data = PET_DATABASE.get(species, {})
         rarity = pet_data.get("rarity", "Common")
         pet_type = pet_data.get("pet_type", "Normal")
-        # pet_type can be a list (dual-type) — store as comma-joined string
         if isinstance(pet_type, list):
             pet_type = "/".join(pet_type)
+
+        # Roll real base stats from the stat ranges at level 1
+        stat_ranges = pet_data.get("base_stat_ranges", {})
+        base_stats = {stat: random.randint(v[0], v[1]) for stat, v in stat_ranges.items()} if stat_ranges else {}
+        hp      = base_stats.get("hp", 20)
+        attack  = base_stats.get("attack", 10)
+        defense = base_stats.get("defense", 10)
+        sp_atk  = base_stats.get("special_attack", 10)
+        sp_def  = base_stats.get("special_defense", 10)
+        speed   = base_stats.get("speed", 10)
+
+        # Starter skills — whatever the pet knows at level 1
+        skill_tree = pet_data.get("skill_tree", {})
+        skills = []
+        for lvl, learned in skill_tree.items():
+            if int(lvl) <= 1:
+                if isinstance(learned, list):
+                    skills.extend(learned)
+                elif isinstance(learned, dict) and "choice" in learned:
+                    skills.append(random.choice(learned["choice"]))
+        if not skills:
+            skills = ["scratch"]  # universal fallback
+
+        import json
+        passive = pet_data.get("passive_ability")
+        passive_name = passive.get("name") if isinstance(passive, dict) else passive
+
         async with self.pool.acquire() as con:
             await con.execute(
-                "INSERT INTO pets (player_id, name, species, rarity, pet_type) VALUES ($1, $2, $3, $4, $5)",
-                player_id, species, species, rarity, pet_type
+                """INSERT INTO pets
+                   (player_id, name, species, rarity, pet_type,
+                    current_hp, max_hp, attack, defense,
+                    special_attack, special_defense, speed,
+                    base_hp, base_attack, base_defense,
+                    base_special_attack, base_special_defense, base_speed,
+                    skills, passive_ability)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)""",
+                player_id, species, species, rarity, pet_type,
+                hp, hp, attack, defense,
+                sp_atk, sp_def, speed,
+                hp, attack, defense,
+                sp_atk, sp_def, speed,
+                json.dumps(skills), passive_name
             )
 
     async def set_flag(self, user_id: int, flag: str):
