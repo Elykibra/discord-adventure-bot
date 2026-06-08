@@ -46,11 +46,14 @@ class CombatView(discord.ui.View):
         if self.spectator_message:
             db_cog = self.bot.get_cog('Database')
             if db_cog:
-                await db_cog.set_active_battle(
-                    self.user_id,
-                    self.spectator_message.id,
-                    self.spectator_message.channel.id
-                )
+                try:
+                    await db_cog.set_active_battle(
+                        self.user_id,
+                        self.spectator_message.id,
+                        self.spectator_message.channel.id
+                    )
+                except Exception:
+                    pass  # Non-critical — battle works fine without tracking
 
     async def rebuild_ui(self):
         """Dynamically rebuilds the entire view based on the current state."""

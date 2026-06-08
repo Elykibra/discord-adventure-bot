@@ -1,4 +1,4 @@
-async def run(conn):
+async def apply(conn):
     """
     Adds spectator_message_id and spectator_channel_id to the players table
     so orphaned battle panels can be cleaned up on bot restart.
