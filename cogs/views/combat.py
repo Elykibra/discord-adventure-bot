@@ -516,13 +516,46 @@ class CombatView(discord.ui.View):
 
         return embed
 
+    async def _post_public_victory(self, captured: bool):
+        """Posts a permanent public victory announcement to the channel."""
+        try:
+            player_pet = self.battle.player_pet
+            wild_pet = self.battle.wild_pet
+            user = self.parent_interaction.user
+
+            if captured:
+                title = f"🔮 {user.display_name} captured a {wild_pet['species']}!"
+                description = (
+                    f"**{player_pet['name']}** weakened the wild **{wild_pet['species']}** "
+                    f"just enough to lock it in a Tether Orb.\n"
+                    f"A new companion joins the party!"
+                )
+                color = discord.Color.purple()
+            else:
+                title = f"⚔️ {user.display_name} won a battle!"
+                description = (
+                    f"**{player_pet['name']}** defeated a wild **{wild_pet['species']}** "
+                    f"in the **{self.origin_location_id.replace('_', ' ').title()}**."
+                )
+                color = discord.Color.gold()
+
+            embed = discord.Embed(title=title, description=description, color=color)
+            embed.set_thumbnail(url=get_pet_image_url(wild_pet['species']))
+            embed.set_footer(text=f"Aethelgard", icon_url=user.display_avatar.url)
+
+            channel = self.parent_interaction.channel
+            await channel.send(embed=embed)
+        except Exception:
+            pass  # Never let a vanity post break the game flow
+
     async def _handle_win(self, results: dict):
         await self.battle.db_cog.update_pet(
             self.battle.player_pet['pet_id'],
             current_hp=self.battle.player_pet['current_hp']
         )
+        captured = results.get("captured", False)
         final_log_list = []
-        if results.get("captured"):
+        if captured:
             final_log_list.append(results['log'])
             quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_capture",
                                                        {"species": self.battle.wild_pet['species']})
@@ -532,6 +565,8 @@ class CombatView(discord.ui.View):
                                                        {"species": self.battle.wild_pet['species']})
         if quest_updates:
             final_log_list.extend(quest_updates)
+
+        await self._post_public_victory(captured)
         await self._return_to_wilds(final_log_list)
 
     async def _handle_loss(self, results: dict):
