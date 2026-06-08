@@ -39,14 +39,11 @@ class Game(commands.Cog):
     # ---------- Session message helpers (one message UI) ----------
 
     async def _ensure_session_message(self, interaction: discord.Interaction) -> int:
-        """Return the session message id, creating it if needed."""
+        """Return the session message id, always refreshing it from the current interaction."""
         user_id = interaction.user.id
         repo = self.bot.repo
-        msg_id = await repo.get_session_message_id(user_id)
-        if msg_id:
-            return msg_id
 
-        # We already deferred in /start; create the initial ephemeral message now.
+        # Always use the current interaction's message as the session message
         await interaction.edit_original_response(content="…")
         msg = await interaction.original_response()
         await repo.set_session_message_id(user_id, msg.id)
@@ -238,8 +235,12 @@ class Game(commands.Cog):
     @app_commands.command(name="start", description="Begin your adventure.")
     async def start(self, interaction: discord.Interaction):
         # Create the ephemeral session message; subsequent steps edit it
-        await interaction.response.defer(ephemeral=True)
-        await self._render_story(interaction)
+        try:
+            await interaction.response.defer(ephemeral=True)
+            await self._render_story(interaction)
+        except Exception as e:
+            print(f"[start] Error: {e}")
+            traceback.print_exc()
 
 
 async def setup(bot):
