@@ -355,9 +355,13 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                             quest_type = quest_data.get('type', 'main')
                             color = discord.Color.gold() if quest_type == 'main' else discord.Color.green()
                             type_label = {'main': '⭐ Main Quest', 'side': '🔷 Side Quest'}.get(quest_type, '📜 Quest')
+                            body = get_notification("PUBLIC_QUEST_COMPLETE_BODY", quest_title=quest_data['title'])
+                            quest_description = quest_data.get('description', '')
+                            if quest_description:
+                                body = f"{body}\n> *{quest_description}*"
                             pub_embed = discord.Embed(
                                 title=get_notification("PUBLIC_QUEST_COMPLETE_TITLE", player_name=display_name),
-                                description=get_notification("PUBLIC_QUEST_COMPLETE_BODY", quest_title=quest_data['title']),
+                                description=body,
                                 color=color
                             )
                             pub_embed.set_footer(text=f"{type_label}  •  Aethelgard")
