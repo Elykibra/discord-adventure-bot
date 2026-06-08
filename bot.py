@@ -4,8 +4,6 @@ from discord.ext import commands
 from core import config
 from core.repository import MemoryRepository, SqlRepository
 from core.validator import validate_all
-from core.narrative import Narrative
-from data.section_0.story import STORY as STORY_SECTION_0
 
 async def force_clear_all_guild_commands(bot: commands.Bot):
     """
@@ -74,10 +72,7 @@ class GuildBot(commands.Bot):
             self.repo = MemoryRepository()
             print("  > Repository: MemoryRepository (no DB pool found)")
 
-        # 4) Narratives
-        self.narratives = {"section_0": Narrative(STORY_SECTION_0, self.repo)}
-
-        # 5) Load the rest of the cogs (skip __init__.py and database.py)
+        # 4) Load the rest of the cogs (skip __init__.py and database.py)
         for filename in os.listdir('./cogs'):
             if not filename.endswith('.py'):
                 continue
