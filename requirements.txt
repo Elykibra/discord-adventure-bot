@@ -6,3 +6,9 @@ python-dotenv
 
 # For creating the welcome images
 easy_pil
+
+# PostgreSQL async driver
+asyncpg
+
+# Async HTTP (used internally)
+aiohttp
