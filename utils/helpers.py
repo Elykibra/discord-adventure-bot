@@ -367,8 +367,8 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                     # Post a public announcement if a channel was provided
                     if channel:
                         try:
-                            player_data = await db_cog.get_player(user_id)
-                            display_name = player_data.get('username', 'An adventurer')
+                            discord_user = channel.guild.get_member(user_id)
+                            display_name = discord_user.display_name if discord_user else 'An adventurer'
                             quest_type = quest_data.get('type', 'main')
                             color = discord.Color.gold() if quest_type == 'main' else discord.Color.green()
                             type_label = {'main': '⭐ Main Quest', 'side': '🔷 Side Quest'}.get(quest_type, '📜 Quest')
