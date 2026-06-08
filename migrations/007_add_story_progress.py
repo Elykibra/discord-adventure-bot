@@ -18,6 +18,8 @@ async def apply(conn):
     if not await column_exists('players', 'session_message_id'):
         await conn.execute("ALTER TABLE players ADD COLUMN session_message_id BIGINT")
 
-    # optional: backfill or normalize values if needed
-    # e.g., set all existing players to tutorial start:
-    # await conn.execute("UPDATE players SET section_id = 'section_0', story_step_id = 'intro_1' WHERE section_id IS NULL OR story_step_id IS NULL")
+    if not await column_exists('players', 'section_id'):
+        await conn.execute("ALTER TABLE players ADD COLUMN section_id TEXT DEFAULT 'section_0'")
+
+    if not await column_exists('players', 'story_step_id'):
+        await conn.execute("ALTER TABLE players ADD COLUMN story_step_id TEXT DEFAULT 'intro_1'")
