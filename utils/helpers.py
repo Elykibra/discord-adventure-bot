@@ -362,10 +362,10 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                 player_progress['current_count'] = current_count
                 await db_cog.update_quest_progress(user_id, quest_id, player_progress)
                 messages_to_return.append(
-                    f"**Quest Progress:** {current_objective['text']} ({current_count}/{required_count})")
+                    f"📊 **Quest Progress**\n*{current_objective['text']} ({current_count}/{required_count})*")
             else:
                 completed_objective_text = current_objective['text']
-                messages_to_return.append(f"✅ **Quest Objective Complete:** {completed_objective_text}")
+                messages_to_return.append(f"✅ **Objective Complete**\n*{completed_objective_text}*")
 
                 new_progress_step = current_step_index + 1
                 new_progress_data = {'status': 'in_progress', 'count': new_progress_step, 'current_count': 0}
@@ -374,7 +374,7 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                     # Move to the next objective
                     await db_cog.update_quest_progress(user_id, quest_id, new_progress_data)
                     next_objective_text = objectives[new_progress_step]['text']
-                    messages_to_return.append(f"**New Objective:** {next_objective_text}")
+                    messages_to_return.append(f"📍 **New Objective**\n*{next_objective_text}*")
 
                 else:
                     # --- THIS IS THE NEW REWARD LOGIC ---
@@ -400,15 +400,16 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                         quantity = quest_data.get('reward_item_quantity', 1)
                         await db_cog.add_item_to_inventory(user_id, item_id, quantity)
                         item_name = ITEMS.get(item_id, {}).get('name', 'an item')
-                        reward_messages.append(f"🎁 {quantity}x {item_name}")
+                        reward_messages.append(f"🎁 {quantity}× {item_name}")
 
                     await db_cog.complete_quest(user_id, quest_id)
                     await db_cog.set_flag(user_id, f"quest_{quest_id}_completed")
 
                     # Add completion + rewards to the private activity log
-                    messages_to_return.append(f"🎉 **Quest Complete:** {quest_data['title']}")
-                    if reward_messages:
-                        messages_to_return.append("**Rewards:** " + "  •  ".join(reward_messages))
+                    reward_str = "  •  ".join(reward_messages) if reward_messages else "No rewards"
+                    messages_to_return.append(
+                        f"🎉 **Quest Complete: {quest_data['title']}**\n*{reward_str}*"
+                    )
 
                     # Post a public announcement if a channel was provided
                     if channel:
@@ -458,8 +459,14 @@ def get_notification(key: str, **kwargs) -> str:
 
 
 def format_log_block(log_list: list[str]) -> str:
+    """Formats a list of log entries into Discord blockquote blocks.
+    Each entry may be multi-line (header + body). Entries are separated
+    by a blank blockquote line for visual breathing room.
+    """
     if not log_list: return ""
-    # Ensure all items in the list are strings
-    safe_list = [str(item) for item in log_list]
-    formatted_lines = [f"> {line.strip()}" for line in safe_list]
-    return "\n".join(formatted_lines)
+    blocks = []
+    for item in log_list:
+        lines = [f"> {line.strip()}" for line in str(item).split('\n') if line.strip()]
+        if lines:
+            blocks.append("\n".join(lines))
+    return "\n> \n".join(blocks)

@@ -425,15 +425,14 @@ class TownView(discord.ui.View):
         grants = pack_cfg.get('grants', {}).get(next_use, [])
         message = pack_cfg.get('messages', {}).get(next_use, "You take some supplies from the chest.")
 
-        log_list = [message]
         item_lines = []
         for item_id, qty in grants:
             await db_cog.add_item_to_inventory(self.user_id, item_id, qty)
             item_name = ITEMS.get(item_id, {}).get('name', item_id)
-            item_lines.append(f"  • {qty}× {item_name}")
+            item_lines.append(f"• {qty}× {item_name}")
 
-        if item_lines:
-            log_list.append("**You received:**\n" + "\n".join(item_lines))
+        received_str = "\n".join(item_lines) if item_lines else "Nothing left inside."
+        log_list = [f"📦 **Supply Chest**\n*{message}*\n{received_str}"]
 
         await db_cog.set_flag(self.user_id, f"{flag_prefix}{next_use}")
         self._starter_pack_uses = next_use
@@ -461,15 +460,15 @@ class TownView(discord.ui.View):
         async def talk_callback(interaction: discord.Interaction):
             await interaction.response.defer()
             db_cog = self.bot.get_cog('Database')
-            node, _ = await self._get_dialogue_node(npc_id)
+            node, npc_data = await self._get_dialogue_node(npc_id)
+            npc_name = npc_data.get('name', npc_id) if npc_data else npc_id
             log_list = []
 
-
             if not node:
-                log_list.append("They have nothing to say to you right now.")
+                log_list.append(f"🗣️ **{npc_name}**\n*They have nothing to say to you right now.*")
             else:
                 dialogue_text = node.get("text") or node.get("default", "...")
-                log_list.append(dialogue_text)
+                log_list.append(f"🗣️ **{npc_name}**\n*\"{dialogue_text}\"*")
 
                 if node.get("action") == "grant_item":
                     item_id = node.get("item_id")
@@ -477,7 +476,7 @@ class TownView(discord.ui.View):
                     if item_id:
                         await db_cog.add_item_to_inventory(self.user_id, item_id, quantity)
                         item_name = ITEMS.get(item_id, {}).get('name', 'an item')
-                        log_list.append(f"*You received: {quantity}× {item_name}*")
+                        log_list.append(f"🎁 **Received**\n*{quantity}× {item_name}*")
 
                 if node.get("action") == "grant_quest":
                     quest_id = node.get("quest_id")
@@ -489,7 +488,10 @@ class TownView(discord.ui.View):
                     if quest_data.get("time_sensitive"):
                         initial_progress["ticks_remaining"] = quest_data.get("time_limit_ticks", 2)
                     await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
-                    log_list.append(f"📋 New quest added: **{quest_data.get('title', quest_id)}**")
+                    quest_title = quest_data.get('title', quest_id)
+                    quest_desc  = quest_data.get('description', '')
+                    log_list.append(f"📋 **New Quest: {quest_title}**\n*{quest_desc}*" if quest_desc
+                                    else f"📋 **New Quest: {quest_title}**")
 
                 if node.get("action") == "complete_quest":
                     quest_id = node.get("quest_id")
@@ -506,16 +508,19 @@ class TownView(discord.ui.View):
                     # Set completion flag so post-quest dialogue can fire
                     await db_cog.set_flag(self.user_id, f"quest_{quest_id}_completed")
                     # Grant quest rewards
-                    reward_item = quest_data.get("reward_item")
-                    reward_qty = quest_data.get("reward_item_quantity", 1)
-                    reward_coins = quest_data.get("reward_coins", 0)
+                    reward_item   = quest_data.get("reward_item")
+                    reward_qty    = quest_data.get("reward_item_quantity", 1)
+                    reward_coins  = quest_data.get("reward_coins", 0)
+                    quest_title   = quest_data.get('title', quest_id)
                     if reward_item:
                         await db_cog.add_item_to_inventory(self.user_id, reward_item, reward_qty)
                         item_name = ITEMS.get(reward_item, {}).get('name', reward_item)
-                        log_list.append(f"✅ **Quest Complete: {quest_data.get('title', quest_id)}**\n*You received: {reward_qty}× {item_name}*")
+                        log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_qty}× {item_name}*")
                     elif reward_coins:
                         await db_cog.update_player(self.user_id, coins=reward_coins)
-                        log_list.append(f"✅ **Quest Complete: {quest_data.get('title', quest_id)}**\n*You received: {reward_coins} coins*")
+                        log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_coins} coins*")
+                    else:
+                        log_list.append(f"🎉 **Quest Complete: {quest_title}**")
 
                 quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id},
                                                            channel=self.parent_interaction.channel)

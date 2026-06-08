@@ -148,35 +148,27 @@ class Adventure(commands.Cog):
             if outcome == "quest_item" and quest_item_to_drop:
                 await db_cog.add_item_to_inventory(user_id, quest_item_to_drop, 1)
                 item_name = ITEMS.get(quest_item_to_drop, {}).get('name', 'an item')
-                activity_log_text = f"🔍 You found **{item_name}** buried in the pit — half-submerged in tar, but intact!"
+                activity_log_text = f"🔍 **Item Found**\n*{item_name} — half-submerged in tar, but intact!*"
                 quest_updates = await check_quest_progress(self.bot, user_id, "item_pickup", {"item_id": quest_item_to_drop})
-                if quest_updates:
-                    await interaction.followup.send(
-                        embed=discord.Embed(description="\n\n".join(quest_updates), color=discord.Color.gold()),
-                        ephemeral=True)
+                logs = activity_log_list + [activity_log_text] + (quest_updates or [])
                 if view_context:
-                    await view_context.update_with_activity_log([activity_log_text])
+                    await view_context.update_with_activity_log(logs)
                 return
 
             if outcome == "item" or outcome == "nothing":
-                activity_log_text = ""
                 if outcome == "item":
                     item_id, qty = get_zone_loot(location_id)
                     await db_cog.add_item_to_inventory(user_id, item_id, qty)
-                    activity_log_text = get_notification("EXPLORE_FIND_ITEM", quantity=qty,
-                                                         item_name=ITEMS[item_id]['name'])
-
+                    item_name = ITEMS[item_id]['name']
+                    activity_log_text = f"🔍 **Found**\n*{qty}× {item_name}*"
                     quest_updates = await check_quest_progress(self.bot, user_id, "item_pickup", {"item_id": item_id})
-                    if quest_updates:
-                        await interaction.followup.send(
-                            embed=discord.Embed(description="\n\n".join(quest_updates), color=discord.Color.gold()),
-                            ephemeral=True)
+                    logs = activity_log_list + [activity_log_text] + (quest_updates or [])
                 else:
-                    activity_log_text = get_notification("EXPLORE_FIND_NOTHING")
+                    activity_log_text = f"👣 **Searched the Area**\n*{get_notification('EXPLORE_FIND_NOTHING')}*"
+                    logs = activity_log_list + [activity_log_text]
 
-                # Find the active TownView and call its new update helper.
                 if view_context:
-                    await view_context.update_with_activity_log([activity_log_text])
+                    await view_context.update_with_activity_log(logs)
                 return
 
             elif outcome == "tutorial_pet" or outcome == "pet":
