@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Protocol, Dict, Any, List, Optional, Set
 import asyncio
+from data.pets import PET_DATABASE
 
 # ---------- Protocol (engine uses only this) ----------
 class Repository(Protocol):
@@ -199,10 +200,16 @@ class SqlRepository:
             )
 
     async def add_pet(self, player_id: int, species: str):
+        pet_data = PET_DATABASE.get(species, {})
+        rarity = pet_data.get("rarity", "Common")
+        pet_type = pet_data.get("pet_type", "Normal")
+        # pet_type can be a list (dual-type) — store as comma-joined string
+        if isinstance(pet_type, list):
+            pet_type = "/".join(pet_type)
         async with self.pool.acquire() as con:
             await con.execute(
-                "INSERT INTO pets (player_id, name, species) VALUES ($1, $2, $3)",
-                player_id, species, species
+                "INSERT INTO pets (player_id, name, species, rarity, pet_type) VALUES ($1, $2, $3, $4, $5)",
+                player_id, species, species, rarity, pet_type
             )
 
     async def set_flag(self, user_id: int, flag: str):
