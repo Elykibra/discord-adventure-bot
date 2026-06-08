@@ -1,5 +1,6 @@
 # In views/inventory.py
 
+import asyncio
 import discord
 import json
 from discord.types import embed
@@ -368,3 +369,12 @@ class BagView(discord.ui.View):
         self.is_selecting_pet = False
         self.pending_action = None
         await self.rebuild_and_edit(log_list=log_list)
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(content="🎒 Bag closed due to inactivity.", embed=None, view=None)
+                await asyncio.sleep(10)
+                await self.message.delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass

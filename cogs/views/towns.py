@@ -1,5 +1,6 @@
 # cogs/views/towns.py
 
+import asyncio
 import discord
 import traceback
 import textwrap
@@ -97,6 +98,7 @@ class TravelView(discord.ui.View):
         self.original_interaction = original_interaction
         self.connections = connections
         self.main_message_to_edit = main_message_to_edit
+        self.message = None  # set by travel_callback after send
         options = [discord.SelectOption(label=name, value=loc_id) for loc_id, name in connections.items()]
         select = discord.ui.Select(placeholder="Choose a destination...", options=options)
         select.callback = self.select_callback
@@ -128,6 +130,13 @@ class TravelView(discord.ui.View):
         new_view.message = self.main_message_to_edit
         await interaction.delete_original_response()
         self.stop()
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass
 
 
 class TownView(discord.ui.View):
@@ -342,7 +351,8 @@ class TownView(discord.ui.View):
 
         # We now pass the resource cog and user_id to the TravelView
         travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message)
-        await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
+        travel_msg = await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
+        travel_view.message = travel_msg
 
     async def explore_zone_callback(self, interaction: discord.Interaction):
         adventure_cog = self.bot.get_cog('Adventure')
@@ -445,3 +455,12 @@ class TownView(discord.ui.View):
         new_embed = await self._build_sublocation_embed(location_info, log_list=log_list)
         self.build_ui()
         await self.message.edit(embed=new_embed, view=self)
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(content="🏘️ Town menu closed due to inactivity.", embed=None, view=None)
+                await asyncio.sleep(10)
+                await self.message.delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass

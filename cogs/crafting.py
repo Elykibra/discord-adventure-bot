@@ -49,7 +49,7 @@ class Crafting(commands.Cog):
         recipe = RECIPES.get(item_name)
         if not recipe:
             await interaction.followup.send(f"I don't know the recipe for that item. Please select one from the list.",
-                                            ephemeral=True)
+                                            ephemeral=True, delete_after=30)
             return
 
         player_inventory = await db_cog.get_player_inventory(interaction.user.id)
@@ -65,7 +65,7 @@ class Crafting(commands.Cog):
             missing_text = "\n".join(missing_items)
             await interaction.followup.send(
                 f"You are missing the following ingredients to craft **{ITEMS[item_name]['name']}**:\n{missing_text}",
-                ephemeral=True
+                ephemeral=True, delete_after=30
             )
             return
 
@@ -75,7 +75,7 @@ class Crafting(commands.Cog):
 
         await db_cog.add_item_to_inventory(interaction.user.id, item_name, 1)
 
-        await interaction.followup.send(f"You successfully crafted **1x {ITEMS[item_name]['name']}**!", ephemeral=True)
+        await interaction.followup.send(f"You successfully crafted **1x {ITEMS[item_name]['name']}**!", ephemeral=True, delete_after=30)
 
 
 async def setup(bot):

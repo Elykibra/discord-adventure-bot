@@ -273,3 +273,12 @@ class CraftingView(discord.ui.View):
         self.rebuild_ui()
         embed = self.create_embed(log_list=log_list)
         await self.message.edit(embed=embed, view=self)
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(content="🛠️ Recipe Book closed due to inactivity.", embed=None, view=None)
+                await asyncio.sleep(10)
+                await self.message.delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass

@@ -22,7 +22,7 @@ class Quests(commands.Cog):
                 description="You have no active quests.\n*Explore the world and talk to people to find new adventures!*",
                 color=discord.Color.dark_gold()
             )
-            return await interaction.followup.send(embed=embed, ephemeral=True)
+            return await interaction.followup.send(embed=embed, ephemeral=True, delete_after=60)
 
         embed = discord.Embed(
             title="📜 Quest Log",
@@ -54,7 +54,7 @@ class Quests(commands.Cog):
                         inline=False
                     )
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True, delete_after=60)
 
 
 async def setup(bot):

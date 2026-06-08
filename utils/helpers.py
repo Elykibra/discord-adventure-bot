@@ -1,7 +1,20 @@
 # utils/helpers.py
+import asyncio
 import discord
 import random
 from typing import Any, Dict, List
+
+
+async def auto_dismiss(interaction: discord.Interaction, delay: int = 30):
+    """
+    Non-blocking helper — call via asyncio.create_task(auto_dismiss(interaction)).
+    Deletes the original ephemeral response after `delay` seconds.
+    """
+    await asyncio.sleep(delay)
+    try:
+        await interaction.delete_original_response()
+    except discord.NotFound:
+        pass
 
 from data.items import ITEMS
 from data.notifications import NOTIFICATIONS
