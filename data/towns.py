@@ -8,8 +8,12 @@ TOWNS = {
         "image_url": "https://cdn.discordapp.com/attachments/1409446434515714159/1409446496243417168/Oakhaven_Outpost.png?ex=68ad68d6&is=68ac1756&hm=feb079a540226dc368a3be0e1cc04a496bf0fa47a4eaa0c6f4c0b78100249816&",
         "is_hub": True,
         "rank": "Recruit",
-        "description_day": "The scent of fresh-cut pine fills the air. A single, ancient oak tree stands as a silent sentinel over this humble collection of sturdy log cabins, its leaves whispering a welcome.",
-        "description_night": "The outpost is quiet under the moonlight, with the crackling of the central campfire providing a comforting warmth against the encroaching darkness of the wilds.",
+        "description_morning": "Dawn light filters through the oak leaves, and the outpost stirs with early activity. The smell of campfire smoke and fresh bread drifts through the cool morning air.",
+        "description_noon": "The sun sits high over the outpost, casting short shadows between the log cabins. Guild recruits train in the yard while merchants restock their wares.",
+        "description_evening": "The sky turns amber over the outpost as the day winds down. Adventurers return from the wilds, swapping stories near the crackling campfire.",
+        "description_night": "The outpost is quiet under the moonlight, with only the crackling of the central campfire providing warmth against the encroaching darkness of the wilds.",
+        # Legacy fallback
+        "description_day": "The scent of fresh-cut pine fills the air. A single, ancient oak tree stands as a silent sentinel over this humble collection of sturdy log cabins.",
 
         # --- THIS IS FOR THE "TRAVEL" BUTTON ---
         # Defines where you can travel to from this hub.
@@ -111,8 +115,12 @@ TOWNS = {
         "id": "whisperwoodGrove",
         "name": "Whisperwood Grove",
         "rank": "Novice",
-        "description_day": "A tranquil and ancient forest where colossal trees reach for the sky. The town is built into the trees themselves, with winding rope bridges connecting cozy, treetop homes.",
+        "description_morning": "Morning mist drifts between the massive trunks, catching the early light in golden shafts. The grove wakes slowly, birdsong echoing through the ancient canopy.",
+        "description_noon": "Filtered sunlight dapples the forest floor as the grove hums with midday activity. Rope bridges sway gently with the comings and goings of treetop residents.",
+        "description_evening": "Golden hour turns the canopy into a cathedral of amber and green. Lumina-moths begin their early emergence, flickering to life in the fading light.",
         "description_night": "Under the soft glow of the moon, the forest takes on a mystical quality. Lumina-moths float gently through the air, casting a soft light on the winding paths.",
+        # Legacy fallback
+        "description_day": "A tranquil and ancient forest where colossal trees reach for the sky. The town is built into the trees themselves, with winding rope bridges connecting cozy, treetop homes.",
         "connections": {
             "whisperwoodWilds": "Whisperwood Wilds",
             "oakhavenOutpost": "Oakhaven Outpost"  # Travel back to the outpost itself
@@ -187,8 +195,12 @@ TOWNS = {
                 "id": "sunstoneOasis",
                 "name": "Sunstone Oasis",
                 "rank": "Journeyman",
-                "description_day": "A bustling town built around a life-giving oasis in the heart of a vast, sun-scorched desert. The heat is intense, but the spirit of the locals is resilient.",
+                "description_morning": "The desert air is crisp and cool before the sun fully rises. Merchants set up their stalls early, and the oasis glimmers with the promise of another day.",
+                "description_noon": "The heat is at its peak, driving most locals into the shade of canvas awnings. The oasis water shimmers brilliantly — a welcome refuge from the relentless sun.",
+                "description_evening": "As the sun sinks toward the dunes, the temperature drops rapidly and the oasis town truly comes alive. Lanterns are lit, music drifts through warm evening air.",
                 "description_night": "Under the cool desert night, the oasis comes alive with the glow of lanterns and the sound of music. The stars above are brilliant and clear.",
+                # Legacy fallback
+                "description_day": "A bustling town built around a life-giving oasis in the heart of a vast, sun-scorched desert. The heat is intense, but the spirit of the locals is resilient.",
                 "connections": ["whisperwoodGrove"], # Connection back to the grove
                 "prerequisite": None,
                 "locations": {

@@ -27,12 +27,16 @@ async def get_town_embed(bot, user_id, town_id):
     """Creates a dynamic embed for a town without the status bar."""
     db_cog = bot.get_cog('Database')
     player_data = await db_cog.get_player(user_id)
-    time_of_day = player_data.get('day_of_cycle', 'day')
+    time_of_day = player_data.get('day_of_cycle', 'morning')
     town_info = TOWNS.get(town_id)
     if not town_info:
         return None
     description_key = f"description_{time_of_day}"
-    description = town_info.get(description_key, town_info.get('description_day'))
+    # Fall back to description_morning, then description_day, then plain description
+    description = (town_info.get(description_key)
+                   or town_info.get('description_morning')
+                   or town_info.get('description_day')
+                   or town_info.get('description', 'A quiet place.'))
     embed = discord.Embed(
         title=f"Welcome to {town_info['name']}!",
         description=description,
@@ -104,8 +108,9 @@ def _create_progress_bar(current: int, max_val: int) -> str:
 
 def get_status_bar(player_data: dict, main_pet_data: dict) -> str:
     """Generates a concise, one-line status bar for a player and their main pet."""
-    time_of_day = player_data.get('day_of_cycle', 'day')
-    time_emoji = '☀️' if time_of_day == 'day' else '🌙'
+    time_of_day = player_data.get('day_of_cycle', 'morning')
+    _TIME_EMOJIS = {'morning': '🌅', 'noon': '☀️', 'evening': '🌆', 'night': '🌙'}
+    time_emoji = _TIME_EMOJIS.get(time_of_day, '☀️')
     current_energy, max_energy = player_data.get('energy', 0), player_data.get('max_energy', 100)
     pet_current_hp = main_pet_data.get('current_hp', 0) if main_pet_data else 0
     pet_max_hp = main_pet_data.get('max_hp', 0) if main_pet_data else 0

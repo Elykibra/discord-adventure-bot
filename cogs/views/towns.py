@@ -229,8 +229,20 @@ class TownView(discord.ui.View):
                 self.add_item(discord.ui.Button(label="Rest", style=discord.ButtonStyle.secondary, emoji="🌙"))
                 self.children[-1].callback = self.rest_callback
 
+            # Map 4 phases to broad day/night groups for availability checks
+            _DAY_PHASES   = {'morning', 'noon'}
+            _NIGHT_PHASES = {'evening', 'night'}
+
             for npc_id, npc_data in location_info.get('npcs', {}).items():
-                is_available = npc_data.get('availability', 'all') in ['all', time_of_day]
+                avail = npc_data.get('availability', 'all')
+                if avail == 'all':
+                    is_available = True
+                elif avail == 'day':
+                    is_available = time_of_day in _DAY_PHASES
+                elif avail == 'night':
+                    is_available = time_of_day in _NIGHT_PHASES
+                else:
+                    is_available = avail == time_of_day  # exact phase match
                 talk_button = discord.ui.Button(label=f"Talk to {npc_data['name']}",
                                                 style=discord.ButtonStyle.secondary, disabled=not is_available)
                 # This call is now corrected to pass location_info

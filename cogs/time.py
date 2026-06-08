@@ -28,12 +28,21 @@ class Time(commands.Cog):
 
         log_messages = []
 
-        # 1. Flip the Day/Night Cycle and log it
-        current_time = player_data.get('day_of_cycle', 'day')
-        new_time = 'night' if current_time == 'day' else 'day'
+        # 1. Advance the 4-Phase Time Cycle and log it
+        TIME_CYCLE = ['morning', 'noon', 'evening', 'night']
+        TIME_KEYS = {
+            'morning': 'TIME_ADVANCE_MORNING',
+            'noon':    'TIME_ADVANCE_NOON',
+            'evening': 'TIME_ADVANCE_EVENING',
+            'night':   'TIME_ADVANCE_NIGHT',
+        }
+        current_time = player_data.get('day_of_cycle', 'morning')
+        # Advance to the next phase; wrap around after night → morning
+        current_index = TIME_CYCLE.index(current_time) if current_time in TIME_CYCLE else 0
+        new_time = TIME_CYCLE[(current_index + 1) % len(TIME_CYCLE)]
         await db_cog.update_player(user_id, day_of_cycle=new_time)
 
-        time_key = "TIME_ADVANCE_NIGHT" if new_time == 'night' else "TIME_ADVANCE_DAY"
+        time_key = TIME_KEYS.get(new_time, 'TIME_ADVANCE_MORNING')
         log_messages.append(get_notification(time_key))
 
         # 2. Process Quest Consequences (e.g., for time-sensitive quests)

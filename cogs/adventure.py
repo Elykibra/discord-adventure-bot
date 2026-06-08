@@ -142,8 +142,12 @@ class Adventure(commands.Cog):
                 if outcome == "tutorial_pet":
                     chosen_species_name, level = "Pineling", 1
                 else:
-                    time_of_day = player_data.get('day_of_cycle', 'day')
-                    possible_pet_names = ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day, [])
+                    time_of_day = player_data.get('day_of_cycle', 'morning')
+                    # Map 4 phases to encounter table keys (day/night)
+                    # Encounter tables can add 'morning'/'noon'/etc keys later for unique spawns
+                    encounter_key = 'night' if time_of_day == 'night' else 'day'
+                    possible_pet_names = (ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day)
+                                          or ENCOUNTER_TABLES.get(location_id, {}).get(encounter_key, []))
                     if not possible_pet_names:
                         # (Graceful handling for no pets found)
                         return

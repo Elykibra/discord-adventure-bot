@@ -84,11 +84,25 @@ NOTIFICATIONS = {
     ],
 
     # World Notifications
-    "TIME_ADVANCE_NIGHT": [
-        "🌙 The sun sets. It is now Night.",
+    "TIME_ADVANCE_MORNING": [
+        "🌅 The sun rises. A new day begins.",
+        "🌄 Dawn breaks over the land. Morning has come.",
     ],
+    "TIME_ADVANCE_NOON": [
+        "☀️ The sun climbs high. It is now Noon.",
+        "🌤️ Midday light floods the world.",
+    ],
+    "TIME_ADVANCE_EVENING": [
+        "🌆 The sun begins to dip. Evening settles in.",
+        "🌇 A warm amber glow spreads across the sky. Evening has arrived.",
+    ],
+    "TIME_ADVANCE_NIGHT": [
+        "🌙 The last light fades. Night falls.",
+        "🌑 Stars emerge as night takes hold.",
+    ],
+    # Legacy key kept for safety — maps to morning
     "TIME_ADVANCE_DAY": [
-        "☀️ A new day dawns. It is now Day.",
+        "🌅 A new day dawns.",
     ],
     "PLAYER_RESTORE_ENERGY": [
         "⚡️ You feel rested. Your energy is now {new_energy}/{max_energy}.",
