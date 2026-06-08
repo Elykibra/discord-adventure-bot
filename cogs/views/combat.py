@@ -523,20 +523,18 @@ class CombatView(discord.ui.View):
             wild_pet = self.battle.wild_pet
             user = self.parent_interaction.user
 
+            location_name = self.origin_location_id.replace('_', ' ').title()
             if captured:
-                title = f"🔮 {user.display_name} captured a {wild_pet['species']}!"
-                description = (
-                    f"**{player_pet['name']}** weakened the wild **{wild_pet['species']}** "
-                    f"just enough to lock it in a Tether Orb.\n"
-                    f"A new companion joins the party!"
-                )
+                title = get_notification("PUBLIC_CAPTURE_TITLE",
+                                         player_name=user.display_name, species=wild_pet['species'])
+                description = get_notification("PUBLIC_CAPTURE_BODY",
+                                               pet_name=player_pet['name'], species=wild_pet['species'])
                 color = discord.Color.purple()
             else:
-                title = f"⚔️ {user.display_name} won a battle!"
-                description = (
-                    f"**{player_pet['name']}** defeated a wild **{wild_pet['species']}** "
-                    f"in the **{self.origin_location_id.replace('_', ' ').title()}**."
-                )
+                title = get_notification("PUBLIC_VICTORY_TITLE", player_name=user.display_name)
+                description = get_notification("PUBLIC_VICTORY_BODY",
+                                               pet_name=player_pet['name'], species=wild_pet['species'],
+                                               location=location_name)
                 color = discord.Color.gold()
 
             embed = discord.Embed(title=title, description=description, color=color)

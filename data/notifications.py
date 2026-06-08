@@ -57,6 +57,28 @@ NOTIFICATIONS = {
         "🏳️ You were outmatched and forced to flee the battle."
     ],
 
+    # --- Public Victory Announcements ---
+    "PUBLIC_VICTORY_TITLE": [
+        "⚔️ {player_name} won a battle!",
+        "🏆 {player_name} came out on top!",
+        "💥 {player_name} crushed it!",
+    ],
+    "PUBLIC_VICTORY_BODY": [
+        "**{pet_name}** defeated a wild **{species}** in the **{location}**.",
+        "A wild **{species}** didn't stand a chance against **{pet_name}** in the **{location}**.",
+        "**{pet_name}** emerged victorious over a wild **{species}** deep in the **{location}**.",
+    ],
+    "PUBLIC_CAPTURE_TITLE": [
+        "🔮 {player_name} captured a {species}!",
+        "✨ {player_name} added a new companion!",
+        "🎉 {player_name} tethered a wild {species}!",
+    ],
+    "PUBLIC_CAPTURE_BODY": [
+        "**{pet_name}** weakened the wild **{species}** just enough to lock it in a Tether Orb. A new companion joins the party!",
+        "With skill and precision, **{pet_name}** brought down the **{species}**'s guard. It's been captured!",
+        "The wild **{species}** put up a fight, but **{pet_name}** was better. Welcome to the team!",
+    ],
+
     # --- Battle Reward Notifications ---
     "BATTLE_REWARD_BASE": [
         "🏆 You defeated the wild {wild_pet_species}! You earned {coin_gain} coins and {xp_gain} EXP.",
