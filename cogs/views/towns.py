@@ -241,6 +241,17 @@ class TownView(discord.ui.View):
             if "rest" in services:
                 self.add_item(discord.ui.Button(label="Rest", style=discord.ButtonStyle.secondary, emoji="🌙"))
                 self.children[-1].callback = self.rest_callback
+            if "starter_pack" in services:
+                pack_cfg = services["starter_pack"]
+                uses_done = getattr(self, '_starter_pack_uses', None)
+                max_uses = pack_cfg.get("max_uses", 3)
+                if uses_done is None or uses_done < max_uses:
+                    remaining = "" if uses_done is None else f" ({max_uses - uses_done} left)"
+                    btn = discord.ui.Button(label=f"Starter Pack{remaining}", style=discord.ButtonStyle.green, emoji="📦")
+                else:
+                    btn = discord.ui.Button(label="Starter Pack (Empty)", style=discord.ButtonStyle.grey, emoji="📦", disabled=True)
+                btn.callback = self.starter_pack_callback
+                self.add_item(btn)
             if "shop" in services:
                 self.add_item(discord.ui.Button(label="Shop", style=discord.ButtonStyle.blurple, emoji="🛒"))
                 self.children[-1].callback = self.shop_callback
@@ -383,6 +394,43 @@ class TownView(discord.ui.View):
         travel_msg = await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
         travel_view.message = travel_msg
 
+    async def starter_pack_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        flags = player_data.get('flags', set())
+
+        location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+        pack_cfg = location_info.get('services', {}).get('starter_pack', {})
+        max_uses = pack_cfg.get('max_uses', 3)
+        flag_prefix = pack_cfg.get('flag_prefix', f'supply_chest_{self.town_id}_use_')
+
+        uses_done = sum(1 for i in range(1, max_uses + 1) if f"{flag_prefix}{i}" in flags)
+
+        if uses_done >= max_uses:
+            self._starter_pack_uses = max_uses
+            self.build_ui()
+            await interaction.edit_original_response(view=self)
+            return
+
+        next_use = uses_done + 1
+        grants = pack_cfg.get('grants', {}).get(next_use, [])
+        message = pack_cfg.get('messages', {}).get(next_use, "You take some supplies from the chest.")
+
+        log_list = [message]
+        item_lines = []
+        for item_id, qty in grants:
+            await db_cog.add_item_to_inventory(self.user_id, item_id, qty)
+            item_name = ITEMS.get(item_id, {}).get('name', item_id)
+            item_lines.append(f"  • {qty}× {item_name}")
+
+        if item_lines:
+            log_list.append("**You received:**\n" + "\n".join(item_lines))
+
+        await db_cog.set_flag(self.user_id, f"{flag_prefix}{next_use}")
+        self._starter_pack_uses = next_use
+        await self.update_with_activity_log(log_list)
+
     async def shop_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
@@ -431,7 +479,7 @@ class TownView(discord.ui.View):
                     )
                     initial_progress = {"status": "in_progress", "count": 0}
                     if quest_data.get("time_sensitive"):
-                        initial_progress["ticks_remaining"] = 2
+                        initial_progress["ticks_remaining"] = quest_data.get("time_limit_ticks", 2)
                     await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
                     log_list.append(f"📋 New quest added: **{quest_data.get('title', quest_id)}**")
 

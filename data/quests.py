@@ -56,6 +56,7 @@ QUESTS = {
             "description": "Grit Galen, a scavenger, has lost his satchel of tools in the Rotting Pits. He's asked for your help to retrieve it before it sinks for good.",
             "type": "side",
             "time_sensitive": True,
+            "time_limit_ticks": 2,  # Fails after 2 time advances (roughly nightfall if accepted at day)
             "failure_dialogue": "You took too long... my tools are gone for good now. A shame.",
             "objectives": [
                 {

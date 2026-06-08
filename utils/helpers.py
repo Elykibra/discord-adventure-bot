@@ -172,9 +172,57 @@ def get_ai_move(ai_pet, player_pet, gloom_meter):
         # Otherwise, it attacks.
         return {"action": "skill", "skill_id": get_strongest_move()}
 
-    # "Swift" would have its own logic here in the future.
-    # elif personality == "Swift":
-    #     ...
+    elif personality == "Cunning":
+        # Prioritizes super-effective moves; aggressively finishes low-HP targets
+        player_hp_percent = player_pet['current_hp'] / player_pet['max_hp'] if player_pet.get('max_hp', 1) > 0 else 1
+        player_types = player_pet.get('pet_type', [])
+        if isinstance(player_types, str):
+            player_types = [player_types]
+
+        # If target is nearly down, just go for the kill with raw power
+        if player_hp_percent < 0.3:
+            return {"action": "skill", "skill_id": get_strongest_move()}
+
+        # Otherwise find the most super-effective move available
+        best_move, best_mult = get_strongest_move(), 1.0
+        for skill_id in available_skills:
+            skill = PET_SKILLS.get(skill_id, {})
+            if skill.get('category') == 'Status':
+                continue
+            mult = get_type_multiplier(skill.get('type', 'Normal'), player_types)
+            if mult > best_mult:
+                best_mult, best_move = mult, skill_id
+        return {"action": "skill", "skill_id": best_move}
+
+    elif personality == "Reckless":
+        # Favors high-power and recoil moves; gets even more aggressive at low HP
+        self_hp_percent = ai_pet['current_hp'] / ai_pet['max_hp'] if ai_pet.get('max_hp', 1) > 0 else 1
+        best_move, max_power = (available_skills[0] if available_skills else "scratch"), 0
+        for skill_id in available_skills:
+            skill = PET_SKILLS.get(skill_id, {})
+            power = skill.get('power', 0)
+            # Weight recoil moves even higher when low HP — nothing left to lose
+            if skill.get('recoil') and self_hp_percent < 0.4:
+                power = int(power * 1.4)
+            if power > max_power:
+                max_power, best_move = power, skill_id
+        return {"action": "skill", "skill_id": best_move}
+
+    elif personality == "Guardian":
+        # Uses defensive buffs first; only attacks when low HP or no buffs available
+        self_hp_percent = ai_pet['current_hp'] / ai_pet['max_hp'] if ai_pet.get('max_hp', 1) > 0 else 1
+        if self_hp_percent > 0.3 and random.random() < 0.6:
+            for skill_id in available_skills:
+                skill = PET_SKILLS.get(skill_id, {})
+                if skill.get('category') != 'Status':
+                    continue
+                effects = skill.get('effect', [])
+                if isinstance(effects, dict):
+                    effects = [effects]
+                for eff in (effects or []):
+                    if eff.get('target') == 'self' and eff.get('stat') in ('defense', 'special_defense'):
+                        return {"action": "skill", "skill_id": skill_id}
+        return {"action": "skill", "skill_id": get_strongest_move()}
 
     else:  # Default behavior for "Aggressive" and any other types
         return {"action": "skill", "skill_id": get_strongest_move()}

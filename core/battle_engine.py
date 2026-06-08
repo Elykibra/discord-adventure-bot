@@ -381,6 +381,12 @@ class BattleState:
                     log_list.append(
                         f"› {defender.get('name', 'The defender')}'s Solid Rock allowed it to endure the hit!")
 
+                # --- Gloom Medium Threshold: enemy attacks deal 15% more damage (40-79%) ---
+                if not is_player and 40 <= self.gloom_meter < 80:
+                    bonus = max(1, int(damage * 0.15))
+                    damage += bonus
+                    log_list.append(get_notification("COMBAT_GLOOM_MEDIUM"))
+
                 defender['current_hp'] -= damage
 
                 # trigger for the attacker
@@ -427,6 +433,22 @@ class BattleState:
     # Round processing (keeps public flow similar to your prior code)
     # -------------------------
     async def process_round(self, player_skill_id: str):
+        # -------------------------
+        # Gloom Surge — fires BEFORE the round if meter hits 100
+        # -------------------------
+        if self.gloom_meter >= 100:
+            surge_dmg = max(1, int(self.player_pet['max_hp'] * 0.4))
+            self.player_pet['current_hp'] = max(0, self.player_pet['current_hp'] - surge_dmg)
+            self.turn_log.append(get_notification(
+                "COMBAT_GLOOM_SURGE", pet_name=self.player_pet['name'], damage=surge_dmg
+            ))
+            self.gloom_meter = max(50, self.gloom_meter - 40)
+            self.turn_log.append(get_notification(
+                "COMBAT_GLOOM_SURGE_RESETS", new_meter=self.gloom_meter
+            ))
+            if self.player_pet['current_hp'] <= 0:
+                self.turn_log.append(f"💔 **{self.player_pet['name']} fainted!**")
+                return {"log": "\n".join(self.turn_log), "is_over": True, "win": False}
 
         player_move = {"skill_id": player_skill_id}
         try:
@@ -637,6 +659,19 @@ class BattleState:
         if await tick_effects_for_pet(self.player_pet, self.player_pet_effects, True, self.turn_log,
                                       source_pet=self.wild_pet, battle_state=self):
             return {"log": "\n".join(self.turn_log), "is_over": True, "win": False}
+
+        # --- Gloom High Threshold: 25% chance of Gloom drain (80-99%) ---
+        if 80 <= self.gloom_meter < 100 and random.random() < 0.25:
+            drain_dmg = max(1, int(self.player_pet['max_hp'] * 0.05))
+            self.player_pet['current_hp'] = max(0, self.player_pet['current_hp'] - drain_dmg)
+            self.turn_log.append(get_notification(
+                "COMBAT_GLOOM_HIGH_STATUS",
+                pet_name=self.player_pet['name'],
+                amount=drain_dmg
+            ))
+            if self.player_pet['current_hp'] <= 0:
+                self.turn_log.append(f"💔 **{self.player_pet['name']} fainted from the Gloom!**")
+                return {"log": "\n".join(self.turn_log), "is_over": True, "win": False}
 
         self.turn_count += 1
         return {"log": "\n".join(self.turn_log), "is_over": False}

@@ -413,4 +413,17 @@ NOTIFICATIONS = {
         "> A surge of determination from your pet weakens the Gloom! (Gloom -{amount}%)",
         "> Your pet's spirit shines, repelling the corruption! (Gloom -{amount}%)"
     ],
+    "COMBAT_GLOOM_MEDIUM": [
+        "> 🌑 The Gloom empowers the creature's strikes!",
+        "> 🌑 Dark energy surges through the enemy's attack!",
+    ],
+    "COMBAT_GLOOM_HIGH_STATUS": [
+        "> 🌑 The oppressive Gloom seeps into **{pet_name}**! They feel weakened! (-{amount} HP)",
+    ],
+    "COMBAT_GLOOM_SURGE": [
+        "🌑 **GLOOM SURGE!** The darkness erupts, overwhelming **{pet_name}** for **{damage}** damage!",
+    ],
+    "COMBAT_GLOOM_SURGE_RESETS": [
+        "> The Gloom recedes slightly after the violent outburst... (Gloom: {new_meter}%)",
+    ],
 }

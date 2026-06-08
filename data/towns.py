@@ -56,7 +56,23 @@ TOWNS = {
                 "availability": "all",
                 "description": "A large, reinforced chest stocked with basic supplies...",
                 "items_for_sale": ["tether_orb", "moss_balm", "sun_kissed_berries", "trail_morsels"],
-                "services": {"shop": True}
+                "services": {
+                    "shop": True,
+                    "starter_pack": {
+                        "max_uses": 3,
+                        "flag_prefix": "supply_chest_oakhavenOutpost_use_",
+                        "grants": {
+                            1: [("tether_orb", 3), ("moss_balm", 2), ("sun_kissed_berries", 3)],
+                            2: [("tether_orb", 2), ("trail_morsels", 2), ("moss_balm", 1)],
+                            3: [("tether_orb", 1), ("trail_morsels", 2), ("moss_balm", 1)],
+                        },
+                        "messages": {
+                            1: "The chest is freshly stocked. You help yourself to the supplies inside.",
+                            2: "Some supplies remain. You take what's left on the upper shelf.",
+                            3: "You dig to the bottom of the chest and claim the last of the provisions.",
+                        }
+                    }
+                }
             },
             "rest_point": {  # Unchanged
                 "name": "The Weary Wanderer's Bench",

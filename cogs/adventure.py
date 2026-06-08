@@ -12,6 +12,7 @@ from data.towns import TOWNS
 from data.pets import PET_DATABASE, ENCOUNTER_TABLES
 from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE
+from data.explore_events import get_zone_events
 from utils.helpers import get_status_bar, get_town_embed, check_quest_progress, get_notification
 from core.battle_engine import BattleState  # <-- Key Change: Importing from core
 from .resources import ACTION_COSTS
@@ -79,12 +80,21 @@ class Adventure(commands.Cog):
             energy_percentage = player_data.get('energy', 100) / player_data.get('max_energy', 100)
             is_well_rested = energy_percentage >= 0.9  # 90-100% energy
 
-            # 2. Adjust the encounter weights
+            # 2. Check for zone flavor events
+            zone_events = get_zone_events(location_id)
+            has_flavor_events = bool(zone_events)
+
+            # 3. Adjust the encounter weights
             pet_chance = 35
             if is_well_rested:
-                pet_chance += 5  # Increase pet encounter chance by 5%
-
-            weights = [45, pet_chance, 20]  # item, pet, nothing
+                pet_chance += 5
+            # If the zone has flavor events, carve out 20% from item/nothing for them
+            if has_flavor_events:
+                outcome_keys = ["item", "pet", "flavor_event", "nothing"]
+                outcome_weights = [35, pet_chance, 20, 10]
+            else:
+                outcome_keys = ["item", "pet", "nothing"]
+                outcome_weights = [45, pet_chance, 20]
 
             active_quests = await db_cog.get_active_quests(user_id)
             is_on_tutorial_battle_step = any(
@@ -94,11 +104,20 @@ class Adventure(commands.Cog):
             if is_on_tutorial_battle_step:
                 outcome = "tutorial_pet"
             else:
-                outcome = random.choices(["item", "pet", "nothing"], weights=[45, 35, 20], k=1)[0]
+                outcome = random.choices(outcome_keys, weights=outcome_weights, k=1)[0]
 
             activity_log_list = []
             if is_well_rested:
                 activity_log_list.append(get_notification("PLAYER_BUFF_WELL_RESTED"))
+
+            if outcome == "flavor_event":
+                chosen_event = random.choices(
+                    zone_events,
+                    weights=[e.get("weight", 5) for e in zone_events],
+                    k=1
+                )[0]
+                await self._handle_flavor_event(interaction, user_id, db_cog, chosen_event, activity_log_list, view_context)
+                return
 
             if outcome == "item" or outcome == "nothing":
                 activity_log_text = ""
@@ -239,6 +258,163 @@ class Adventure(commands.Cog):
                     f"⚠️ An error occurred while exploring: `{type(e).__name__}: {e}`\nPlease try again.",
                     ephemeral=True
                 )
+            except Exception:
+                pass
+
+
+    async def _handle_flavor_event(self, interaction, user_id, db_cog, event, prefix_logs, view_context):
+        """
+        Handles a flavor event dict from explore_events.py.
+        Applies outcomes and updates the view with the event text.
+        Choice events send a followup with buttons.
+        """
+        event_type = event.get("type", "flavor")
+        text = event.get("text", "")
+        outcome = event.get("outcome", {})
+
+        log_list = list(prefix_logs)
+
+        # Apply outcome to flavor/loot/hazard/pet_sighting events immediately
+        if event_type != "choice":
+            log_list.append(text)
+            await self._apply_event_outcome(user_id, db_cog, outcome, log_list)
+            if view_context:
+                await view_context.update_with_activity_log(log_list)
+            return
+
+        # --- Choice event: show buttons ---
+        choices = event.get("choices", [])
+        if not choices:
+            log_list.append(text)
+            if view_context:
+                await view_context.update_with_activity_log(log_list)
+            return
+
+        embed = discord.Embed(
+            description=f"*{text}*",
+            color=discord.Color.dark_teal()
+        )
+        embed.set_footer(text="What do you do?")
+
+        choice_view = ExploreChoiceView(
+            bot=self.bot,
+            user_id=user_id,
+            db_cog=db_cog,
+            choices=choices,
+            prefix_logs=prefix_logs,
+            view_context=view_context,
+        )
+        msg = await interaction.followup.send(embed=embed, view=choice_view, ephemeral=True)
+        choice_view.message = msg
+
+    async def _apply_event_outcome(self, user_id, db_cog, outcome, log_list):
+        """Applies an event outcome dict to the player/pet. Appends results to log_list."""
+        if not outcome:
+            return
+
+        player_data = await db_cog.get_player(user_id)
+
+        # Energy change
+        if "energy" in outcome:
+            delta = outcome["energy"]
+            current = player_data.get("energy", 0)
+            max_e = player_data.get("max_energy", 10)
+            new_energy = max(0, min(max_e, current + delta))
+            await db_cog.update_player(user_id, energy=new_energy)
+            if delta > 0:
+                log_list.append(f"*(+{delta} Energy)*")
+            elif delta < 0:
+                log_list.append(f"*({delta} Energy)*")
+
+        # HP change (as % of max HP)
+        if "hp" in outcome:
+            pct = outcome["hp"]  # e.g. -8 means lose 8% of max HP
+            if player_data.get("main_pet_id"):
+                pet_data = await db_cog.get_pet(player_data["main_pet_id"])
+                if pet_data:
+                    delta_hp = max(1, int(pet_data["max_hp"] * abs(pct) / 100))
+                    if pct < 0:
+                        new_hp = max(1, pet_data["current_hp"] - delta_hp)
+                        await db_cog.update_pet(pet_data["pet_id"], current_hp=new_hp)
+                        log_list.append(f"*({pct}% HP — {pet_data['name']} takes a hit)*")
+                    else:
+                        new_hp = min(pet_data["max_hp"], pet_data["current_hp"] + delta_hp)
+                        await db_cog.update_pet(pet_data["pet_id"], current_hp=new_hp)
+                        log_list.append(f"*(+{pct}% HP restored to {pet_data['name']})*")
+
+        # Item grant or cost
+        if "item" in outcome:
+            item_cfg = outcome["item"]
+            item_id = item_cfg.get("item_id")
+            qty = item_cfg.get("qty", 1)
+            if item_id and qty != 0:
+                item_name = ITEMS.get(item_id, {}).get("name", item_id)
+                if qty > 0:
+                    await db_cog.add_item_to_inventory(user_id, item_id, qty)
+                    log_list.append(f"*(+{qty}× {item_name})*")
+                else:
+                    # Negative qty = cost; silently skip if player doesn't have it
+                    await db_cog.remove_item_from_inventory(user_id, item_id, abs(qty))
+                    log_list.append(f"*(-{abs(qty)}× {item_name})*")
+
+
+class ExploreChoiceView(discord.ui.View):
+    """Temporary view for choice-based explore events."""
+
+    def __init__(self, bot, user_id, db_cog, choices, prefix_logs, view_context):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.user_id = user_id
+        self.db_cog = db_cog
+        self.choices = choices
+        self.prefix_logs = prefix_logs
+        self.view_context = view_context
+        self.message = None
+
+        for i, choice in enumerate(choices):
+            label = choice.get("label", f"Option {i+1}")
+            emoji = choice.get("emoji")
+            btn = discord.ui.Button(
+                label=label,
+                emoji=emoji,
+                style=discord.ButtonStyle.secondary,
+                custom_id=str(i)
+            )
+            btn.callback = self._make_callback(i)
+            self.add_item(btn)
+
+    def _make_callback(self, index: int):
+        async def callback(interaction: discord.Interaction):
+            if interaction.user.id != self.user_id:
+                return await interaction.response.send_message("This isn't your event.", ephemeral=True)
+            await interaction.response.defer()
+            self.stop()
+            if self.message:
+                try:
+                    await self.message.delete()
+                except Exception:
+                    pass
+
+            choice = self.choices[index]
+            outcome = choice.get("outcome", {})
+            result_text = choice.get("text", "")
+
+            log_list = list(self.prefix_logs)
+            log_list.append(result_text)
+
+            adventure_cog = self.bot.get_cog('Adventure')
+            if adventure_cog:
+                await adventure_cog._apply_event_outcome(self.user_id, self.db_cog, outcome, log_list)
+
+            if self.view_context:
+                await self.view_context.update_with_activity_log(log_list)
+        return callback
+
+    async def on_timeout(self):
+        # If player doesn't choose, quietly dismiss
+        if self.message:
+            try:
+                await self.message.delete()
             except Exception:
                 pass
 
