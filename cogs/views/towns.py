@@ -477,7 +477,7 @@ class TownView(discord.ui.View):
                     if item_id:
                         await db_cog.add_item_to_inventory(self.user_id, item_id, quantity)
                         item_name = ITEMS.get(item_id, {}).get('name', 'an item')
-                        dialogue_text += f"\n\n*You received: {quantity}x {item_name}*"
+                        log_list.append(f"*You received: {quantity}× {item_name}*")
 
                 if node.get("action") == "grant_quest":
                     quest_id = node.get("quest_id")
@@ -522,7 +522,7 @@ class TownView(discord.ui.View):
                 if quest_updates:
                     log_list.extend(quest_updates)
 
-                await self.update_with_activity_log(log_list)
+            await self.update_with_activity_log(log_list)
         return talk_callback
 
     async def _get_dialogue_node(self, npc_id):
@@ -548,12 +548,19 @@ class TownView(discord.ui.View):
                 if node["required_item"] not in owned_items:
                     continue
 
-            # --- required_quest_status: check flag set on quest completion/failure ---
+            # --- required_quest_status ---
+            # status "active"   → quest is in the active_quests list right now
+            # status "completed"/"failed" → persistent flag set after the quest ends
             if "required_quest_status" in node:
                 req = node["required_quest_status"]
-                flag = f"quest_{req['quest_id']}_{req['status']}"
-                if flag not in player_flags:
-                    continue
+                status = req['status']
+                qid   = req['quest_id']
+                if status == 'active':
+                    if not any(q['quest_id'] == qid for q in player_quests):
+                        continue
+                else:
+                    if f"quest_{qid}_{status}" not in player_flags:
+                        continue
 
             # --- required_quest_step ---
             if "required_quest_step" in node:
@@ -566,7 +573,14 @@ class TownView(discord.ui.View):
             if any(k in node for k in ("required_flag", "required_item", "required_quest_status", "required_quest_step")):
                 return node, npc_data
 
-        grant_quest_node = next((n for n in dialogue_tree if n.get("action") == "grant_quest" and not any(q['quest_id'] == n.get("quest_id") for q in player_quests)), None)
+        _req_keys = ("required_flag", "required_item", "required_quest_status", "required_quest_step")
+        grant_quest_node = next(
+            (n for n in dialogue_tree
+             if n.get("action") == "grant_quest"
+             and not any(k in n for k in _req_keys)          # unconditional grant nodes only
+             and not any(q['quest_id'] == n.get("quest_id") for q in player_quests)),
+            None,
+        )
         if grant_quest_node:
             return grant_quest_node, npc_data
         default_node = next((n for n in dialogue_tree if "default" in n), None)

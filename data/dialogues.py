@@ -28,9 +28,15 @@ DIALOGUES = {
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 1},
              "text": "I see you're still looking for a Sun-Kissed Berry. You'll find one by exploring the wilds outside the outpost."},
 
+            # Post-graduation
+            {"required_flag": "quest_a_guildsmans_first_steps_completed",
+             "text": "You've earned your place in the Guild, Guildsman. Whisperwood awaits. I'll be here if the outpost ever calls you back."},
+
             # Initial quest-granting dialogue
             {"action": "grant_quest", "quest_id": "a_guildsmans_first_steps",
-             "text": "Welcome, recruit. To start, explore the wilds just outside the outpost and gather a Sun-Kissed Berry. Let me know when you have it."}
+             "text": "Welcome, recruit. To start, explore the wilds just outside the outpost and gather a Sun-Kissed Berry. Let me know when you have it."},
+
+            {"default": "Welcome to the Guild Recruitment Hut. If you're looking for work, check the notice board."}
         ]
     },
     "bea": {
@@ -54,7 +60,7 @@ DIALOGUES = {
 
             {"required_quest_status": {"quest_id": "sunk_cost", "status": "active"},
              "text": "Still looking for my satchel? Be careful down there. The Gloom makes things... twitchy."},
-            {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 5}, "action": "grant_quest", "quest_id": "sunk_cost", "text": "Lost my satchel of tools in the Rotting Pits earlier today. Tar gets deeper every day down there — once something sinks past a certain point, it doesn't come back up. I'd say you've got a day or two at most before it's gone for good. Find it and I'll make it worth your while."},
+            {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 7}, "action": "grant_quest", "quest_id": "sunk_cost", "text": "Lost my satchel of tools in the Rotting Pits earlier today. Tar gets deeper every day down there — once something sinks past a certain point, it doesn't come back up. I'd say you've got a day or two at most before it's gone for good. Find it and I'll make it worth your while."},
             {"default": "Another fresh face from the Guild. Don't get too close to these pits, adventurer. The Gloom here makes everything... twitchy."}
         ]
     }
