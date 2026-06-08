@@ -602,18 +602,15 @@ class CombatView(discord.ui.View):
                 summary.extend(reward_log)
             quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_victory",
                                                        {"species": self.battle.wild_pet['species']}, channel=channel)
-        if quest_updates:
-            summary.extend(quest_updates)
-
         await self._post_public_victory(captured)
-        await self._return_to_wilds(summary)
+        await self._return_to_wilds(summary, quest_updates or [])
 
     async def _handle_loss(self, results: dict):
         await self.battle.db_cog.update_pet(self.battle.player_pet['pet_id'], current_hp=0)
         summary = [f"💔 **Defeated**\n*{get_notification('BATTLE_DEFEAT')}*"]
-        await self._return_to_wilds(summary)
+        await self._return_to_wilds(summary, [])
 
-    async def _return_to_wilds(self, result_log_list: list[str]):
+    async def _return_to_wilds(self, result_log_list: list[str], quest_updates: list[str] = []):
         """
         Cleans up all battle messages and returns control to the previous view.
         """
@@ -634,9 +631,22 @@ class CombatView(discord.ui.View):
         if db_cog:
             await db_cog.clear_active_battle(self.user_id)
 
-        # Update the original view (WildsView/TownView) with the battle results
+        # Update the original view (WildsView/TownView) with the battle outcome
         if hasattr(self.view_context, 'update_with_activity_log'):
             await self.view_context.update_with_activity_log(result_log_list)
+
+        # Quest updates get their own guaranteed followup — the embed edit above can
+        # fail silently, but quest progress is too important to lose in the noise
+        if quest_updates:
+            try:
+                from utils.helpers import format_log_block
+                embed = discord.Embed(
+                    description=format_log_block(quest_updates),
+                    color=discord.Color.gold()
+                )
+                await self.parent_interaction.followup.send(embed=embed, ephemeral=True)
+            except Exception:
+                pass
 
         self.stop()
 
