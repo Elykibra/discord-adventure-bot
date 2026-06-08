@@ -19,6 +19,7 @@ class Inventory(commands.Cog):
             main_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
         view = BagView(bot=self.bot, user_id=user_id, player_data=player_data,
                        main_pet_data=main_pet_data, inventory=inventory, channel=channel)
+        await view.initial_setup()
         embed = view.create_embed()
         return view, embed
 

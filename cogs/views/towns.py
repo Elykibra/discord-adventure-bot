@@ -6,6 +6,7 @@ import traceback
 import textwrap
 
 from cogs.resources import ACTION_COSTS
+from .shop import ShopView
 # --- REFACTORED IMPORTS ---
 from data.items import ITEMS
 from data.towns import TOWNS
@@ -240,6 +241,9 @@ class TownView(discord.ui.View):
             if "rest" in services:
                 self.add_item(discord.ui.Button(label="Rest", style=discord.ButtonStyle.secondary, emoji="🌙"))
                 self.children[-1].callback = self.rest_callback
+            if "shop" in services:
+                self.add_item(discord.ui.Button(label="Shop", style=discord.ButtonStyle.blurple, emoji="🛒"))
+                self.children[-1].callback = self.shop_callback
 
             # Map 4 phases to broad day/night groups for availability checks
             _DAY_PHASES   = {'morning', 'noon'}
@@ -378,6 +382,15 @@ class TownView(discord.ui.View):
         travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message)
         travel_msg = await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
         travel_view.message = travel_msg
+
+    async def shop_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+        shop_view = ShopView(self.bot, self.user_id, self.parent_interaction, location_info)
+        await shop_view.rebuild_ui()
+        embed = await shop_view.build_embed()
+        msg = await interaction.followup.send(embed=embed, view=shop_view, ephemeral=True)
+        shop_view.message = msg
 
     async def explore_zone_callback(self, interaction: discord.Interaction):
         adventure_cog = self.bot.get_cog('Adventure')
