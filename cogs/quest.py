@@ -55,8 +55,15 @@ class Quests(commands.Cog):
                         current_count = progress.get('current_count', 0)
                         objective_text += f" ({current_count}/{objective['required_count']})"
 
+                    quest_type = quest_data.get('type', 'main')
+                    type_emoji = {
+                        'main':              '⭐',
+                        'side':              '🔵',
+                        'repeatable_bounty': '🔄',
+                    }.get(quest_type, '📜')
+
                     embed.add_field(
-                        name=f" M {quest_data['title']}",
+                        name=f"{type_emoji} {quest_data['title']}",
                         value=f"└─ Objective: {objective_text}",
                         inline=False
                     )

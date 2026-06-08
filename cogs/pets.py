@@ -22,7 +22,7 @@ class Pets(commands.Cog):
         main_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
         all_pets_data = await db_cog.get_all_pets(interaction.user.id)
 
-        view = PetView(self.bot, interaction.user.id, main_pet_data, all_pets_data)
+        view = PetView(self.bot, interaction.user.id, player_data, main_pet_data, all_pets_data)
         embed = await view.get_pet_status_embed()
 
         message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)

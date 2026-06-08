@@ -12,7 +12,6 @@ PLAYER_COMMANDS = [
     ("/adventure",  "Open your current location — explore, fight, rest, travel."),
     ("/character",  "View your profile, pet status, bag, and crafting bench."),
     ("/quests",     "Check your active quest log and current objectives."),
-    ("/craft",      "Craft an item from materials (autocomplete recipe name)."),
     ("/pets",       "Manage and browse all your companions."),
     ("/fish",       "Go fishing — a chance at items and rare encounters."),
     ("/event",      "See information about the current global event."),
@@ -36,6 +35,7 @@ ADMIN_COMMANDS = [
     ("/deleteplayerdata", "Delete all data for a specific user."),
     ("/exportdata",       "Export a user's data to a JSON file."),
     ("/sync",             "Re-sync the slash command tree."),
+    ("/craft",            "Craft an item by ID (testing shortcut)."),
 ]
 
 
