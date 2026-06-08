@@ -8,7 +8,7 @@ from discord.types import embed
 from data.items import ITEMS
 from data.skills import PET_SKILLS
 from .modals import QuantityModal
-from utils.helpers import get_notification, format_log_block, apply_effect, get_status_bar
+from utils.helpers import get_notification, format_log_block, apply_effect, get_status_bar, check_quest_progress
 
 ACTION_ORDER = ["use", "equip", "unequip", "inspect", "drop"]
 
@@ -223,6 +223,9 @@ class BagView(discord.ui.View):
                                                             item_instance.get('item_data'))
                     log_list.append(get_notification("ITEM_USE_SUCCESS", quantity=quantity_to_use,
                                                      item_name=base_item_data['name']))
+                    quest_updates = await check_quest_progress(self.bot, self.user_id, "item_use", {"item_id": item_id})
+                    if quest_updates:
+                        log_list.extend(quest_updates)
                 elif action == "drop":
                     await db_cog.remove_item_from_inventory(self.user_id, item_id, quantity_to_use,
                                                             item_instance.get('item_data'))
