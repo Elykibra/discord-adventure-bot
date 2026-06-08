@@ -11,6 +11,7 @@ from utils.helpers import get_pet_image_url, get_status_bar, _create_progress_ba
 from .battle_actions import ForcedSwitchView, EvolvingView, LearnSkillView
 from .towns import WildsView, TownView # Assuming views_towns.py is renamed to towns.py in this folder
 from data.items import ITEMS
+from data.pets import PET_DATABASE
 from data.skills import PET_SKILLS
 from utils.constants import TYPE_EMOJIS
 
@@ -331,6 +332,13 @@ class CombatView(discord.ui.View):
         except Exception as e:
             print(f"An error occurred in skill_button_callback: {e}")
             traceback.print_exc()
+            try:
+                await interaction.followup.send(
+                    f"⚠️ Combat error: `{type(e).__name__}: {e}`\nPlease report this to an admin.",
+                    ephemeral=True
+                )
+            except Exception:
+                pass
             self.stop()
         finally:
             # 7. ALWAYS unlock the view for the next turn
@@ -445,7 +453,8 @@ class CombatView(discord.ui.View):
         p_type_str = " / ".join([f"{t} {TYPE_EMOJIS.get(t, '')}".strip() for t in p_pet_type]) if isinstance(p_pet_type,
                                                                                                                  list) else f"{p_pet_type} {TYPE_EMOJIS.get(p_pet_type, '')}".strip()
         p_passive = self.battle.player_pet.get('passive_ability', 'None')
-        p_personality = self.battle.wild_pet.get('personality', 'N/A')
+        p_personality = (self.battle.player_pet.get('personality')
+                         or PET_DATABASE.get(self.battle.player_pet.get('species', ''), {}).get('personality', 'N/A'))
         player_display = (f"```\n"
                               f"❤️ {p_hp_bar} {self.battle.player_pet['current_hp']}/{self.battle.player_pet['max_hp']}\n"
                               f"└─ Type:      {p_type_str}\n"

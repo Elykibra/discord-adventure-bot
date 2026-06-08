@@ -125,15 +125,18 @@ class Adventure(commands.Cog):
 
                 player_roster = await db_cog.get_all_pets(user_id)
                 main_pet_id = player_data.get('main_pet_id')
-                active_player_pet = next((p for p in player_roster if p['pet_id'] == main_pet_id), player_roster[0])
-                if not active_player_pet or active_player_pet['current_hp'] <= 0:
-                    await interaction.followup.send("Your main pet is unable to battle! Heal it before exploring.", ephemeral=True)
-                    return
 
-                player_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
-                if not player_pet_data or player_pet_data['current_hp'] <= 0:
-                    await interaction.followup.send("Your main pet is unable to battle! Heal it before exploring.",
-                                                    ephemeral=True)
+                # Make sure the main pet is always first in the roster for BattleState
+                main_pet_idx = next((i for i, p in enumerate(player_roster) if p['pet_id'] == main_pet_id), None)
+                if main_pet_idx is None or not player_roster:
+                    await interaction.followup.send("You have no pets! Use `/start` to begin your adventure.", ephemeral=True)
+                    return
+                if main_pet_idx != 0:
+                    player_roster.insert(0, player_roster.pop(main_pet_idx))
+
+                active_player_pet = player_roster[0]
+                if active_player_pet['current_hp'] <= 0:
+                    await interaction.followup.send("Your main pet is unable to battle! Heal it at an inn before exploring.", ephemeral=True)
                     return
 
                 if outcome == "tutorial_pet":
@@ -179,6 +182,7 @@ class Adventure(commands.Cog):
                 wild_pet_instance = {
                     "species": wild_pet_base['species'], "rarity": wild_pet_base['rarity'],
                     "pet_type": wild_pet_base['pet_type'], "level": level,
+                    "personality": wild_pet_base.get('personality', 'Aggressive'),
                     "current_hp": calculated_stats['hp'], "max_hp": calculated_stats['hp'],
                     "attack": calculated_stats['attack'], "defense": calculated_stats['defense'],
                     "special_attack": calculated_stats['special_attack'],
@@ -226,6 +230,13 @@ class Adventure(commands.Cog):
         except Exception as e:
             print(f"--- [FATAL ERROR] An exception occurred in explore: {e} ---")
             traceback.print_exc()
+            try:
+                await interaction.followup.send(
+                    f"⚠️ An error occurred while exploring: `{type(e).__name__}: {e}`\nPlease try again.",
+                    ephemeral=True
+                )
+            except Exception:
+                pass
 
 
 async def setup(bot):
