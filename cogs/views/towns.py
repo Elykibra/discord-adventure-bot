@@ -386,7 +386,16 @@ class TownView(discord.ui.View):
                         dialogue_text += f"\n\n*You received: {quantity}x {item_name}*"
 
                 if node.get("action") == "grant_quest":
-                    await db_cog.add_quest(self.user_id, node.get("quest_id"))
+                    quest_id = node.get("quest_id")
+                    from data.quests import QUESTS
+                    quest_data = next(
+                        (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
+                    )
+                    initial_progress = {"status": "in_progress", "count": 0}
+                    if quest_data.get("time_sensitive"):
+                        initial_progress["ticks_remaining"] = 2
+                    await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
+                    log_list.append(f"📋 New quest added: **{quest_data.get('title', quest_id)}**")
 
                 quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id})
                 if quest_updates:

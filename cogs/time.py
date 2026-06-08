@@ -44,9 +44,21 @@ class Time(commands.Cog):
             quest_data = next((data for town_quests in QUESTS.values() for q_id, data in town_quests.items() if q_id == quest_id), None)
 
             if quest_data and quest_data.get('time_sensitive'):
-                await db_cog.complete_quest(user_id, quest_id)
-                failure_message = quest_data.get('failure_dialogue', f"You failed the quest: **{quest_data['title']}**.")
-                failed_quests_messages.append(f"⏰ {failure_message}")
+                progress = quest.get('progress', {})
+                ticks_remaining = progress.get('ticks_remaining', 1)
+                ticks_remaining -= 1
+
+                if ticks_remaining <= 0:
+                    # Time's up — fail the quest
+                    await db_cog.complete_quest(user_id, quest_id)
+                    failure_message = quest_data.get('failure_dialogue', f"You failed the quest: **{quest_data['title']}**.")
+                    failed_quests_messages.append(f"⏰ {failure_message}")
+                else:
+                    # Still has time — decrement and warn if last tick
+                    progress['ticks_remaining'] = ticks_remaining
+                    await db_cog.update_quest_progress(user_id, quest_id, progress)
+                    if ticks_remaining == 1:
+                        failed_quests_messages.append(f"⚠️ **{quest_data['title']}** is running out of time — one more rest and it will be gone!")
 
         # 3. Restore Player and Pet Resources
         energy_to_restore = math.floor(
