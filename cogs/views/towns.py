@@ -89,7 +89,15 @@ class WildsView(discord.ui.View):
         if player_and_pet_data:
             status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
             new_embed.set_footer(text=status_bar)
-        await self.message.edit(embed=new_embed, view=self)
+        try:
+            await self.message.edit(embed=new_embed, view=self)
+        except (discord.NotFound, discord.HTTPException):
+            # Original message expired or was deleted — send a fresh ephemeral
+            try:
+                msg = await self.original_interaction.followup.send(embed=new_embed, view=self, ephemeral=True)
+                self.message = msg
+            except Exception:
+                pass
 
 
 class TravelView(discord.ui.View):
@@ -483,6 +491,32 @@ class TownView(discord.ui.View):
                     await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
                     log_list.append(f"📋 New quest added: **{quest_data.get('title', quest_id)}**")
 
+                if node.get("action") == "complete_quest":
+                    quest_id = node.get("quest_id")
+                    from data.quests import QUESTS
+                    quest_data = next(
+                        (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
+                    )
+                    # Remove the required item from inventory if present
+                    required_item = node.get("required_item")
+                    if required_item:
+                        await db_cog.remove_item_from_inventory(self.user_id, required_item, 1)
+                    # Complete the quest (deletes the row)
+                    await db_cog.complete_quest(self.user_id, quest_id)
+                    # Set completion flag so post-quest dialogue can fire
+                    await db_cog.set_flag(self.user_id, f"quest_{quest_id}_completed")
+                    # Grant quest rewards
+                    reward_item = quest_data.get("reward_item")
+                    reward_qty = quest_data.get("reward_item_quantity", 1)
+                    reward_coins = quest_data.get("reward_coins", 0)
+                    if reward_item:
+                        await db_cog.add_item_to_inventory(self.user_id, reward_item, reward_qty)
+                        item_name = ITEMS.get(reward_item, {}).get('name', reward_item)
+                        log_list.append(f"✅ **Quest Complete: {quest_data.get('title', quest_id)}**\n*You received: {reward_qty}× {item_name}*")
+                    elif reward_coins:
+                        await db_cog.update_player(self.user_id, coins=reward_coins)
+                        log_list.append(f"✅ **Quest Complete: {quest_data.get('title', quest_id)}**\n*You received: {reward_coins} coins*")
+
                 quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id},
                                                            channel=self.parent_interaction.channel)
                 if quest_updates:
@@ -496,12 +530,42 @@ class TownView(discord.ui.View):
         dialogue_tree = npc_data.get('dialogue_tree', [])
         db_cog = self.bot.get_cog('Database')
         player_quests = await db_cog.get_active_quests(self.user_id)
+        player_data = await db_cog.get_player(self.user_id)
+        player_flags = player_data.get('flags', set())
+
+        # Build owned item set for required_item checks
+        inventory = await db_cog.get_player_inventory(self.user_id)
+        owned_items = {i['item_id'] for i in inventory}
+
         for node in dialogue_tree:
+            # --- required_flag ---
+            if "required_flag" in node:
+                if node["required_flag"] not in player_flags:
+                    continue
+
+            # --- required_item: player must have item in inventory ---
+            if "required_item" in node:
+                if node["required_item"] not in owned_items:
+                    continue
+
+            # --- required_quest_status: check flag set on quest completion/failure ---
+            if "required_quest_status" in node:
+                req = node["required_quest_status"]
+                flag = f"quest_{req['quest_id']}_{req['status']}"
+                if flag not in player_flags:
+                    continue
+
+            # --- required_quest_step ---
             if "required_quest_step" in node:
                 req = node["required_quest_step"]
                 quest = next((q for q in player_quests if q['quest_id'] == req['quest_id']), None)
-                if quest and quest['progress'].get('count', 0) == req['step']:
-                    return node, npc_data
+                if not (quest and quest['progress'].get('count', 0) == req['step']):
+                    continue
+
+            # Node passed all checks — return it
+            if any(k in node for k in ("required_flag", "required_item", "required_quest_status", "required_quest_step")):
+                return node, npc_data
+
         grant_quest_node = next((n for n in dialogue_tree if n.get("action") == "grant_quest" and not any(q['quest_id'] == n.get("quest_id") for q in player_quests)), None)
         if grant_quest_node:
             return grant_quest_node, npc_data
@@ -550,7 +614,15 @@ class TownView(discord.ui.View):
         location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
         new_embed = await self._build_sublocation_embed(location_info, log_list=log_list)
         self.build_ui()
-        await self.message.edit(embed=new_embed, view=self)
+        try:
+            await self.message.edit(embed=new_embed, view=self)
+        except (discord.NotFound, discord.HTTPException):
+            # Original message expired or was deleted — send a fresh ephemeral
+            try:
+                msg = await self.parent_interaction.followup.send(embed=new_embed, view=self, ephemeral=True)
+                self.message = msg
+            except Exception:
+                pass
 
     async def on_timeout(self):
         if self.message:

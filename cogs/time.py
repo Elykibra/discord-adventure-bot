@@ -60,6 +60,7 @@ class Time(commands.Cog):
                 if ticks_remaining <= 0:
                     # Time's up — fail the quest
                     await db_cog.complete_quest(user_id, quest_id)
+                    await db_cog.set_flag(user_id, f"quest_{quest_id}_failed")
                     failure_message = quest_data.get('failure_dialogue', f"You failed the quest: **{quest_data['title']}**.")
                     failed_quests_messages.append(f"⏰ {failure_message}")
                 else:

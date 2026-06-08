@@ -56,6 +56,13 @@ TOWNS = {
                 "availability": "all",
                 "description": "A large, reinforced chest stocked with basic supplies...",
                 "items_for_sale": ["tether_orb", "moss_balm", "sun_kissed_berries", "trail_morsels"],
+                "npcs": {
+                    "bea": {
+                        "name": "Bea",
+                        "role": "Supply Merchant",
+                        "availability": "day"
+                    }
+                },
                 "services": {
                     "shop": True,
                     "starter_pack": {

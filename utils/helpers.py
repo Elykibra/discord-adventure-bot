@@ -403,6 +403,7 @@ async def check_quest_progress(bot, user_id, action_type, context=None, channel=
                         reward_messages.append(f"🎁 {quantity}x {item_name}")
 
                     await db_cog.complete_quest(user_id, quest_id)
+                    await db_cog.set_flag(user_id, f"quest_{quest_id}_completed")
 
                     # Add completion + rewards to the private activity log
                     messages_to_return.append(f"🎉 **Quest Complete:** {quest_data['title']}")

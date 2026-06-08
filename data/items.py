@@ -156,6 +156,16 @@ ITEMS = {
         "price": 150,
         "actions": ["use", "drop", "inspect"],
     },
+    "old_satchel": {
+        "name": "Galen's Old Satchel",
+        "description": "A tar-stained leather satchel dredged from the Rotting Pits. Smells terrible. Belongs to Grit Galen — return it to him.",
+        "dropdown_description": "Quest Item: Return to Grit Galen.",
+        "menu_description": "A tar-covered satchel. Grit Galen is waiting for this.",
+        "category": "Key Items",
+        "price": None,
+        "quest_item": True,
+        "actions": ["inspect"]
+    },
     "scavengers_compass": {
         "name": "The Scavenger's Compass",
         "description": "A rugged compass salvaged from the pits. It doesn't point north, but it seems to react to hidden wonders, subtly enhancing your chances of finding rare treasures.",

@@ -7,13 +7,13 @@ DIALOGUES = {
         "dialogue_tree": [
             # Final quest step dialogue
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 8},
-             "text": "You've learned the basics of adventuring. You're ready. Your next destination is Whisperwood Grove. Good luck, recruit."},
+             "text": "You've learned the basics of adventuring. You've explored, fought, captured, and survived the Rotting Pits. You're no longer a recruit — you're a Guildsman. Your next destination is **Whisperwood Grove**. Use the Travel option from the outpost hub to move on. The Guild expects reports. Don't keep them waiting."},
 
             # New dialogues for the new steps
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 7},
              "text": "You've spoken to Galen, I see. He's a good reminder that not all adventures end in glory. Return to me when you are ready."},
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 6},
-             "text": "Feeling refreshed? Good. There's one last person you should meet here in the outpost. Go have a word with Grit Galen."},
+             "text": "Feeling refreshed? Good. There's one last person you should meet before you head out — Grit Galen, near the Rotting Pits. One warning: that area is saturated with Gloom. Watch the Gloom Meter during battle. If it climbs past 40%, enemy strikes hit harder. Past 80%, you'll take damage just standing in it. Hit 100% and the Gloom will surge — take a heavy hit. Keep it low, and you'll be fine."},
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 5},
              "text": "Excellent work, recruit. A successful capture is a sign of a true Guildsman. Now, go rest at the bench by the campfire to recover."},
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 4},
@@ -33,11 +33,19 @@ DIALOGUES = {
              "text": "Welcome, recruit. To start, explore the wilds just outside the outpost and gather a Sun-Kissed Berry. Let me know when you have it."}
         ]
     },
+    "bea": {
+        "name": "Bea", "role": "Supply Merchant",
+        "dialogue_tree": [
+            {"required_flag": "quest_a_guildsmans_first_steps_completed",
+             "text": "Elara send you off already? You made it through faster than most. Come back when you're running low — I'll be here."},
+            {"default": "Looking or buying? Either way, touch the chest, not the stock. Everything's priced fair — I've been robbed before and I've got a long memory."}
+        ]
+    },
     "grit_galen": {
         "name": "Grit Galen", "role": "Scavenger",
         "dialogue_tree": [
-            {"required_quest_status": {"quest_id": "sunk_cost", "status": "completed"}, "text": "Thanks again for finding my tools. That compass will serve you well."},
-            {"required_quest_status": {"quest_id": "sunk_cost", "status": "failed"}, "text": "Nothing to say to you, adventurer. You had your chance to help."},
+            {"required_flag": "quest_sunk_cost_completed", "text": "Thanks again for finding my tools. The goggles will serve you better than they did me — my eyes aren't what they were."},
+            {"required_flag": "quest_sunk_cost_failed", "text": "Nothing to say to you, adventurer. You had your chance to help and the pits took the rest."},
 
             {"required_item": "old_satchel",
              "action": "complete_quest",

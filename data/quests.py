@@ -61,7 +61,8 @@ QUESTS = {
             "objectives": [
                 {
                     "text": "Explore the Rotting Pits to find the `Old Satchel`.",
-                    "type": "item_pickup", "target": "old_satchel"
+                    "type": "item_pickup", "target": "old_satchel",
+                    "zone": "oakhavenOutpost_rottingPits"
                 },
                 {
                     "text": "Return the `Old Satchel` to Grit Galen.",

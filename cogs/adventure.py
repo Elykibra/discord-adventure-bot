@@ -101,8 +101,34 @@ class Adventure(commands.Cog):
                 q['quest_id'] == 'a_guildsmans_first_steps' and q['progress'].get('count', 0) == 3 for q in
                 active_quests
             )
+
+            # Check for quest items that should drop in this zone
+            from data.quests import QUESTS as QUEST_DATA
+            quest_item_to_drop = None
+            player_inventory = await db_cog.get_player_inventory(user_id)
+            owned_item_ids = {i['item_id'] for i in player_inventory}
+            for quest in active_quests:
+                q_data = next((d for town in QUEST_DATA.values() for qid, d in town.items() if qid == quest['quest_id']), None)
+                if not q_data:
+                    continue
+                current_step = quest['progress'].get('count', 0)
+                objectives = q_data.get('objectives', [])
+                if current_step < len(objectives):
+                    obj = objectives[current_step]
+                    if (obj.get('type') == 'item_pickup'
+                            and obj.get('zone') == location_id
+                            and obj['target'] not in owned_item_ids):
+                        quest_item_to_drop = obj['target']
+                        break
+
             if is_on_tutorial_battle_step:
                 outcome = "tutorial_pet"
+            elif quest_item_to_drop:
+                # High chance to drop the quest item — 50% this explore, guaranteed eventually
+                if random.random() < 0.5:
+                    outcome = "quest_item"
+                else:
+                    outcome = random.choices(outcome_keys, weights=outcome_weights, k=1)[0]
             else:
                 outcome = random.choices(outcome_keys, weights=outcome_weights, k=1)[0]
 
@@ -117,6 +143,19 @@ class Adventure(commands.Cog):
                     k=1
                 )[0]
                 await self._handle_flavor_event(interaction, user_id, db_cog, chosen_event, activity_log_list, view_context)
+                return
+
+            if outcome == "quest_item" and quest_item_to_drop:
+                await db_cog.add_item_to_inventory(user_id, quest_item_to_drop, 1)
+                item_name = ITEMS.get(quest_item_to_drop, {}).get('name', 'an item')
+                activity_log_text = f"🔍 You found **{item_name}** buried in the pit — half-submerged in tar, but intact!"
+                quest_updates = await check_quest_progress(self.bot, user_id, "item_pickup", {"item_id": quest_item_to_drop})
+                if quest_updates:
+                    await interaction.followup.send(
+                        embed=discord.Embed(description="\n\n".join(quest_updates), color=discord.Color.gold()),
+                        ephemeral=True)
+                if view_context:
+                    await view_context.update_with_activity_log([activity_log_text])
                 return
 
             if outcome == "item" or outcome == "nothing":
