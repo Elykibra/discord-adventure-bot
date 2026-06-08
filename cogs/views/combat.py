@@ -188,7 +188,7 @@ class CombatView(discord.ui.View):
         embed = await self.get_battle_embed()
 
         private_message_content = "⚔️ **It's your turn!**"
-        if self.selected_skill_id:
+        if self.selected_skill_id and self.current_menu == "fight":
             skill_data = PET_SKILLS.get(self.selected_skill_id, {})
             skill_name = skill_data.get('name', 'Unknown Skill')
             skill_desc = skill_data.get('description', '')
@@ -456,6 +456,10 @@ class CombatView(discord.ui.View):
                                                                                                         'max_hp'] > 0 else 0
         color = discord.Color.green() if hp_percent > 0.6 else (
             discord.Color.gold() if hp_percent > 0.25 else discord.Color.red())
+        # Low HP warning banner
+        if hp_percent <= 0.25 and self.battle.player_pet['current_hp'] > 0:
+            turn_log_display = f"🚨 **{self.battle.player_pet['name']} is in critical condition!** Use a healing item or flee!\n\n{turn_log_display}"
+
         embed = discord.Embed(title="⚔️ Wild Encounter! ⚔️", description=turn_log_display, color=color)
 
         if image_url := get_pet_image_url(self.battle.wild_pet['species']):
@@ -590,10 +594,10 @@ class CombatView(discord.ui.View):
 
     async def _handle_loss(self, results: dict):
         await self.battle.db_cog.update_pet(self.battle.player_pet['pet_id'], current_hp=0)
-        log_message = results.get('log')
-        if not log_message:
-            log_message = get_notification("BATTLE_DEFEAT")
-        await self._return_to_wilds([log_message])
+        # Carry over the final round's log (includes faint message), then append defeat notification
+        final_log_list = results.get('log', '').split('\n') if results.get('log') else []
+        final_log_list.append(get_notification("BATTLE_DEFEAT"))
+        await self._return_to_wilds(final_log_list)
 
     async def _return_to_wilds(self, result_log_list: list[str]):
         """

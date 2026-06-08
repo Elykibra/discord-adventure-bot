@@ -623,6 +623,9 @@ class BattleState:
                         }
                     else:
                         # No pets are left on that team. NOW the battle is truly over.
+                        if not is_player:
+                            # Player's pet fainted — add a clear faint message
+                            self.turn_log.append(f"💔 **{defender['name']} fainted!**")
                         return {"log": "\n".join(self.turn_log), "is_over": True, "win": is_player}
 
         # -------------------------
