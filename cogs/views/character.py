@@ -36,13 +36,17 @@ class ProfileView(discord.ui.View):
             return discord.Embed(title="Error", description="Could not find your player profile.")
 
         # --- Get all the data we need ---
-        num_crests = await db_cog.count_player_crests(self.user_id)
-        rank_info = get_player_rank_info(num_crests)
-        rank_display = RANK_DISPLAY_DATA.get(rank_info["rank"], RANK_DISPLAY_DATA["Novice"])
-        main_pet_data = await db_cog.get_pet(player_data['main_pet_id']) if player_data.get('main_pet_id') else None
-        all_pets = await db_cog.get_all_pets(self.user_id)
-        head_item = ITEMS.get(player_data.get('equipped_head'), {}).get('name', 'None')
-        charm_item = ITEMS.get(player_data.get('equipped_charm'), {}).get('name', 'None')
+        num_crests     = await db_cog.count_player_crests(self.user_id)
+        rank_info      = get_player_rank_info(num_crests)
+        rank_display   = RANK_DISPLAY_DATA.get(rank_info["rank"], RANK_DISPLAY_DATA["Novice"])
+        main_pet_data  = await db_cog.get_pet(player_data['main_pet_id']) if player_data.get('main_pet_id') else None
+        all_pets       = await db_cog.get_all_pets(self.user_id)
+        head_item      = ITEMS.get(player_data.get('equipped_head'),      {}).get('name', 'None')
+        tunic_item     = ITEMS.get(player_data.get('equipped_tunic'),     {}).get('name', 'None')
+        boots_item     = ITEMS.get(player_data.get('equipped_boots'),     {}).get('name', 'None')
+        accessory_item = ITEMS.get(player_data.get('equipped_accessory'), {}).get('name', 'None')
+        # Charm is on the pet record, not the player
+        charm_item     = ITEMS.get(main_pet_data.get('equipped_charm') if main_pet_data else None, {}).get('name', 'None')
 
         embed = discord.Embed(
             title=f"{rank_display['title_prefix']}: {player_data['username']}",
@@ -76,8 +80,10 @@ class ProfileView(discord.ui.View):
         # --- EQUIPPED GEAR ---
         gear_info = (
             f"🪖 **Head:** {head_item}\n"
-            f"🔮 **Charm:** {charm_item}\n"
-            f"🎽 **Pet Items:** None"
+            f"👕 **Tunic:** {tunic_item}\n"
+            f"👟 **Boots:** {boots_item}\n"
+            f"💍 **Accessory:** {accessory_item}\n"
+            f"🔮 **Pet Charm:** {charm_item}"
         )
         embed.add_field(name="Equipped Gear", value=gear_info, inline=True)
 
@@ -127,16 +133,19 @@ class ProfileView(discord.ui.View):
             return await interaction.response.send_message("Couldn't find the channel.", ephemeral=True)
 
         # Build the public embed — same as the private one but with a public footer
-        db_cog = self.bot.get_cog('Database')
-        player_data = await db_cog.get_player(self.user_id)
-        num_crests = await db_cog.count_player_crests(self.user_id)
-        rank_info = get_player_rank_info(num_crests)
-        rank_display = RANK_DISPLAY_DATA.get(rank_info["rank"], RANK_DISPLAY_DATA["Novice"])
-        main_pet_data = await db_cog.get_pet(player_data['main_pet_id']) if player_data.get('main_pet_id') else None
-        all_pets = await db_cog.get_all_pets(self.user_id)
-        head_item = ITEMS.get(player_data.get('equipped_head'), {}).get('name', 'None')
-        charm_item = ITEMS.get(player_data.get('equipped_charm'), {}).get('name', 'None')
-        earned_crests = await db_cog.get_player_crests(self.user_id)
+        db_cog         = self.bot.get_cog('Database')
+        player_data    = await db_cog.get_player(self.user_id)
+        num_crests     = await db_cog.count_player_crests(self.user_id)
+        rank_info      = get_player_rank_info(num_crests)
+        rank_display   = RANK_DISPLAY_DATA.get(rank_info["rank"], RANK_DISPLAY_DATA["Novice"])
+        main_pet_data  = await db_cog.get_pet(player_data['main_pet_id']) if player_data.get('main_pet_id') else None
+        all_pets       = await db_cog.get_all_pets(self.user_id)
+        head_item      = ITEMS.get(player_data.get('equipped_head'),      {}).get('name', 'None')
+        tunic_item     = ITEMS.get(player_data.get('equipped_tunic'),     {}).get('name', 'None')
+        boots_item     = ITEMS.get(player_data.get('equipped_boots'),     {}).get('name', 'None')
+        accessory_item = ITEMS.get(player_data.get('equipped_accessory'), {}).get('name', 'None')
+        charm_item     = ITEMS.get(main_pet_data.get('equipped_charm') if main_pet_data else None, {}).get('name', 'None')
+        earned_crests  = await db_cog.get_player_crests(self.user_id)
 
         pub_embed = discord.Embed(
             title=f"{rank_display['title_prefix']}: {player_data['username']}",
@@ -161,8 +170,10 @@ class ProfileView(discord.ui.View):
 
         gear_info = (
             f"🪖 **Head:** {head_item}\n"
-            f"🔮 **Charm:** {charm_item}\n"
-            f"🎽 **Pet Items:** None"
+            f"👕 **Tunic:** {tunic_item}\n"
+            f"👟 **Boots:** {boots_item}\n"
+            f"💍 **Accessory:** {accessory_item}\n"
+            f"🔮 **Pet Charm:** {charm_item}"
         )
         pub_embed.add_field(name="Equipped Gear", value=gear_info, inline=True)
 
@@ -457,7 +468,7 @@ class CharacterView(discord.ui.View):
         embed.set_footer(text=status_bar)
         return embed
 
-    @discord.ui.button(label="Profile", emoji="👤", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Profile", emoji="👤", style=discord.ButtonStyle.secondary)
     async def profile_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         profile_view = ProfileView(self.bot, self.user_id)

@@ -52,7 +52,7 @@ class Time(commands.Cog):
             quest_id = quest['quest_id']
             quest_data = next((data for town_quests in QUESTS.values() for q_id, data in town_quests.items() if q_id == quest_id), None)
 
-            if quest_data and quest_data.get('time_sensitive'):
+            if quest_data and quest_data.get('time_sensitive') and quest.get('progress', {}).get('status') != 'completed':
                 progress = quest.get('progress', {})
                 ticks_remaining = progress.get('ticks_remaining', 1)
                 ticks_remaining -= 1

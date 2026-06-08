@@ -520,8 +520,10 @@ class TownView(discord.ui.View):
                     await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
                     quest_title = quest_data.get('title', quest_id)
                     quest_desc  = quest_data.get('description', '')
-                    log_list.append(f"📋 **New Quest: {quest_title}**\n*{quest_desc}*" if quest_desc
-                                    else f"📋 **New Quest: {quest_title}**")
+                    quest_type  = quest_data.get('type', 'side')
+                    grant_emoji = {'main': '⭐', 'assignment': '📋', 'side': '🔵', 'repeatable_bounty': '🔄'}.get(quest_type, '📜')
+                    log_list.append(f"{grant_emoji} **New Quest: {quest_title}**\n*{quest_desc}*" if quest_desc
+                                    else f"{grant_emoji} **New Quest: {quest_title}**")
 
                 if node.get("action") == "complete_quest":
                     quest_id = node.get("quest_id")
