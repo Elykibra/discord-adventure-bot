@@ -221,11 +221,13 @@ class TownView(discord.ui.View):
 
     def build_ui(self):
         self.clear_items()
-        time_of_day = 'day'
-        if self.message and self.message.embeds and self.message.embeds[0].footer and self.message.embeds[
-            0].footer.text:
-            if 'Night' in self.message.embeds[0].footer.text:
-                time_of_day = 'night'
+        time_of_day = 'morning'  # default — matches _DAY_PHASES
+        if self.message and self.message.embeds and self.message.embeds[0].footer and self.message.embeds[0].footer.text:
+            footer = self.message.embeds[0].footer.text
+            for phase in ('morning', 'noon', 'evening', 'night'):
+                if phase.capitalize() in footer:
+                    time_of_day = phase
+                    break
 
         if self.current_sub_location_id:
             town_info = TOWNS.get(self.town_id, {})
