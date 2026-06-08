@@ -157,11 +157,21 @@ class TownView(discord.ui.View):
     async def _build_sublocation_embed(self, location_info, log_list: list[str] = None):
         """Builds a standard embed for a sub-location, including hazards and logs."""
 
-        description_text = location_info.get('description_day', "No description available.")
+        # Resolve description based on current time of day, with fallback chain
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
+        description_text = (
+            location_info.get(f'description_{time_of_day}')
+            or location_info.get('description_morning')
+            or location_info.get('description_day')
+            or location_info.get('description')
+            or "A quiet place."
+        )
 
         embed = discord.Embed(
             title=f"Location: {location_info['name']}",
-            description=f"```{description_text}```",
+            description=description_text,
             color=discord.Color.dark_teal()  # Default color
         )
 
