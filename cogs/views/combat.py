@@ -8,7 +8,7 @@ import math
 from core.battle_engine import BattleState
 from utils.helpers import get_pet_image_url, get_status_bar, _create_progress_bar, check_quest_progress, \
     get_type_multiplier, _pet_tuple_to_dict, format_log_block, get_notification, get_location_display_name
-from .battle_actions import ForcedSwitchView, EvolvingView, LearnSkillView
+from .battle_actions import ForcedSwitchView, EvolvingView, LearnSkillView, SkillChoiceView
 from .towns import WildsView, TownView # Assuming views_towns.py is renamed to towns.py in this folder
 from data.items import ITEMS
 from data.pets import PET_DATABASE
@@ -640,6 +640,38 @@ class CombatView(discord.ui.View):
 
                 await self.battle.finalize_evolution(pending_action['pet_id'])
                 await evo_message.delete()
+
+            elif pending_action['type'] == 'skill_choice':
+                choices = pending_action['choices']
+                choice_names = " / ".join(PET_SKILLS.get(c, {}).get('name', c) for c in choices)
+                choice_view = SkillChoiceView(choices)
+                choice_msg = await interaction.followup.send(
+                    f"**{self.battle.player_pet['name']}** can learn a new skill!\nChoose: **{choice_names}**",
+                    view=choice_view,
+                    ephemeral=True
+                )
+                await choice_view.wait()
+                await choice_msg.delete()
+
+                pet_id = pending_action['pet_id']
+                self.battle.pending_skill_choices.pop(pet_id, None)
+
+                if choice_view.chosen_skill:
+                    chosen = choice_view.chosen_skill
+                    skill_name = PET_SKILLS.get(chosen, {}).get('name', chosen)
+                    await self.battle.db_cog.add_skill_to_library(pet_id, chosen)
+
+                    current_skills = self.battle.player_pet.get('skills', [])
+                    if len(current_skills) < 4:
+                        new_skills = current_skills + [chosen]
+                        await self.battle.db_cog.update_pet(pet_id, skills=new_skills)
+                        self.battle.player_pet['skills'] = new_skills
+                        self.battle.turn_log.append(f"› **{self.battle.player_pet['name']} learned {skill_name}!**")
+                    else:
+                        # Pet is full — queue for replacement
+                        self.battle.pending_skill_learns[pet_id] = chosen
+                else:
+                    self.battle.turn_log.append(f"› **{self.battle.player_pet['name']}** held off on learning a new skill.")
 
             elif pending_action['type'] == 'learn_skill':
                 learn_view = LearnSkillView(self.battle.player_pet, pending_action['skill_id'])

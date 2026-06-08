@@ -250,3 +250,33 @@ EXPLORE_EVENTS = {
 def get_zone_events(zone_id: str) -> list:
     """Returns the event list for a given explore zone, or empty list if none defined."""
     return EXPLORE_EVENTS.get(zone_id, [])
+
+
+# ─────────────────────────────────────────────
+# Zone Loot Tables
+# Each entry: (item_id, weight)
+# ─────────────────────────────────────────────
+ZONE_LOOT_TABLES = {
+    "oakhavenOutpost_rottingPits": [
+        ("trail_morsels",    3),
+        ("moss_balm",        2),
+        ("tether_orb",       1),
+    ],
+    "oakhavenWilds": [
+        ("sun_kissed_berries", 4),
+        ("trail_morsels",      2),
+        ("moss_balm",          1),
+    ],
+    # Whisperwood and beyond added here when towns are built
+}
+
+_DEFAULT_LOOT_TABLE = [("sun_kissed_berries", 1)]
+
+
+def get_zone_loot(zone_id: str) -> tuple[str, int]:
+    """Picks a random item from the zone's loot table. Returns (item_id, qty=1)."""
+    import random
+    table = ZONE_LOOT_TABLES.get(zone_id, _DEFAULT_LOOT_TABLE)
+    items = [entry[0] for entry in table]
+    weights = [entry[1] for entry in table]
+    return random.choices(items, weights=weights, k=1)[0], 1

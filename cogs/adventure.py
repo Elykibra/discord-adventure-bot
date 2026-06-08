@@ -12,7 +12,7 @@ from data.towns import TOWNS
 from data.pets import PET_DATABASE, ENCOUNTER_TABLES
 from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE
-from data.explore_events import get_zone_events
+from data.explore_events import get_zone_events, get_zone_loot
 from utils.helpers import get_status_bar, get_town_embed, check_quest_progress, get_notification
 from core.battle_engine import BattleState  # <-- Key Change: Importing from core
 from .resources import ACTION_COSTS
@@ -122,9 +122,9 @@ class Adventure(commands.Cog):
             if outcome == "item" or outcome == "nothing":
                 activity_log_text = ""
                 if outcome == "item":
-                    item_id = "sun_kissed_berries"
-                    await db_cog.add_item_to_inventory(user_id, item_id, 1)
-                    activity_log_text = get_notification("EXPLORE_FIND_ITEM", quantity=1,
+                    item_id, qty = get_zone_loot(location_id)
+                    await db_cog.add_item_to_inventory(user_id, item_id, qty)
+                    activity_log_text = get_notification("EXPLORE_FIND_ITEM", quantity=qty,
                                                          item_name=ITEMS[item_id]['name'])
 
                     quest_updates = await check_quest_progress(self.bot, user_id, "item_pickup", {"item_id": item_id})

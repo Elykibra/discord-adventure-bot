@@ -42,8 +42,9 @@ class BattleState:
         self.turn_count = 1
         self.turn_log: List[str] = []
         self.gloom_meter = 0
-        self.pending_skill_learns = {}  # Stores {pet_id: skill_id}
-        self.pending_evolutions = []  # Stores [pet_id, pet_id, ...]
+        self.pending_skill_learns = {}   # {pet_id: skill_id}  — replacement needed (≥4 skills)
+        self.pending_skill_choices = {}  # {pet_id: [opt1, opt2]}  — choice node, player picks which
+        self.pending_evolutions = []     # [pet_id, ...]
         self.purify_charges = 1
         self.pending_player_heal = 0.0
         self.disabled_moves: List[str] = []
@@ -969,18 +970,26 @@ class BattleState:
                     self.pending_evolutions.append(self.player_pet['pet_id'])
 
         if skill_to_learn:
-            await self.db_cog.add_skill_to_library(self.player_pet['pet_id'], skill_to_learn)
-            skill_name = PET_SKILLS.get(skill_to_learn, {}).get('name', 'a new skill')
-            self.turn_log.append(f"› **{self.player_pet['name']} wants to learn {skill_name}!**")
-
-            if len(self.player_pet.get('skills', [])) >= 4:
-                self.pending_skill_learns[self.player_pet['pet_id']] = skill_to_learn
+            # --- Choice node: player must pick which skill to learn ---
+            if isinstance(skill_to_learn, dict) and "choice" in skill_to_learn:
+                options = skill_to_learn["choice"]
+                option_names = " / ".join(PET_SKILLS.get(s, {}).get("name", s) for s in options)
+                self.turn_log.append(f"› **{self.player_pet['name']} can learn a new skill!** Choose: {option_names}")
+                self.pending_skill_choices[self.player_pet['pet_id']] = options
             else:
-                # If less than 4 skills, learn and equip it automatically
-                new_skills = self.player_pet.get('skills', []) + [skill_to_learn]
-                await self.db_cog.update_pet(self.player_pet['pet_id'], skills=new_skills)
-                self.player_pet['skills'] = new_skills
-                self.turn_log.append(f"› **{self.player_pet['name']} learned {skill_name}!**")
+                # Regular skill learn
+                skill_name = PET_SKILLS.get(skill_to_learn, {}).get('name', 'a new skill')
+                self.turn_log.append(f"› **{self.player_pet['name']} wants to learn {skill_name}!**")
+                if len(self.player_pet.get('skills', [])) >= 4:
+                    # Queue for replacement UI
+                    self.pending_skill_learns[self.player_pet['pet_id']] = skill_to_learn
+                else:
+                    # Auto-equip and add to library
+                    await self.db_cog.add_skill_to_library(self.player_pet['pet_id'], skill_to_learn)
+                    new_skills = self.player_pet.get('skills', []) + [skill_to_learn]
+                    await self.db_cog.update_pet(self.player_pet['pet_id'], skills=new_skills)
+                    self.player_pet['skills'] = new_skills
+                    self.turn_log.append(f"› **{self.player_pet['name']} learned {skill_name}!**")
 
     async def process_player_switch(self, new_pet_id: str):
         """
@@ -1037,15 +1046,17 @@ class BattleState:
         Checks for and returns the next pending action to be handled.
         Returns a dictionary describing the action or None if there are none.
         """
-        # Prioritize evolutions over skill learning
+        # Priority: evolution → skill choice (pick which to learn) → skill replace (pick which to forget)
         if self.pending_evolutions:
-            pet_id_to_evolve = self.pending_evolutions[0]
-            return {"type": "evolution", "pet_id": pet_id_to_evolve}
+            return {"type": "evolution", "pet_id": self.pending_evolutions[0]}
+
+        if self.pending_skill_choices:
+            pet_id, choices = next(iter(self.pending_skill_choices.items()))
+            return {"type": "skill_choice", "pet_id": pet_id, "choices": choices}
 
         if self.pending_skill_learns:
-            # Get the first pet_id and skill_id from the dictionary
-            pet_id_to_learn, skill_id_to_learn = next(iter(self.pending_skill_learns.items()))
-            return {"type": "learn_skill", "pet_id": pet_id_to_learn, "skill_id": skill_id_to_learn}
+            pet_id, skill_id = next(iter(self.pending_skill_learns.items()))
+            return {"type": "learn_skill", "pet_id": pet_id, "skill_id": skill_id}
 
         return None
 

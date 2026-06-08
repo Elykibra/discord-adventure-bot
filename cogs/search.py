@@ -209,12 +209,16 @@ def _pet_embed(species: str) -> discord.Embed:
                 stat_lines.append(f"{label}: `{lo}–{hi}`")
         embed.add_field(name="Base Stats (at Lv.1)", value="\n".join(stat_lines), inline=False)
 
-    # Passive
+    # Passive — show name only (use /search <passive name> for full details)
     passive = data.get("passive_ability")
     if passive:
+        if isinstance(passive, list):
+            passive_names = "\n".join(f"• {p['name']}" for p in passive)
+        else:
+            passive_names = f"• {passive['name']}"
         embed.add_field(
-            name=f"🛡️ Passive: {passive['name']}",
-            value=passive.get("description", "—"),
+            name="🛡️ Passive Ability",
+            value=passive_names,
             inline=False
         )
 

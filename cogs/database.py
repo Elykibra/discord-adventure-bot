@@ -262,7 +262,8 @@ class Database(commands.Cog):
                     if isinstance(skills_at_level, list):
                         skill_to_learn = skills_at_level[0]
                     elif isinstance(skills_at_level, dict) and "choice" in skills_at_level:
-                        skill_to_learn = random.choice(skills_at_level['choice'])
+                        # Return options dict so the caller can show a choice UI instead of auto-picking
+                        skill_to_learn = {"choice": skills_at_level["choice"]}
 
                     # Stop after finding the first new skill to handle one at a time
                     break

@@ -5,6 +5,45 @@ from data.pets import PET_DATABASE
 from data.skills import PET_SKILLS
 from utils.helpers import get_pet_image_url
 
+class SkillChoiceView(discord.ui.View):
+    """
+    Prompts the player to choose which skill to learn from a skill tree choice node.
+    e.g. "Learn Immolate OR Blightborne Fury?"
+    """
+    def __init__(self, choices: list):
+        super().__init__(timeout=180)
+        self.chosen_skill = None
+
+        for skill_id in choices:
+            skill_data = PET_SKILLS.get(skill_id, {})
+            skill_name = skill_data.get("name", skill_id)
+            skill_type = skill_data.get("type", "")
+            skill_cat = skill_data.get("category", "")
+            power = skill_data.get("power")
+            desc = f"{skill_type} · {skill_cat}" + (f" · Power {power}" if power else "")
+            btn = discord.ui.Button(label=skill_name, style=discord.ButtonStyle.blurple, row=0)
+            btn.callback = self._make_callback(skill_id)
+            self.add_item(btn)
+
+        skip_btn = discord.ui.Button(label="Decide Later", style=discord.ButtonStyle.grey, row=1)
+        skip_btn.callback = self._skip_callback
+        self.add_item(skip_btn)
+
+    def _make_callback(self, skill_id: str):
+        async def cb(interaction: discord.Interaction):
+            await interaction.response.defer()
+            self.chosen_skill = skill_id
+            self.stop()
+        return cb
+
+    async def _skip_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        self.stop()
+
+    async def on_timeout(self):
+        self.stop()
+
+
 class ForcedSwitchView(discord.ui.View):
     def __init__(self, player_roster):
         super().__init__(timeout=180) # Give them time to choose
