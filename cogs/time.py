@@ -51,8 +51,8 @@ class Time(commands.Cog):
         # 3. Restore Player and Pet Resources
         energy_to_restore = math.floor(
             player_data['max_energy'] * (restore_details.get('energy_restore_percent', 0) / 100))
-        new_energy = min(player_data['max_energy'], player_data['current_energy'] + energy_to_restore)
-        await db_cog.update_player(user_id, current_energy=new_energy)
+        new_energy = min(player_data['max_energy'], player_data['energy'] + energy_to_restore)
+        await db_cog.update_player(user_id, energy=new_energy)
         log_messages.append(get_notification(
             "PLAYER_RESTORE_ENERGY",
             new_energy=new_energy,

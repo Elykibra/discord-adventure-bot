@@ -61,7 +61,7 @@ def _pet_tuple_to_dict(pet_data: tuple) -> Dict[str, Any]:
     if isinstance(pet_data, dict): return pet_data
 
     # This is the corrected list of keys in the exact order of your new database table
-    keys = ['pet_id', 'owner_id', 'name', 'species', 'description', 'rarity', 'pet_type', 'level', 'xp', 'current_hp', 'max_hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed', 'base_hp', 'base_attack', 'base_defense', 'base_special_attack', 'base_special_defense', 'base_speed', 'hunger', 'skills', 'is_in_party', 'passive_ability']
+    keys = ['pet_id', 'player_id', 'name', 'species', 'description', 'rarity', 'pet_type', 'level', 'xp', 'current_hp', 'max_hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed', 'base_hp', 'base_attack', 'base_defense', 'base_special_attack', 'base_special_defense', 'base_speed', 'hunger', 'skills', 'is_in_party', 'passive_ability']
 
     # Ensure the data from the database has the same number of items as our keys
     if len(keys) != len(pet_data):
@@ -93,7 +93,7 @@ def get_status_bar(player_data: dict, main_pet_data: dict) -> str:
     """Generates a concise, one-line status bar for a player and their main pet."""
     time_of_day = player_data.get('day_of_cycle', 'day')
     time_emoji = '☀️' if time_of_day == 'day' else '🌙'
-    current_energy, max_energy = player_data.get('current_energy', 0), player_data.get('max_energy', 100)
+    current_energy, max_energy = player_data.get('energy', 0), player_data.get('max_energy', 100)
     pet_current_hp = main_pet_data.get('current_hp', 0) if main_pet_data else 0
     pet_max_hp = main_pet_data.get('max_hp', 0) if main_pet_data else 0
     pet_hunger = main_pet_data.get('hunger', 0) if main_pet_data else 0
@@ -166,15 +166,15 @@ async def apply_effect(db_cog, target, effect_data):
 
     elif effect_type == "restore_energy":
         # FIX #3: Add the missing check for max energy
-        if target['current_energy'] >= target['max_energy']:
+        if target['energy'] >= target['max_energy']:
             return 0
 
-        current_energy = target['current_energy']
+        current_energy = target['energy']
         new_energy = min(target['max_energy'], current_energy + effect_data['value'])
 
         actual_energy_restored = new_energy - current_energy
 
-        await db_cog.update_player(target['user_id'], current_energy=new_energy)
+        await db_cog.update_player(target['user_id'], energy=new_energy)
         return actual_energy_restored
 
     # ... add more elifs for "apply_status", etc.

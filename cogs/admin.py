@@ -85,7 +85,7 @@ class Admin(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(interaction.user.id)
-        await db_cog.update_player(interaction.user.id, current_energy=player_data['max_energy'])
+        await db_cog.update_player(interaction.user.id, energy=player_data['max_energy'])
         await interaction.followup.send(f"Your energy has been fully restored!", ephemeral=True)
 
     @app_commands.command(name='learnskill', description='(Admin Only) Teaches your main pet a skill.')
@@ -248,7 +248,7 @@ class Admin(commands.Cog):
         embed = discord.Embed(title=f"🔍 Player Data: {user.name}", color=discord.Color.blue())
         embed.add_field(name="Coins", value=player_data.get('coins', 'N/A'), inline=True)
         embed.add_field(name="Energy",
-                        value=f"{player_data.get('current_energy', 'N/A')} / {player_data.get('max_energy', 'N/A')}",
+                        value=f"{player_data.get('energy', 'N/A')} / {player_data.get('max_energy', 'N/A')}",
                         inline=True)
         embed.add_field(name="Location", value=player_data.get('current_location', 'N/A'), inline=True)
         embed.set_thumbnail(url=user.display_avatar.url)

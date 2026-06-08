@@ -142,10 +142,15 @@ class Database(commands.Cog):
     async def delete_player_data(self, user_id: int) -> None:
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute('DELETE FROM player_items WHERE user_id = $1', user_id)
+                await conn.execute('DELETE FROM inventory WHERE player_id = $1', user_id)
                 await conn.execute('DELETE FROM player_quests WHERE user_id = $1', user_id)
-                await conn.execute('DELETE FROM player_crests WHERE user_id = $1', user_id)
-                await conn.execute('DELETE FROM pets WHERE owner_id = $1', user_id)
+                await conn.execute('DELETE FROM player_flags WHERE player_id = $1', user_id)
+                # player_crests may not exist yet; ignore if missing
+                try:
+                    await conn.execute('DELETE FROM player_crests WHERE user_id = $1', user_id)
+                except Exception:
+                    pass
+                await conn.execute('DELETE FROM pets WHERE player_id = $1', user_id)
                 await conn.execute('DELETE FROM players WHERE user_id = $1', user_id)
 
     async def get_all_players(self) -> List[Dict[str, Any]]:
@@ -179,7 +184,7 @@ class Database(commands.Cog):
 
         skills_json = json.dumps(skills if skills else [])
         pet_type_to_save = json.dumps(pet_type) if isinstance(pet_type, list) else pet_type
-        query = '''INSERT INTO pets (owner_id, name, species, description, rarity, pet_type, skills,
+        query = '''INSERT INTO pets (player_id, name, species, description, rarity, pet_type, skills,
                                      current_hp, max_hp, attack, defense, special_attack, special_defense, speed,
                                      base_hp, base_attack, base_defense, base_special_attack, base_special_defense,
                                      base_speed, passive_ability)
@@ -204,7 +209,7 @@ class Database(commands.Cog):
         return pet_dict
 
     async def get_all_pets(self, user_id: int) -> List[Dict[str, Any]]:
-        records = await self.pool.fetch('SELECT * FROM pets WHERE owner_id = $1', user_id)
+        records = await self.pool.fetch('SELECT * FROM pets WHERE player_id = $1', user_id)
         pet_list = self._records_to_list_of_dicts(records)
         for pet in pet_list:
             if 'skills' in pet and isinstance(pet['skills'], str):
@@ -290,17 +295,17 @@ class Database(commands.Cog):
             # This is a unique item (e.g., a Skill Tome). Always insert a new row.
             data_json = json.dumps(item_data)
             query = '''
-                INSERT INTO player_items (user_id, item_id, quantity, item_data)
+                INSERT INTO inventory (player_id, item_id, qty, item_data)
                 VALUES ($1, $2, $3, $4)
             '''
             await self.pool.execute(query, user_id, item_id, quantity, data_json)
         else:
             # This is a regular, stackable item. Use ON CONFLICT with the correct columns.
             query = '''
-                INSERT INTO player_items (user_id, item_id, quantity)
+                INSERT INTO inventory (player_id, item_id, qty)
                 VALUES ($1, $2, $3)
-                ON CONFLICT (user_id, item_id) DO UPDATE
-                SET quantity = player_items.quantity + EXCLUDED.quantity;
+                ON CONFLICT (player_id, item_id) DO UPDATE
+                SET qty = inventory.qty + EXCLUDED.qty;
             '''
             await self.pool.execute(query, user_id, item_id, quantity)
 
@@ -313,8 +318,8 @@ class Database(commands.Cog):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 # Base query and parameters
-                update_query = 'UPDATE player_items SET quantity = quantity - $1 WHERE user_id = $2 AND item_id = $3'
-                delete_query = 'DELETE FROM player_items WHERE user_id = $1 AND item_id = $2 AND quantity <= 0'
+                update_query = 'UPDATE inventory SET qty = qty - $1 WHERE player_id = $2 AND item_id = $3'
+                delete_query = 'DELETE FROM inventory WHERE player_id = $1 AND item_id = $2 AND qty <= 0'
                 params = [quantity, user_id, item_id]
 
                 # If specific item_data is provided (like for a Skill Tome),
@@ -333,10 +338,10 @@ class Database(commands.Cog):
                 await conn.execute(delete_query, *delete_params)
 
     async def get_player_inventory(self, user_id: int) -> List[Dict[str, Any]]:
-        # Update the query to select the new column
-        records = await self.pool.fetch('SELECT item_id, quantity, item_data FROM player_items WHERE user_id = $1',
-                                        user_id)
-
+        # qty aliased as quantity so all downstream code using item['quantity'] still works
+        records = await self.pool.fetch(
+            'SELECT item_id, qty AS quantity, item_data FROM inventory WHERE player_id = $1', user_id
+        )
         inventory = self._records_to_list_of_dicts(records)
         # The database driver (asyncpg) automatically parses JSONB into dicts
         return inventory
@@ -361,6 +366,13 @@ class Database(commands.Cog):
         await self.pool.execute(
             'UPDATE player_quests SET progress = $1 WHERE user_id = $2 AND quest_id = $3',
             json.dumps(new_progress), user_id, quest_id
+        )
+
+    async def complete_quest(self, user_id: int, quest_id: str) -> None:
+        """Marks a quest as complete by removing it from active quests."""
+        await self.pool.execute(
+            "DELETE FROM player_quests WHERE user_id = $1 AND quest_id = $2",
+            user_id, quest_id
         )
 
     async def get_player_crests(self, user_id: int) -> List[str]:

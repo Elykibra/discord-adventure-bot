@@ -27,8 +27,8 @@ class Resources(commands.Cog):
 
         # Update Player Energy
         player_data = await db_cog.get_player(user_id)
-        new_energy = max(0, player_data.get('current_energy', 0) - costs.get('energy', 0))
-        await db_cog.update_player(user_id, current_energy=new_energy)
+        new_energy = max(0, player_data.get('energy', 0) - costs.get('energy', 0))
+        await db_cog.update_player(user_id, energy=new_energy)
 
         # Update Pet Hunger
         main_pet_id = player_data.get('main_pet_id')

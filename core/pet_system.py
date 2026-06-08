@@ -19,7 +19,7 @@ class Pet:
 
         # --- Core Identifiers ---
         self.pet_id = pet_data.get('pet_id')
-        self.owner_id = pet_data.get('owner_id')
+        self.owner_id = pet_data.get('player_id') or pet_data.get('owner_id')  # schema renamed owner_id → player_id
         self.name = pet_data.get('name', 'Unnamed')
         self.species = pet_data.get('species')
         self.rarity = pet_data.get('rarity')

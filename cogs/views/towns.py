@@ -329,7 +329,7 @@ class TownView(discord.ui.View):
         player_data = await db_cog.get_player(self.user_id)
 
         travel_cost = ACTION_COSTS.get("travel", {}).get("energy", 0)
-        if player_data['current_energy'] < travel_cost:
+        if player_data['energy'] < travel_cost:
             return await interaction.followup.send(
                 f"You don't have enough energy to travel. You need at least {travel_cost} energy.",
                 ephemeral=True

@@ -65,7 +65,7 @@ class Adventure(commands.Cog):
             player_data = await db_cog.get_player(user_id)
 
             explore_cost = ACTION_COSTS.get("explore", {}).get("energy", 0)
-            if player_data['current_energy'] < explore_cost:
+            if player_data['energy'] < explore_cost:
                 no_energy_message = get_notification("ACTION_FAIL_NO_ENERGY", cost=explore_cost)
                 if view_context:
                     await view_context.update_with_activity_log([no_energy_message])
@@ -76,7 +76,7 @@ class Adventure(commands.Cog):
                 await resource_cog.spend_resources(user_id, "explore")
 
             # 1. Check for the "Well-Rested" buff
-            energy_percentage = player_data.get('current_energy', 100) / player_data.get('max_energy', 100)
+            energy_percentage = player_data.get('energy', 100) / player_data.get('max_energy', 100)
             is_well_rested = energy_percentage >= 0.9  # 90-100% energy
 
             # 2. Adjust the encounter weights
