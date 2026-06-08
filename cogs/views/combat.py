@@ -48,8 +48,13 @@ class CombatView(discord.ui.View):
         self.clear_items()
 
         if self.current_menu == "fight":
+            # Auto-select first skill if none chosen yet
+            available_skills = self.battle.player_pet.get("skills", [])[:4]
+            if not self.selected_skill_id and available_skills:
+                self.selected_skill_id = available_skills[0]
+
             skill_options = []
-            for skill_id in self.battle.player_pet.get("skills", [])[:4]:
+            for skill_id in available_skills:
                 skill_info = PET_SKILLS.get(skill_id, {})
 
                 power = skill_info.get('power', 0)
@@ -73,12 +78,26 @@ class CombatView(discord.ui.View):
                     )
                 )
 
-            skill_select = discord.ui.Select(placeholder="Choose a skill to use...", options=skill_options)
+            # Show selected skill name in the dropdown placeholder
+            if self.selected_skill_id:
+                selected_name = PET_SKILLS.get(self.selected_skill_id, {}).get('name', 'Unknown Skill')
+                placeholder = f"⚔️ {selected_name}"
+            else:
+                placeholder = "Choose a skill to use..."
+
+            skill_select = discord.ui.Select(placeholder=placeholder, options=skill_options)
             skill_select.callback = self.skill_select_callback
             self.add_item(skill_select)
 
+            # Dynamic button label shows the selected skill name
+            if self.selected_skill_id:
+                skill_label = PET_SKILLS.get(self.selected_skill_id, {}).get('name', 'Skill')
+                button_label = f"Use {skill_label}"
+            else:
+                button_label = "Select a Skill"
+
             use_skill_button = discord.ui.Button(
-                label="Use Selected Skill",
+                label=button_label,
                 style=discord.ButtonStyle.green,
                 disabled=(not self.selected_skill_id),
                 row=1
@@ -172,9 +191,8 @@ class CombatView(discord.ui.View):
         if self.selected_skill_id:
             skill_data = PET_SKILLS.get(self.selected_skill_id, {})
             skill_name = skill_data.get('name', 'Unknown Skill')
-            skill_desc = skill_data.get('description', 'No description available.')
+            skill_desc = skill_data.get('description', '')
 
-            # Calculate type effectiveness
             attack_type = skill_data.get('type')
             defender_types = self.battle.wild_pet.get('pet_type', [])
             if not isinstance(defender_types, list):
@@ -182,20 +200,18 @@ class CombatView(discord.ui.View):
 
             multiplier = get_type_multiplier(attack_type, defender_types, self.battle.wild_pet_effects)
 
-            # (Optional) Uncomment this line in your code to debug type matchups
-            # print(f"DEBUG: Attacking with '{attack_type}' against '{defender_types}'. Multiplier: {multiplier}")
-
-            effectiveness_text = ""
             if multiplier > 1.0:
                 effectiveness_text = "ᐃ It's **Super Effective!**"
-            elif multiplier < 1.0 and multiplier > 0:
-                effectiveness_text = "ᐁ It's **Not Very Effective...**"
             elif multiplier == 0:
                 effectiveness_text = "⨷ It will have **No Effect!**"
-            else:  # --- FIX: This new 'else' block handles the neutral case ---
-                effectiveness_text = "→ It's normally **Effective**."
+            elif multiplier < 1.0:
+                effectiveness_text = "ᐁ It's **Not Very Effective...**"
+            else:
+                effectiveness_text = ""
 
-            private_message_content = f"**Selected: {skill_name}**\n_{skill_desc}_\n\n{effectiveness_text}"
+            private_message_content = f"**{skill_name}**\n_{skill_desc}_"
+            if effectiveness_text:
+                private_message_content += f"\n\n{effectiveness_text}"
 
         await self.spectator_message.edit(embed=embed)
         if self.message:
@@ -290,9 +306,8 @@ class CombatView(discord.ui.View):
             await interaction.response.defer()
             await self.message.edit(view=self)
 
-            # 2. Process the combat round
+            # 2. Process the combat round — keep selected_skill_id so next turn is one click
             results = await self.battle.process_round(self.selected_skill_id)
-            self.selected_skill_id = None
 
             # Immediately update the internal log with what just happened
             self.battle_log = results['log']
