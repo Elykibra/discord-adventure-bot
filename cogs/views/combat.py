@@ -553,14 +553,15 @@ class CombatView(discord.ui.View):
         )
         captured = results.get("captured", False)
         final_log_list = []
+        channel = self.parent_interaction.channel
         if captured:
             final_log_list.append(results['log'])
             quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_capture",
-                                                       {"species": self.battle.wild_pet['species']})
+                                                       {"species": self.battle.wild_pet['species']}, channel=channel)
         else:
             final_log_list = await self.battle.grant_battle_rewards()
             quest_updates = await check_quest_progress(self.bot, self.user_id, "combat_victory",
-                                                       {"species": self.battle.wild_pet['species']})
+                                                       {"species": self.battle.wild_pet['species']}, channel=channel)
         if quest_updates:
             final_log_list.extend(quest_updates)
 

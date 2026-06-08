@@ -238,7 +238,7 @@ def get_type_multiplier(attack_type: str, defender_types: list, active_effects: 
 
     return total_multiplier
 
-async def check_quest_progress(bot, user_id, action_type, context=None):
+async def check_quest_progress(bot, user_id, action_type, context=None, channel=None):
     """
     The definitive, scalable Quest Progression Engine.
     This version RETURNS a list of messages instead of sending them.
@@ -346,6 +346,24 @@ async def check_quest_progress(bot, user_id, action_type, context=None):
                     )
                     messages_to_return.append(f"🎉 **Quest Complete:** {quest_data['title']}")
                     await db_cog.complete_quest(user_id, quest_id)
+
+                    # Post a public announcement if a channel was provided
+                    if channel:
+                        try:
+                            player_data = await db_cog.get_player(user_id)
+                            display_name = player_data.get('username', 'An adventurer')
+                            quest_type = quest_data.get('type', 'main')
+                            color = discord.Color.gold() if quest_type == 'main' else discord.Color.green()
+                            type_label = {'main': '⭐ Main Quest', 'side': '🔷 Side Quest'}.get(quest_type, '📜 Quest')
+                            pub_embed = discord.Embed(
+                                title=get_notification("PUBLIC_QUEST_COMPLETE_TITLE", player_name=display_name),
+                                description=get_notification("PUBLIC_QUEST_COMPLETE_BODY", quest_title=quest_data['title']),
+                                color=color
+                            )
+                            pub_embed.set_footer(text=f"{type_label}  •  Aethelgard")
+                            await channel.send(embed=pub_embed)
+                        except Exception:
+                            pass  # Never let a vanity post break quest flow
 
                 return messages_to_return  # Return the list, which might be empty or full of messages
 

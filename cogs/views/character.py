@@ -407,7 +407,8 @@ class CharacterView(discord.ui.View):
             self.user_id,
             player_and_pet_data['player_data'],
             player_and_pet_data['main_pet_data'],
-            inventory_data
+            inventory_data,
+            channel=interaction.channel
         )
         await bag_view.initial_setup()
 

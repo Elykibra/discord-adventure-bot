@@ -57,6 +57,18 @@ NOTIFICATIONS = {
         "🏳️ You were outmatched and forced to flee the battle."
     ],
 
+    # --- Public Quest Announcements ---
+    "PUBLIC_QUEST_COMPLETE_TITLE": [
+        "📜 {player_name} completed a quest!",
+        "✅ {player_name} finished a quest!",
+        "🎉 {player_name} closed out a quest!",
+    ],
+    "PUBLIC_QUEST_COMPLETE_BODY": [
+        "**{quest_title}** has been completed. The Guild takes note.",
+        "Another quest crossed off the list — **{quest_title}** is done.",
+        "**{quest_title}** — completed. Well done, Adventurer.",
+    ],
+
     # --- Public Victory Announcements ---
     "PUBLIC_VICTORY_TITLE": [
         "⚔️ {player_name} won a battle!",

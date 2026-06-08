@@ -14,13 +14,14 @@ ACTION_ORDER = ["use", "equip", "unequip", "inspect", "drop"]
 
 
 class BagView(discord.ui.View):
-    def __init__(self, bot, user_id, player_data, main_pet_data, inventory):
+    def __init__(self, bot, user_id, player_data, main_pet_data, inventory, channel=None):
         super().__init__(timeout=180)
         self.bot = bot
         self.user_id = user_id
         self.player_data = player_data
         self.main_pet_data = main_pet_data
         self.inventory = inventory
+        self.channel = channel
         self.message = None
         self.current_filter = "Consumables"
         self.selected_item_id = None
@@ -223,7 +224,8 @@ class BagView(discord.ui.View):
                                                             item_instance.get('item_data'))
                     log_list.append(get_notification("ITEM_USE_SUCCESS", quantity=quantity_to_use,
                                                      item_name=base_item_data['name']))
-                    quest_updates = await check_quest_progress(self.bot, self.user_id, "item_use", {"item_id": item_id})
+                    quest_updates = await check_quest_progress(self.bot, self.user_id, "item_use", {"item_id": item_id},
+                                                               channel=self.channel)
                     if quest_updates:
                         log_list.extend(quest_updates)
                 elif action == "drop":

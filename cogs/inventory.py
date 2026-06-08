@@ -20,7 +20,7 @@ class Inventory(commands.Cog):
             main_pet_data = await db_cog.get_pet(player_data['main_pet_id'])
 
         view = BagView(bot=self.bot, user_id=ctx.author.id, player_data=player_data,
-                       main_pet_data=main_pet_data, inventory=inventory)
+                       main_pet_data=main_pet_data, inventory=inventory, channel=ctx.channel)
         embed = view.create_embed()
         msg = await ctx.send(embed=embed, view=view)
         view.message = msg  # fallback for modals

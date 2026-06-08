@@ -328,7 +328,8 @@ class TownView(discord.ui.View):
 
         # 2. Check for quest progress
         quest_updates = await check_quest_progress(self.bot, self.user_id, "rest",
-                                                   {"location_id": self.current_sub_location_id})
+                                                   {"location_id": self.current_sub_location_id},
+                                                   channel=self.parent_interaction.channel)
         if quest_updates:
             action_logs.extend(quest_updates)
 
@@ -419,7 +420,8 @@ class TownView(discord.ui.View):
                     await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
                     log_list.append(f"📋 New quest added: **{quest_data.get('title', quest_id)}**")
 
-                quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id})
+                quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id},
+                                                           channel=self.parent_interaction.channel)
                 if quest_updates:
                     log_list.extend(quest_updates)
 
