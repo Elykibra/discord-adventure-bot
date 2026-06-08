@@ -131,7 +131,7 @@ TOWNS = {
                     "connections": {
                         "oakhavenOutpost": "Oakhaven Outpost"
                     },
-                    "explore_zone": "oakhavenOutpost_rottingPits"
+                    "explore_zone": "oakhavenWilds"
                 },
 
     "whisperwoodGrove": {

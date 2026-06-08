@@ -341,15 +341,17 @@ class TownView(discord.ui.View):
             cost = rest_details.get('cost', 10)
             player_data = await db_cog.get_player(self.user_id)
             if player_data['coins'] < cost:
-                no_coins_log = [get_notification("ACTION_FAIL_NO_COINS", cost=cost)]
-                await self.update_with_activity_log(no_coins_log)
+                await self.update_with_activity_log([f"💸 **Not Enough Coins**\n*You need {cost} coins to rest here.*"])
                 return
+            action_logs.append(f"🛏️ **Checked In**\n*{get_notification('ACTION_SUCCESS_PAY_COINS', cost=cost)}*")
 
-            action_logs = [get_notification("ACTION_SUCCESS_PAY_COINS", cost=cost)]
-
-        # 1. Call the refactored time cog, which returns a list of log strings
+        # 1. Advance time — bundle all restore messages under a single rest header
         time_logs = await time_cog.advance_time(self.user_id, rest_details)
-        action_logs.extend(time_logs)
+        rest_label = "🛏️ **Rested at Inn**" if rest_details.get('type') == 'inn' else "🌙 **Rested**"
+        if time_logs:
+            action_logs.append(f"{rest_label}\n" + "\n".join(time_logs))
+        else:
+            action_logs.append(rest_label)
 
         # 2. Check for quest progress
         quest_updates = await check_quest_progress(self.bot, self.user_id, "rest",
@@ -358,7 +360,6 @@ class TownView(discord.ui.View):
         if quest_updates:
             action_logs.extend(quest_updates)
 
-        # 3. Join all logs and pass the final string to YOUR existing helper function
         await self.update_with_activity_log(action_logs)
 
     async def select_location_callback(self, interaction: discord.Interaction):
