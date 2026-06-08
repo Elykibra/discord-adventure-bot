@@ -147,7 +147,7 @@ DIALOGUES = {
             {"required_item": "old_satchel",
              "action": "complete_quest",
              "quest_id": "sunk_cost",
-             "text": "You found it! By the Spirits... let me see. *Galen rummages through the tar-covered bag, pulling out ruined tools.* Rusted. Ruined. A shame. But these... *He salvages a pair of worn goggles.* These survived. From my prospecting days. They've got a knack for spotting things that don't want to be found. They're yours — proper reward for proper work."},
+             "text": "By the Spirits... you found it. These goggles survived the tar — from my prospecting days. They've got a knack for spotting things that don't want to be found. They're yours, proper reward for proper work."},
 
             # --- Quest active, no satchel ---
             {"required_quest_status": {"quest_id": "sunk_cost", "status": "active"},
