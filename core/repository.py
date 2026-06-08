@@ -279,3 +279,7 @@ class SqlRepository:
                 user_id, amount,
             )
             return row is not None
+
+    async def delete_player(self, user_id: int) -> None:
+        async with self.pool.acquire() as con:
+            await con.execute("DELETE FROM players WHERE user_id = $1", user_id)

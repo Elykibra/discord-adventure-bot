@@ -44,10 +44,7 @@ class ResetView(discord.ui.View):
     @discord.ui.button(label="Confirm Reset", style=discord.ButtonStyle.danger)
     async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
-        db_cog = self.bot.get_cog('Database')
-
-        # This will perform a full reset of the player's data
-        await db_cog.delete_player_data(self.user_id)
+        await self.bot.repo.delete_player(self.user_id)
 
         for item in self.children:
             item.disabled = True
