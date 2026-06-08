@@ -46,7 +46,7 @@ DIALOGUES = {
 
             {"required_quest_status": {"quest_id": "sunk_cost", "status": "active"},
              "text": "Still looking for my satchel? Be careful down there. The Gloom makes things... twitchy."},
-            {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 5}, "action": "offer_quest", "quest_id": "sunk_cost", "text": "Lost my satchel of tools in there... sinking fast. If you've got the nerve to fetch it, I'll make it worth your while."},
+            {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 5}, "action": "offer_quest", "quest_id": "sunk_cost", "text": "Lost my satchel of tools in the Rotting Pits earlier today. Tar gets deeper by the hour down there — once something sinks, it doesn't come back up. If you head in soon and find it, I'll make it worth your while."},
             {"default": "Another fresh face from the Guild. Don't get too close to these pits, adventurer. The Gloom here makes everything... twitchy."}
         ]
     }
