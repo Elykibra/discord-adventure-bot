@@ -201,8 +201,8 @@ class SqlRepository:
     async def add_pet(self, player_id: int, species: str):
         async with self.pool.acquire() as con:
             await con.execute(
-                "INSERT INTO pets (player_id, species) VALUES ($1, $2)",
-                player_id, species
+                "INSERT INTO pets (player_id, name, species) VALUES ($1, $2, $3)",
+                player_id, species, species
             )
 
     async def set_flag(self, user_id: int, flag: str):
