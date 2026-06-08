@@ -348,6 +348,12 @@ class TalentChoiceView(discord.ui.View):
             view=None
         )
         self.stop()
+        # Auto-dismiss after 30s so it doesn't clutter the screen during play
+        await asyncio.sleep(30)
+        try:
+            await interaction.delete_original_response()
+        except discord.NotFound:
+            pass
 
 
 class Game(commands.Cog):
