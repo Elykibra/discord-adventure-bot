@@ -137,12 +137,12 @@ REMNANTS = {
                         "emoji": "🛡️",
                         "availability": "day",
                         "pet": {
-                            "species": "Barkback",
+                            "species": "Burlback",
                             "nickname": None,
                             "nickname_visible_flag": None,
                             "description": (
-                                "A Barkback sits at Orin's side, quiet and watchful. "
-                                "It evolved from a Pineling issued early in his posting. "
+                                "A Burlback sits at Orin's side, quiet and watchful. "
+                                "It evolved from a Bristlecone issued early in his posting. "
                                 "Tough, reliable. Doesn't flinch at the cold air anymore. "
                                 "Neither does Orin."
                             ),

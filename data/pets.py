@@ -172,8 +172,8 @@ PET_DATABASE = {
     },
 
     # --- Oakhaven Outpost Pets ---
-    "Pineling": {
-        "species": "Pineling",
+    "Bristlecone": {
+        "species": "Bristlecone",
         "pet_type": "Normal",
         "rarity": "Common",
         "personality": "Defensive",
@@ -194,9 +194,9 @@ PET_DATABASE = {
             "13": {"choice": ["splinter_strike", "ironbark"]}
         },
         "evolutions": {
-            "Barkback": {
+            "Burlback": {
                 "evolves_at": 16,
-                "species": "Barkback",
+                "species": "Burlback",
                 "pet_type": ["Normal", "Grass"],
                 "rarity": "Uncommon",
                 "description": "A sturdy, tree-stump-like creature whose bark has hardened into thick natural armor. Gnarled branches sprout from its back, and its slow, deliberate movements carry the weight of something ancient and unyielding.",
@@ -897,8 +897,8 @@ def get_pet_data(species: str) -> dict:
 ENCOUNTER_TABLES = {
 
     "outpostWilds": {
-        "day": ["Pineling"],
-        "night": ["Pineling"]
+        "day": ["Bristlecone"],
+        "night": ["Bristlecone"]
     },
     "oakhavenOutpost_rottingPits": {
         "day": ["Corroder"],
