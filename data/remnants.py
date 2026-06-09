@@ -27,20 +27,13 @@ REMNANTS = {
             "oakhavenOutpost": "Oakhaven Outpost",
             "mirefields": "Mirefields",
         },
-        # Per-route energy costs. Falls back to ACTION_COSTS["travel"]["energy"] if not set.
-        # Going back to Oakhaven is slightly cheaper (familiar road).
-        # Pushing forward into the Mirefields costs more.
         "connection_costs": {
             "oakhavenOutpost": 8,
             "mirefields": 14,
         },
-        # Rest at this Remnant: energy restore only, no HP, no time skip.
-        "rest_energy": 20,
-        "rest_flavor": (
-            "You find a stable outcrop of rock away from the Chasm's edge and sit down. "
-            "The cold mist is unsettling, but stillness returns to your limbs. "
-            "Warden Orin nods from his post without a word."
-        ),
+        "connection_requirements": {
+            "mirefields": "quest_a_guildsmans_first_steps_completed",
+        },
         "availability": "all",
         "gloom_level": 25,
         "description_day": (
@@ -54,32 +47,172 @@ REMNANTS = {
             "the trees lean away. The mist thickens into something almost visible, and the "
             "darkness below feels aware of you."
         ),
-        "lore": (
-            "This is where it began. Centuries ago, a crack formed in the bedrock and the "
-            "first tendrils of The Gloom seeped upward. The Guild sealed what they could, "
-            "but the scar never healed."
-        ),
-        "npcs": {
-            "chasm_warden": {
-                "name": "Warden Orin",
-                "role": "Guild Warden",
+        # -----------------------------------------------------------------
+        # Locations — same pattern as towns.py
+        # Availability: 'all' | 'day' | 'night'
+        # required_flag: greyed out until player has this flag
+        # required_quest: greyed out until this quest is active
+        # -----------------------------------------------------------------
+        "locations": {
+            "chasms_edge": {
+                "name": "The Chasm's Edge",
+                "emoji": "🕳️",
+                "menu_description": "The lip of the Chasm. Cold. The source of the Gloom.",
+                "availability": "all",
+                "description_day": (
+                    "A narrow ledge of cracked stone along the chasm's rim. The Guild has "
+                    "bolted warning markers into the rock, but most have tilted with the "
+                    "settling ground. The air here smells of cold metal and something older."
+                ),
+                "description_night": (
+                    "The mist curls upward around your ankles. The darkness below is total. "
+                    "Nothing attacks. Something is just checking."
+                ),
+                "services": {
+                    "explore_zone": "weeping_chasm",
+                    "gloom_level": 25,
+                },
+                "npcs": {},
+            },
+
+            "wardens_post": {
+                "name": "The Warden's Post",
                 "emoji": "🛡️",
+                "menu_description": "Warden Orin's watch station. Manned during daylight hours.",
                 "availability": "day",
-                "dialogue": {
-                    "default": (
-                        "This is as close as most people get. The Chasm draws Gloom-Touched "
-                        "creatures — they're drawn to the source. I keep watch so travelers "
-                        "can pass safely. Mostly."
-                    ),
-                    "lore_prompt": (
-                        "The records say The Gloom first surfaced here. I believe it. "
-                        "Some nights I can feel it thinking."
-                    ),
-                }
-            }
-        },
-        "services": {
-            "explore_zone": "weeping_chasm",
+                "description_day": (
+                    "A solid Guild-issue post: a small fire, a folding chair, a logbook "
+                    "worn thin from use. Warden Orin keeps his eyes on the Chasm with the "
+                    "patience of someone who has been doing this a long time."
+                ),
+                "description_night": (
+                    "A folded note is pinned to the post with a Guild insignia pin.\n\n"
+                    "*\"Gone at dark. You should be too. — O.\"*"
+                ),
+                "services": {},
+                "npcs": {
+                    "warden_orin": {
+                        "name": "Warden Orin",
+                        "role": "Guild Warden",
+                        "emoji": "🛡️",
+                        "availability": "day",
+                        "dialogue": {
+                            "default": (
+                                "This is as close as most people get. The Chasm draws "
+                                "Gloom-Touched creatures — they're drawn to the source. "
+                                "I keep watch so travelers can pass safely. Mostly."
+                            ),
+                            "lore_prompt": (
+                                "The records say The Gloom first surfaced here. I believe it. "
+                                "Some nights I can feel it thinking."
+                            ),
+                            "returning_recruit": (
+                                "Ah — a Guild recruit. Good. The road east gets worse before "
+                                "it gets better. Keep your pet fed and your energy up."
+                            ),
+                        },
+                    },
+                },
+            },
+
+            "scholars_camp": {
+                "name": "The Scholar's Camp",
+                "emoji": "📜",
+                "menu_description": "A field researcher's camp. Appears occupied — sometimes.",
+                "availability": "all",
+                "required_quest": "echoes_from_below",   # greyed until quest is active
+                "description_day": (
+                    "A small camp pressed against the rock face away from the wind. "
+                    "Notebooks, vials, and equipment cases are stacked with the organised "
+                    "chaos of someone who knows exactly where everything is. "
+                    "A lamp burns low on a flat stone."
+                ),
+                "description_night": (
+                    "The lamp is still burning. The notebooks are still open. "
+                    "Kael doesn't sleep much when he's onto something."
+                ),
+                "services": {},
+                "npcs": {
+                    "lore_keeper_kael": {
+                        "name": "Lore-Keeper Kael",
+                        "role": "Guild Scholar",
+                        "emoji": "🔬",
+                        "availability": "all",
+                        "dialogue": {
+                            "default": (
+                                "You found me. Good — I wasn't sure Vexia would send anyone "
+                                "capable. The origin point is right here and nobody bothers "
+                                "to study it properly. I need samples. Three vials of "
+                                "gloom-mist from the Edge. Can you do that?"
+                            ),
+                            "samples_collected": (
+                                "These are clean samples — remarkable. The density here is "
+                                "unlike anything recorded further out. When you reach the "
+                                "Oasis, find the Obsidian Monoliths. I'll be there. "
+                                "There's something I need to show you."
+                            ),
+                        },
+                    },
+                },
+            },
+
+            "lookout_hollow": {
+                "name": "The Lookout Hollow",
+                "emoji": "🗡️",
+                "menu_description": "A weathered hollow. Someone has been here a long time.",
+                "availability": "all",
+                "description_day": (
+                    "A natural depression in the rock, sheltered from the wind and set back "
+                    "from the Chasm. It's been lived in — a fire ring, a bedroll, a row of "
+                    "marked stones that might be a personal tallying system. "
+                    "Gretta is here, as she always is."
+                ),
+                "description_night": (
+                    "The fire is low but steady. Gretta is awake. "
+                    "She's always awake at night — she learned not to sleep deeply here "
+                    "a long time ago."
+                ),
+                "services": {
+                    "rest": {
+                        "type": "rough_camp",
+                        "cost": 0,
+                        "energy_restore": 20,
+                        "health_restore_percent": 0,
+                        "flavor": (
+                            "Gretta gestures at a flat rock near the fire without looking up. "
+                            "*\"Sit. Don't talk.\"* "
+                            "You rest in silence. It's enough."
+                        ),
+                    },
+                },
+                "npcs": {
+                    "grim_gretta": {
+                        "name": "\"Grim\" Gretta",
+                        "role": "Chasm Watcher",
+                        "emoji": "🗡️",
+                        "availability": "all",
+                        "dialogue": {
+                            "default": (
+                                "Guild sends another one. They always look the same — "
+                                "hopeful. The Chasm fixes that eventually. "
+                                "What do you want?"
+                            ),
+                            "player_has_pet": (
+                                "That creature following you — you trust it? "
+                                "The Gloom finds the ones you're attached to first. "
+                                "Keep it strong. Soft bonds don't survive this road."
+                            ),
+                            "subdue_path_intro": (
+                                "You want to know what I know? Fine. "
+                                "The Guild tells you to heal corrupted creatures. "
+                                "I've watched that fail more times than you've been alive. "
+                                "Control is not cruelty. It's honesty. "
+                                "There's another way — if you're willing to hear it."
+                            ),
+                        },
+                    },
+                },
+            },
         },
     },
 
@@ -92,20 +225,10 @@ REMNANTS = {
             "weeping_chasm": "Weeping Chasm",
             "whisperwoodGrove": "Whisperwood Grove",
         },
-        # Per-route energy costs.
-        # Backtracking to the Chasm is uphill and tiring.
-        # Pushing through to Whisperwood requires navigating thick boggy terrain.
         "connection_costs": {
             "weeping_chasm": 12,
             "whisperwoodGrove": 14,
         },
-        # Rest at this Remnant: energy restore only, no HP, no time skip.
-        "rest_energy": 20,
-        "rest_flavor": (
-            "Sable tosses you a strip of dried bark to chew on and points to a dry log. "
-            "You sit in silence while the fog drifts past. "
-            "It's not comfortable, but it's enough to push on."
-        ),
         "availability": "all",
         "gloom_level": 8,
         "description_day": (
@@ -121,34 +244,78 @@ REMNANTS = {
             "the occasional splash of something moving through the water. "
             "Not the place to stop and rest."
         ),
-        "lore": (
-            "Once a busy waystation for traders moving between Oakhaven and the forests "
-            "beyond. When the road fell out of use, the mire moved in. "
-            "A few stubborn souls still pass through — and a few still live here."
-        ),
-        "npcs": {
-            "sable": {
-                "name": "Sable",
-                "role": "Bog Trapper",
-                "emoji": "🪤",
+        "locations": {
+            "bogside_trail": {
+                "name": "The Bogside Trail",
+                "emoji": "🌫️",
+                "menu_description": "The main stretch through the mire. Creatures lurk nearby.",
                 "availability": "all",
-                "dialogue": {
-                    "default": (
-                        "You lost? Most people don't come through here by choice. "
-                        "I've got supplies if you need them — nothing fancy, but it'll keep you alive."
-                    ),
-                    "night": (
-                        "You're braver than most, traveling through here at night. "
-                        "Or dumber. Hard to tell. Watch your step — the mire shifts after dark."
-                    ),
-                    "sell": "Take what you need and move on. I don't do small talk.",
-                }
-            }
-        },
-        "services": {
-            "explore_zone": "mirefields",
-            "shop": True,
-            "shop_items": ["moss_balm", "trail_morsels", "tether_orb"],
+                "description_day": (
+                    "The road narrows to a muddy track hemmed in by twisted undergrowth. "
+                    "The ground shifts unpredictably underfoot. Territorial creatures "
+                    "watch from the fog — not Gloom-touched, just mean and hungry."
+                ),
+                "description_night": (
+                    "The trail is nearly invisible in the dark. Every sound is amplified. "
+                    "Moving through here at night requires patience and a steady pet."
+                ),
+                "services": {
+                    "explore_zone": "mirefields",
+                    "gloom_level": 8,
+                },
+                "npcs": {},
+            },
+
+            "sables_post": {
+                "name": "Sable's Post",
+                "emoji": "🪤",
+                "menu_description": "A trapper's camp off the main trail. Supplies available.",
+                "availability": "all",
+                "description_day": (
+                    "A compact camp built from salvaged wood and waterproofed canvas. "
+                    "Traps and pelts hang from a line. Sable runs a lean operation — "
+                    "everything here has a purpose."
+                ),
+                "description_night": (
+                    "The camp lantern is on. Sable keeps late hours. "
+                    "Half the road traffic passes through at night, and she knows it."
+                ),
+                "services": {
+                    "shop": True,
+                    "shop_items": ["moss_balm", "trail_morsels", "tether_orb"],
+                    "rest": {
+                        "type": "rough_camp",
+                        "cost": 0,
+                        "energy_restore": 20,
+                        "health_restore_percent": 0,
+                        "flavor": (
+                            "Sable tosses you a strip of dried bark to chew on and points "
+                            "to a dry log. You sit in silence while the fog drifts past. "
+                            "*\"Don't get comfortable.\"*"
+                        ),
+                    },
+                },
+                "npcs": {
+                    "sable": {
+                        "name": "Sable",
+                        "role": "Bog Trapper",
+                        "emoji": "🪤",
+                        "availability": "all",
+                        "dialogue": {
+                            "default": (
+                                "You lost? Most people don't come through here by choice. "
+                                "I've got supplies if you need them — nothing fancy, "
+                                "but it'll keep you alive."
+                            ),
+                            "night": (
+                                "You're braver than most, traveling through here at night. "
+                                "Or dumber. Hard to tell. Watch your step — the mire shifts after dark."
+                            ),
+                            "sell": "Take what you need and move on. I don't do small talk.",
+                        },
+                    },
+                },
+            },
         },
     },
 
