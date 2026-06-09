@@ -27,6 +27,20 @@ REMNANTS = {
             "oakhavenOutpost": "Oakhaven Outpost",
             "mirefields": "Mirefields",
         },
+        # Per-route energy costs. Falls back to ACTION_COSTS["travel"]["energy"] if not set.
+        # Going back to Oakhaven is slightly cheaper (familiar road).
+        # Pushing forward into the Mirefields costs more.
+        "connection_costs": {
+            "oakhavenOutpost": 8,
+            "mirefields": 14,
+        },
+        # Rest at this Remnant: energy restore only, no HP, no time skip.
+        "rest_energy": 20,
+        "rest_flavor": (
+            "You find a stable outcrop of rock away from the Chasm's edge and sit down. "
+            "The cold mist is unsettling, but stillness returns to your limbs. "
+            "Warden Orin nods from his post without a word."
+        ),
         "availability": "all",
         "gloom_level": 25,
         "description_day": (
@@ -78,6 +92,20 @@ REMNANTS = {
             "weeping_chasm": "Weeping Chasm",
             "whisperwoodGrove": "Whisperwood Grove",
         },
+        # Per-route energy costs.
+        # Backtracking to the Chasm is uphill and tiring.
+        # Pushing through to Whisperwood requires navigating thick boggy terrain.
+        "connection_costs": {
+            "weeping_chasm": 12,
+            "whisperwoodGrove": 14,
+        },
+        # Rest at this Remnant: energy restore only, no HP, no time skip.
+        "rest_energy": 20,
+        "rest_flavor": (
+            "Sable tosses you a strip of dried bark to chew on and points to a dry log. "
+            "You sit in silence while the fog drifts past. "
+            "It's not comfortable, but it's enough to push on."
+        ),
         "availability": "all",
         "gloom_level": 8,
         "description_day": (
