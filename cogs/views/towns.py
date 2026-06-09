@@ -704,9 +704,17 @@ class TownView(discord.ui.View):
         self.message = None
         self.town_id = town_id
         self.current_sub_location_id = None
+        # Cached player state for build_ui (sync) — refreshed in initial_setup and key callbacks
+        self._player_energy = 0
+        self._player_flags = set()
 
     async def initial_setup(self):
-        """Asynchronously build the initial UI."""
+        """Asynchronously fetch player state then build the UI."""
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        if player_data:
+            self._player_energy = player_data.get('energy', 0)
+            self._player_flags = player_data.get('flags', set())
         self.build_ui()
 
     # --- NEW HELPER TO BUILD THE SUB-LOCATION EMBED ---
@@ -830,9 +838,9 @@ class TownView(discord.ui.View):
                 if avail == 'all':
                     is_available = True
                 elif avail == 'day':
-                    is_available = time_of_day in _DAY_PHASES
+                    is_available = time_of_day in self._DAY_PHASES
                 elif avail == 'night':
-                    is_available = time_of_day in _NIGHT_PHASES
+                    is_available = time_of_day in self._NIGHT_PHASES
                 else:
                     is_available = avail == time_of_day  # exact phase match
                 talk_button = discord.ui.Button(label=f"Talk to {npc_data['name']}",
@@ -855,7 +863,7 @@ class TownView(discord.ui.View):
                                          description=data.get('menu_description'), emoji=data.get('emoji'))
                 )
             if location_options:
-                select = discord.ui.Select(placeholder="Explore locations in town...", options=location_options)
+                select = discord.ui.Select(placeholder="🔍 Explore locations in town...", options=location_options)
                 select.callback = self.select_location_callback
                 self.add_item(select)
             wilds_id = next(
@@ -865,9 +873,37 @@ class TownView(discord.ui.View):
                                                          emoji="🌲")
                 explore_wilds_button.callback = self.explore_wilds_callback
                 self.add_item(explore_wilds_button)
-            travel_button = discord.ui.Button(label="Travel", style=discord.ButtonStyle.blurple, emoji="🗺️")
-            travel_button.callback = self.travel_callback
-            self.add_item(travel_button)
+
+            # Inline travel dropdown — replaces Travel button
+            all_connections = town_info.get('connections', {})
+            connection_reqs = town_info.get('connection_requirements', {})
+            travel_connections = {
+                loc_id: name for loc_id, name in all_connections.items()
+                if not get_location_data(loc_id).get('is_wilds')
+                and (loc_id not in connection_reqs or connection_reqs[loc_id] in self._player_flags)
+            }
+            if travel_connections:
+                default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
+                travel_options = []
+                for loc_id, name in travel_connections.items():
+                    cost = get_travel_cost(self.town_id, loc_id, default_cost)
+                    can_afford = self._player_energy >= cost
+                    loc_data = get_location_data(loc_id)
+                    gloom = loc_data.get('gloom_level', 0)
+                    loc_type = "Town" if loc_id in TOWNS else "Remnant"
+                    desc_parts = [f"⚡ {cost} energy"]
+                    if gloom > 0:
+                        desc_parts.append(f"Gloom: {gloom}%")
+                    desc_parts.append(loc_type)
+                    travel_options.append(discord.SelectOption(
+                        label=name if can_afford else f"🔒 {name}",
+                        value=loc_id,
+                        description=" · ".join(desc_parts),
+                        emoji=loc_data.get('emoji'),
+                    ))
+                travel_select = discord.ui.Select(placeholder="🗺️ Travel to...", options=travel_options)
+                travel_select.callback = self.inline_travel_callback
+                self.add_item(travel_select)
 
     async def explore_wilds_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -968,6 +1004,69 @@ class TownView(discord.ui.View):
         new_embed = await get_town_embed(self.bot, self.user_id, self.town_id)
         self.build_ui()
         await interaction.edit_original_response(embed=new_embed, view=self)
+
+    async def inline_travel_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        destination_id = interaction.data['values'][0]
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+
+        default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
+        energy_cost = get_travel_cost(self.town_id, destination_id, default_cost)
+        current_energy = player_data.get('energy', 0)
+
+        if current_energy < energy_cost:
+            await interaction.followup.send(
+                f"🔒 Not enough energy to travel there. You need **{energy_cost}** but have **{current_energy}**.",
+                ephemeral=True
+            )
+            return
+
+        new_energy = max(0, current_energy - energy_cost)
+        update_kwargs = {"current_location": destination_id, "energy": new_energy}
+
+        # Update last_town_id if destination is a real town (not wilds)
+        dest_data = get_location_data(destination_id)
+        if destination_id in TOWNS and not dest_data.get('is_wilds'):
+            update_kwargs["last_town_id"] = destination_id
+
+        await db_cog.update_player(self.user_id, **update_kwargs)
+
+        from cogs.views.wilds import WildsView
+
+        if destination_id in TOWNS:
+            if dest_data.get('is_wilds'):
+                new_view = WildsView(self.bot, interaction, destination_id)
+            else:
+                new_view = TownView(self.bot, interaction, destination_id)
+        else:
+            new_view = RemnantView(self.bot, interaction, destination_id)
+
+        await new_view.initial_setup()
+        if destination_id in TOWNS and not dest_data.get('is_wilds'):
+            new_embed = await get_town_embed(self.bot, self.user_id, destination_id)
+        elif is_remnant(destination_id):
+            new_embed = await get_remnant_embed(self.bot, self.user_id, destination_id)
+        else:
+            dest_name = dest_data.get('name', destination_id)
+            new_embed = discord.Embed(
+                title=f"Location: {dest_name}",
+                description=dest_data.get('description', f"You travel to {dest_name}."),
+                color=discord.Color.dark_green()
+            )
+
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+        if player_and_pet_data:
+            new_embed.set_footer(text=get_status_bar(
+                player_and_pet_data['player_data'], player_and_pet_data['main_pet_data']
+            ))
+
+        try:
+            await self.message.edit(embed=new_embed, view=new_view)
+            new_view.message = self.message
+        except (discord.NotFound, discord.HTTPException):
+            msg = await interaction.followup.send(embed=new_embed, view=new_view, ephemeral=True)
+            new_view.message = msg
 
     async def travel_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
