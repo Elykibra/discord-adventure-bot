@@ -897,12 +897,12 @@ def get_pet_data(species: str) -> dict:
 ENCOUNTER_TABLES = {
 
     "outpostWilds": {
-        "day": ["Bristlecone"],
-        "night": ["Bristlecone"]
+        "day": ["Bristlecone", "Bristlecone", "Bristlecone", "Mossling"],   # Mossling ~25% — forest edge glimpse
+        "night": ["Bristlecone", "Bristlecone", "Bristlecone", "Mossling"]  # Mossling ~25% — lost
     },
     "oakhavenOutpost_rottingPits": {
         "day": ["Corroder"],
-        "night": ["Corroder"]  # No need to duplicate the whole pet object
+        "night": ["Corroder", "Corroder", "Corroder", "Grimplate"]  # Grimplate ~25% — surfaces after dark
     },
     "whisperwoodGrove": {
         "day": ["Mossling", "Sunpetal Moth"],
