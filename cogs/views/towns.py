@@ -195,9 +195,18 @@ class TravelView(discord.ui.View):
             status_bar = get_status_bar(player_and_pet_data['player_data'], player_and_pet_data['main_pet_data'])
             new_embed.set_footer(text=status_bar)
 
-        await self.main_message_to_edit.edit(embed=new_embed, view=new_view)
-        new_view.message = self.main_message_to_edit
-        await interaction.delete_original_response()
+        # Try to edit the original message in place.
+        # Falls back to a fresh ephemeral if the interaction token has expired (>15 min).
+        try:
+            await self.main_message_to_edit.edit(embed=new_embed, view=new_view)
+            new_view.message = self.main_message_to_edit
+        except discord.NotFound:
+            msg = await interaction.followup.send(embed=new_embed, view=new_view, ephemeral=True)
+            new_view.message = msg
+        try:
+            await interaction.delete_original_response()
+        except (discord.NotFound, discord.HTTPException):
+            pass
 
         # Check if arriving here completes a travel quest objective
         quest_updates = await check_quest_progress(
