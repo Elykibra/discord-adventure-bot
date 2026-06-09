@@ -244,6 +244,153 @@ EXPLORE_EVENTS = {
             ],
         },
     ],
+
+    # ─────────────────────────────────────────────
+    # Mirefields — The Mire Path
+    # ─────────────────────────────────────────────
+    "mirefields": [
+
+        # --- Flavor Events ---
+        {
+            "type": "flavor",
+            "weight": 10,
+            "text": (
+                "The path disappears under two inches of brown water. You can't tell if it "
+                "continues forward or if you've already stepped off it."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 9,
+            "text": (
+                "A territorial bog creature bursts from the reeds, takes one look at you "
+                "and your pet, and retreats. You're bigger than its usual targets. Barely."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 8,
+            "text": (
+                "The ruins of a signpost poke out of the muck — three arrows pointing "
+                "different directions. None of the place names are legible. Someone has "
+                "tried to scratch new ones in. You can't read those either."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 8,
+            "text": (
+                "Sable's trail markers — knotted reed bundles tied to stakes — are the "
+                "only reliable guide here. You spot one and orient yourself. Without "
+                "these, you'd be walking in circles."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 5,
+            "text": (
+                "The fog sits low and still. Sound travels oddly — a splash from somewhere "
+                "to your left sounds close, then far, then close again. Nothing surfaces."
+            ),
+            "time": "night",
+        },
+
+        # --- Pet Sightings ---
+        {
+            "type": "pet_sighting",
+            "weight": 8,
+            "text": (
+                "A Murkback watches you from a half-submerged log, perfectly still. "
+                "It's not interested in fighting. It's waiting for you to leave its territory."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 6,
+            "text": (
+                "Something moves under the surface in the deeper section of the mire. "
+                "Not small. It tracks alongside you for about a minute, then veers off "
+                "without surfacing."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 5,
+            "text": (
+                "A Pallefin skims the surface of a still pool just off the path — barely "
+                "disturbing the water. It's gone before you can focus on it."
+            ),
+            "time": "day",
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 5,
+            "text": (
+                "Something low and slow moves through the reeds. You can't see it clearly. "
+                "Just the reeds parting and settling. It doesn't come closer."
+            ),
+            "time": "night",
+        },
+
+        # --- Hazard Events ---
+        {
+            "type": "hazard",
+            "weight": 7,
+            "text": (
+                "You sink into a soft patch up to your knee. Extracting yourself takes "
+                "time and costs you. Your pet watches from dry ground with no sympathy."
+            ),
+            "outcome": {"energy": -1},
+        },
+        {
+            "type": "hazard",
+            "weight": 6,
+            "text": (
+                "A bog creature you didn't see charges from the shallow water — a glancing "
+                "hit. It was more startled than aggressive, but that doesn't help your ribs much."
+            ),
+            "outcome": {"hp": -10},
+        },
+
+        # --- Loot Bonus ---
+        {
+            "type": "loot_bonus",
+            "weight": 6,
+            "text": (
+                "You spot a waterlogged pack half-buried in the reed bed — old, probably "
+                "from the waystation days. Still has something inside worth keeping."
+            ),
+            "outcome": {"item": {"item_id": "zone_loot", "qty": 1}},
+        },
+
+        # --- Choice Events ---
+        {
+            "type": "choice",
+            "weight": 7,
+            "text": (
+                "A section of the old crossroads road is visible just beneath the water — "
+                "stone paving, still intact. You could follow it deeper into the mire, "
+                "or stick to Sable's markers."
+            ),
+            "choices": [
+                {
+                    "label": "Follow the old road",
+                    "emoji": "🗺️",
+                    "text": (
+                        "The paving holds for a while. Then it doesn't. You backtrack "
+                        "before it gets worse — but not before finding something."
+                    ),
+                    "outcome": {"item": {"item_id": "zone_loot", "qty": 1}, "energy": -1},
+                },
+                {
+                    "label": "Stick to the markers",
+                    "emoji": "🌿",
+                    "text": "Smart. You follow Sable's reeds and stay dry. Nothing happens.",
+                    "outcome": {},
+                },
+            ],
+        },
+    ],
 }
 
 
@@ -266,6 +413,12 @@ ZONE_LOOT_TABLES = {
         ("sun_kissed_berries", 4),
         ("trail_morsels",      2),
         ("moss_balm",          1),
+    ],
+    "mirefields": [
+        ("trail_morsels",    4),
+        ("mire_balm",        3),
+        ("bog_reed_bundle",  3),
+        ("tether_orb",       1),
     ],
     # Whisperwood and beyond added here when towns are built
 }

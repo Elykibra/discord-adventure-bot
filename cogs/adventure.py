@@ -140,10 +140,22 @@ class Adventure(commands.Cog):
             if is_well_rested:
                 activity_log_list.append(get_notification("PLAYER_BUFF_WELL_RESTED"))
 
+            time_of_day = player_data.get('day_of_cycle', 'morning')
+            is_night_time = time_of_day in ('evening', 'night')
+
             if outcome == "flavor_event":
+                # Filter events by time — events with no "time" key fire any time
+                eligible_events = [
+                    e for e in zone_events
+                    if 'time' not in e
+                    or (e['time'] == 'night' and is_night_time)
+                    or (e['time'] == 'day' and not is_night_time)
+                ]
+                if not eligible_events:
+                    eligible_events = zone_events  # fallback — never leave the pool empty
                 chosen_event = random.choices(
-                    zone_events,
-                    weights=[e.get("weight", 5) for e in zone_events],
+                    eligible_events,
+                    weights=[e.get("weight", 5) for e in eligible_events],
                     k=1
                 )[0]
                 await self._handle_flavor_event(interaction, user_id, db_cog, chosen_event, activity_log_list, view_context)
@@ -196,10 +208,10 @@ class Adventure(commands.Cog):
                 if outcome == "tutorial_pet":
                     chosen_species_name, level = "Pineling", 1
                 else:
-                    time_of_day = player_data.get('day_of_cycle', 'morning')
+                    # time_of_day already resolved above
                     # Map 4 phases to encounter table keys (day/night)
                     # Encounter tables can add 'morning'/'noon'/etc keys later for unique spawns
-                    encounter_key = 'night' if time_of_day == 'night' else 'day'
+                    encounter_key = 'night' if is_night_time else 'day'
                     possible_pet_names = (ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day)
                                           or ENCOUNTER_TABLES.get(location_id, {}).get(encounter_key, []))
                     if not possible_pet_names:
