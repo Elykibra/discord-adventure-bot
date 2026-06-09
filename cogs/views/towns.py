@@ -227,7 +227,14 @@ class TravelView(discord.ui.View):
 
 
 class RemnantView(discord.ui.View):
-    """View for Remnant road stops. Simpler than TownView — no sub-locations."""
+    """
+    View for Remnant road stops.
+    Mirrors TownView — locations dropdown + Explore Area + Travel.
+    Differences: no Explore Wilds, rest lives inside sub-locations.
+    """
+
+    _DAY_PHASES   = {'morning', 'noon'}
+    _NIGHT_PHASES = {'evening', 'night'}
 
     def __init__(self, bot, parent_interaction, remnant_id):
         super().__init__(timeout=180)
@@ -236,66 +243,223 @@ class RemnantView(discord.ui.View):
         self.user_id = parent_interaction.user.id
         self.message = None
         self.remnant_id = remnant_id
+        self.current_sub_location_id = None
+
+    def _is_location_open(self, location_info: dict, time_of_day: str) -> bool:
+        avail = location_info.get('availability', 'all')
+        if avail == 'all':
+            return True
+        if avail == 'day':
+            return time_of_day in self._DAY_PHASES
+        if avail == 'night':
+            return time_of_day in self._NIGHT_PHASES
+        return avail == time_of_day
+
+    def _is_location_unlocked(self, location_info: dict, player_flags: set, active_quest_ids: set) -> bool:
+        """Returns False if the location is quest-gated and the condition isn't met."""
+        req_quest = location_info.get('required_quest')
+        if req_quest and req_quest not in active_quest_ids:
+            return False
+        req_flag = location_info.get('required_flag')
+        if req_flag and req_flag not in player_flags:
+            return False
+        return True
 
     async def initial_setup(self):
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
         time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
-        current_energy = player_data.get('energy', 0) if player_data else 0
+        player_flags = player_data.get('flags', set()) if player_data else set()
+        active_quests = await db_cog.get_active_quests(self.user_id)
+        active_quest_ids = {q['quest_id'] for q in active_quests}
         remnant = REMNANTS.get(self.remnant_id, {})
-        services = remnant.get('services', {})
-        connections = remnant.get('connections', {})
+        self.build_ui(time_of_day, player_flags, active_quest_ids, remnant)
 
-        _DAY_PHASES   = {'morning', 'noon'}
-        _NIGHT_PHASES = {'evening', 'night'}
+    def build_ui(self, time_of_day='morning', player_flags=None, active_quest_ids=None, remnant=None):
+        self.clear_items()
+        if player_flags is None:
+            player_flags = set()
+        if active_quest_ids is None:
+            active_quest_ids = set()
+        if remnant is None:
+            remnant = REMNANTS.get(self.remnant_id, {})
 
-        # Explore button
-        if 'explore_zone' in services:
-            explore_btn = discord.ui.Button(label="Explore Area", style=discord.ButtonStyle.green, emoji="🌲")
-            explore_btn.callback = self.explore_callback
-            self.add_item(explore_btn)
+        if self.current_sub_location_id:
+            # --- Sub-location view ---
+            location_info = remnant.get('locations', {}).get(self.current_sub_location_id, {})
+            services = location_info.get('services', {})
 
-        # NPC talk buttons
-        for npc_id, npc_data in remnant.get('npcs', {}).items():
-            avail = npc_data.get('availability', 'all')
-            if avail == 'all':
-                available = True
-            elif avail == 'day':
-                available = time_of_day in _DAY_PHASES
-            elif avail == 'night':
-                available = time_of_day in _NIGHT_PHASES
-            else:
-                available = avail == time_of_day
-            btn = discord.ui.Button(
-                label=f"Talk to {npc_data['name']}",
-                style=discord.ButtonStyle.secondary,
-                disabled=not available
-            )
-            btn.callback = self._make_talk_callback(npc_id, npc_data)
-            self.add_item(btn)
+            if 'explore_zone' in services:
+                btn = discord.ui.Button(label="Explore Area", style=discord.ButtonStyle.green, emoji="🌲")
+                btn.callback = self.explore_callback
+                self.add_item(btn)
 
-        # Rest button — show when energy is too low to afford any outgoing route
-        if 'rest_energy' in remnant and connections:
-            default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
-            min_travel_cost = min(
-                get_travel_cost(self.remnant_id, loc_id, default_cost)
-                for loc_id in connections
-            )
-            if current_energy < min_travel_cost:
-                rest_btn = discord.ui.Button(label="Rest", style=discord.ButtonStyle.secondary, emoji="🔥")
-                rest_btn.callback = self.rest_callback
-                self.add_item(rest_btn)
+            if 'shop' in services:
+                btn = discord.ui.Button(label="Shop", style=discord.ButtonStyle.blurple, emoji="🛒")
+                btn.callback = self.shop_callback
+                self.add_item(btn)
 
-        # Travel button
-        travel_btn = discord.ui.Button(label="Travel", style=discord.ButtonStyle.blurple, emoji="🗺️")
-        travel_btn.callback = self.travel_callback
-        self.add_item(travel_btn)
+            if 'rest' in services:
+                btn = discord.ui.Button(label="Rest", style=discord.ButtonStyle.secondary, emoji="🔥")
+                btn.callback = self.rest_callback
+                self.add_item(btn)
+
+            for npc_id, npc_data in location_info.get('npcs', {}).items():
+                avail = npc_data.get('availability', 'all')
+                if avail == 'all':
+                    available = True
+                elif avail == 'day':
+                    available = time_of_day in self._DAY_PHASES
+                elif avail == 'night':
+                    available = time_of_day in self._NIGHT_PHASES
+                else:
+                    available = avail == time_of_day
+                btn = discord.ui.Button(
+                    label=f"Talk to {npc_data['name']}",
+                    style=discord.ButtonStyle.secondary,
+                    disabled=not available
+                )
+                btn.callback = self._make_talk_callback(npc_id, npc_data)
+                self.add_item(btn)
+
+            back_btn = discord.ui.Button(label="Back", style=discord.ButtonStyle.grey, emoji="↩️")
+            back_btn.callback = self.back_callback
+            self.add_item(back_btn)
+
+        else:
+            # --- Remnant hub view ---
+            locations = remnant.get('locations', {})
+            options = []
+            for loc_id, loc_data in locations.items():
+                is_open = self._is_location_open(loc_data, time_of_day)
+                is_unlocked = self._is_location_unlocked(loc_data, player_flags, active_quest_ids)
+                if not is_unlocked:
+                    label = f"🔒 {loc_data['name']}"
+                elif not is_open:
+                    label = f"🔒 {loc_data['name']}"
+                else:
+                    label = loc_data['name']
+                options.append(discord.SelectOption(
+                    label=label,
+                    value=loc_id,
+                    description=loc_data.get('menu_description'),
+                    emoji=loc_data.get('emoji'),
+                ))
+            if options:
+                select = discord.ui.Select(placeholder="Explore this area...", options=options)
+                select.callback = self.select_location_callback
+                self.add_item(select)
+
+            # Explore Area button — only if remnant itself has a top-level explore zone
+            # (remnants without locations use this; those with locations use sub-location explore)
+            top_level_explore = remnant.get('services', {}).get('explore_zone') if not locations else None
+            if top_level_explore:
+                btn = discord.ui.Button(label="Explore Area", style=discord.ButtonStyle.green, emoji="🌲")
+                btn.callback = self.explore_callback
+                self.add_item(btn)
+
+            travel_btn = discord.ui.Button(label="Travel", style=discord.ButtonStyle.blurple, emoji="🗺️")
+            travel_btn.callback = self.travel_callback
+            self.add_item(travel_btn)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your menu!", ephemeral=True)
             return False
         return True
+
+    async def select_location_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        self.current_sub_location_id = interaction.data['values'][0]
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
+        player_flags = player_data.get('flags', set()) if player_data else set()
+        active_quests = await db_cog.get_active_quests(self.user_id)
+        active_quest_ids = {q['quest_id'] for q in active_quests}
+        remnant = REMNANTS.get(self.remnant_id, {})
+        location_info = remnant.get('locations', {}).get(self.current_sub_location_id, {})
+
+        # Quest-gated — not yet unlocked
+        if not self._is_location_unlocked(location_info, player_flags, active_quest_ids):
+            embed = discord.Embed(
+                title=f"🔒 {location_info.get('name', 'Location')}",
+                description="*There's nothing here for you yet.*",
+                color=discord.Color.dark_gray()
+            )
+            embed.set_footer(text="Complete the required quest to access this area.")
+            self.clear_items()
+            back_btn = discord.ui.Button(label="Back", style=discord.ButtonStyle.grey, emoji="↩️")
+            back_btn.callback = self.back_callback
+            self.add_item(back_btn)
+            await interaction.edit_original_response(embed=embed, view=self)
+            return
+
+        # Time-gated — closed right now
+        if not self._is_location_open(location_info, time_of_day):
+            closed_desc = (
+                location_info.get(f'description_{time_of_day}')
+                or location_info.get('description_night')
+                or location_info.get('description_day')
+                or "This area is inaccessible right now."
+            )
+            embed = discord.Embed(
+                title=f"🔒 {location_info.get('name', 'Location')}",
+                description=closed_desc,
+                color=discord.Color.dark_gray()
+            )
+            embed.set_footer(text="Come back at a different time.")
+            self.clear_items()
+            back_btn = discord.ui.Button(label="Back", style=discord.ButtonStyle.grey, emoji="↩️")
+            back_btn.callback = self.back_callback
+            self.add_item(back_btn)
+            await interaction.edit_original_response(embed=embed, view=self)
+            return
+
+        new_embed = await self._build_sublocation_embed(location_info)
+        self.build_ui(time_of_day, player_flags, active_quest_ids, remnant)
+        await interaction.edit_original_response(embed=new_embed, view=self)
+
+    async def _build_sublocation_embed(self, location_info: dict):
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
+        description = (
+            location_info.get(f'description_{time_of_day}')
+            or location_info.get('description_day')
+            or location_info.get('description', 'A quiet spot.')
+        )
+        embed = discord.Embed(
+            title=f"{location_info.get('emoji', '📍')} {location_info['name']}",
+            description=description,
+            color=discord.Color.dark_teal()
+        )
+        gloom = location_info.get('services', {}).get('gloom_level', 0)
+        if gloom:
+            embed.color = discord.Color.dark_purple()
+            embed.add_field(
+                name="🌑 Zone Hazard: Lingering Gloom",
+                value=f"All battles here start with **{gloom}% Gloom**.",
+                inline=False
+            )
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+        if player_and_pet_data:
+            embed.set_footer(text=get_status_bar(
+                player_and_pet_data['player_data'], player_and_pet_data['main_pet_data']
+            ))
+        return embed
+
+    async def back_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        self.current_sub_location_id = None
+        new_embed = await get_remnant_embed(self.bot, self.user_id, self.remnant_id)
+        player_and_pet_data = await self.bot.get_cog('Database').get_player_and_pet_data(self.user_id)
+        if player_and_pet_data:
+            new_embed.set_footer(text=get_status_bar(
+                player_and_pet_data['player_data'], player_and_pet_data['main_pet_data']
+            ))
+        await self.initial_setup()
+        await interaction.edit_original_response(embed=new_embed, view=self)
 
     def _make_talk_callback(self, npc_id, npc_data):
         async def callback(interaction: discord.Interaction):
@@ -304,9 +468,7 @@ class RemnantView(discord.ui.View):
             player_data = await db_cog.get_player(self.user_id)
             time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
             dialogue = npc_data.get('dialogue', {})
-            text = (dialogue.get(time_of_day)
-                    or dialogue.get('default')
-                    or "...")
+            text = dialogue.get(time_of_day) or dialogue.get('default') or "..."
             embed = discord.Embed(
                 title=f"{npc_data.get('emoji', '💬')} {npc_data['name']}",
                 description=f"*\"{text}\"*",
@@ -317,47 +479,50 @@ class RemnantView(discord.ui.View):
 
     async def explore_callback(self, interaction: discord.Interaction):
         remnant = REMNANTS.get(self.remnant_id, {})
-        zone_id = remnant.get('services', {}).get('explore_zone', self.remnant_id)
+        # Use sub-location's explore_zone if inside one, else fall back to remnant id
+        if self.current_sub_location_id:
+            zone_id = remnant.get('locations', {}).get(
+                self.current_sub_location_id, {}
+            ).get('services', {}).get('explore_zone', self.remnant_id)
+        else:
+            zone_id = remnant.get('services', {}).get('explore_zone', self.remnant_id)
         adventure_cog = self.bot.get_cog('Adventure')
         if adventure_cog:
             await adventure_cog.explore(interaction, zone_id, view_context=self)
+
+    async def shop_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        remnant = REMNANTS.get(self.remnant_id, {})
+        location_info = remnant.get('locations', {}).get(self.current_sub_location_id, {})
+        from .shop import ShopView
+        shop_view = ShopView(self.bot, self.user_id, self.parent_interaction, location_info)
+        await shop_view.rebuild_ui()
+        embed = await shop_view.build_embed()
+        msg = await interaction.followup.send(embed=embed, view=shop_view, ephemeral=True)
+        shop_view.message = msg
 
     async def rest_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
         db_cog = self.bot.get_cog('Database')
         remnant = REMNANTS.get(self.remnant_id, {})
-        rest_energy = remnant.get('rest_energy', 20)
-        flavor = remnant.get('rest_flavor', "You take a moment to catch your breath.")
+        location_info = remnant.get('locations', {}).get(self.current_sub_location_id, {})
+        rest_cfg = location_info.get('services', {}).get('rest', {})
+        energy_restore = rest_cfg.get('energy_restore', 20)
+        flavor = rest_cfg.get('flavor', "You take a moment to catch your breath.")
 
         player_data = await db_cog.get_player(self.user_id)
         max_energy = player_data.get('max_energy', 100)
         current_energy = player_data.get('energy', 0)
-        restored = min(rest_energy, max_energy - current_energy)
-        new_energy = current_energy + restored
+        restored = min(energy_restore, max_energy - current_energy)
+        await db_cog.update_player(self.user_id, energy=current_energy + restored)
 
-        await db_cog.update_player(self.user_id, energy=new_energy)
-
-        # Rebuild embed + view with updated state
-        new_embed = await get_remnant_embed(self.bot, self.user_id, self.remnant_id)
+        new_embed = await self._build_sublocation_embed(location_info)
         new_embed.add_field(
             name="🔥 Rested",
             value=f"*{flavor}*\n\n+**{restored} energy** restored.",
             inline=False
         )
-        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
-        if player_and_pet_data:
-            new_embed.set_footer(text=get_status_bar(
-                player_and_pet_data['player_data'], player_and_pet_data['main_pet_data']
-            ))
-
-        # Rebuild buttons — Rest may disappear if energy is now sufficient
-        self.clear_items()
-        await self.initial_setup()
-
-        try:
-            await self.message.edit(embed=new_embed, view=self)
-        except (discord.NotFound, discord.HTTPException):
-            pass
+        await interaction.edit_original_response(embed=new_embed, view=self)
 
     async def travel_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -365,10 +530,17 @@ class RemnantView(discord.ui.View):
         player_data = await db_cog.get_player(self.user_id)
         remnant = REMNANTS.get(self.remnant_id, {})
         connections = remnant.get('connections', {})
+        connection_reqs = remnant.get('connection_requirements', {})
+        player_flags = player_data.get('flags', set())
+
+        # Filter locked connections
+        connections = {
+            loc_id: name for loc_id, name in connections.items()
+            if loc_id not in connection_reqs or connection_reqs[loc_id] in player_flags
+        }
         if not connections:
             return await interaction.followup.send("There's nowhere to go from here.", ephemeral=True)
 
-        # Check energy against cheapest available route
         default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
         min_cost = min(get_travel_cost(self.remnant_id, loc_id, default_cost) for loc_id in connections)
         if player_data.get('energy', 0) < min_cost:
