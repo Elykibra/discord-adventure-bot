@@ -16,7 +16,7 @@ from data.dialogues import DIALOGUES
 from utils.helpers import (
     get_status_bar, get_town_embed, get_remnant_embed,
     check_quest_progress, get_notification, format_log_block,
-    get_location_data, get_connections, is_remnant,
+    get_location_data, get_connections, is_remnant, get_travel_cost,
 )
 
 
@@ -107,25 +107,34 @@ class WildsView(discord.ui.View):
 
 
 class TravelView(discord.ui.View):
-    def __init__(self, bot, original_interaction, connections, main_message_to_edit):
+    def __init__(self, bot, original_interaction, connections, main_message_to_edit,
+                 from_location_id: str = None, player_energy: int = 0):
         super().__init__(timeout=60)
         self.bot = bot
         self.original_interaction = original_interaction
         self.connections = connections
         self.main_message_to_edit = main_message_to_edit
+        self.from_location_id = from_location_id
         self.message = None  # set by travel_callback after send
-        travel_energy = ACTION_COSTS.get("travel", {}).get("energy", 3)
+
+        default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
+
+        # Store per-route costs so select_callback can deduct the right amount
+        self.route_costs = {}
         options = []
         for loc_id, name in connections.items():
+            cost = get_travel_cost(from_location_id, loc_id, default=default_cost) if from_location_id else default_cost
+            self.route_costs[loc_id] = cost
+            can_afford = player_energy >= cost
             loc_data = get_location_data(loc_id)
             gloom = loc_data.get('gloom_level', 0)
             loc_type = "Town" if loc_id in TOWNS else "Remnant"
-            desc_parts = [f"⚡ {travel_energy} energy"]
+            desc_parts = [f"⚡ {cost} energy"]
             if gloom > 0:
                 desc_parts.append(f"Gloom: {gloom}%")
             desc_parts.append(loc_type)
             options.append(discord.SelectOption(
-                label=name,
+                label=name if can_afford else f"🔒 {name}",
                 value=loc_id,
                 description=" · ".join(desc_parts),
                 emoji=loc_data.get('emoji'),
@@ -135,13 +144,29 @@ class TravelView(discord.ui.View):
         self.add_item(select)
 
     async def select_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         destination_id = interaction.data['values'][0]
         db_cog = self.bot.get_cog('Database')
         user_id = self.original_interaction.user.id
 
+        energy_cost = self.route_costs.get(destination_id, ACTION_COSTS.get("travel", {}).get("energy", 10))
+        player_data = await db_cog.get_player(user_id)
+        current_energy = player_data.get('energy', 0)
+
+        # Block travel if player selected a locked (unaffordable) route
+        if current_energy < energy_cost:
+            dest_name = self.connections.get(destination_id, destination_id)
+            await interaction.followup.send(
+                f"🔒 You don't have enough energy to reach **{dest_name}**. "
+                f"You need **{energy_cost}** energy but only have **{current_energy}**.",
+                ephemeral=True
+            )
+            return
+
+        new_energy = max(0, current_energy - energy_cost)
+
         # Track last town so defeat can respawn the player there
-        update_kwargs = {"current_location": destination_id}
+        update_kwargs = {"current_location": destination_id, "energy": new_energy}
         if destination_id in TOWNS and not get_location_data(destination_id).get('is_wilds'):
             update_kwargs["last_town_id"] = destination_id
 
@@ -216,8 +241,10 @@ class RemnantView(discord.ui.View):
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
         time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
+        current_energy = player_data.get('energy', 0) if player_data else 0
         remnant = REMNANTS.get(self.remnant_id, {})
         services = remnant.get('services', {})
+        connections = remnant.get('connections', {})
 
         _DAY_PHASES   = {'morning', 'noon'}
         _NIGHT_PHASES = {'evening', 'night'}
@@ -246,6 +273,18 @@ class RemnantView(discord.ui.View):
             )
             btn.callback = self._make_talk_callback(npc_id, npc_data)
             self.add_item(btn)
+
+        # Rest button — show when energy is too low to afford any outgoing route
+        if 'rest_energy' in remnant and connections:
+            default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
+            min_travel_cost = min(
+                get_travel_cost(self.remnant_id, loc_id, default_cost)
+                for loc_id in connections
+            )
+            if current_energy < min_travel_cost:
+                rest_btn = discord.ui.Button(label="Rest", style=discord.ButtonStyle.secondary, emoji="🔥")
+                rest_btn.callback = self.rest_callback
+                self.add_item(rest_btn)
 
         # Travel button
         travel_btn = discord.ui.Button(label="Travel", style=discord.ButtonStyle.blurple, emoji="🗺️")
@@ -283,20 +322,63 @@ class RemnantView(discord.ui.View):
         if adventure_cog:
             await adventure_cog.explore(interaction, zone_id, view_context=self)
 
+    async def rest_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        db_cog = self.bot.get_cog('Database')
+        remnant = REMNANTS.get(self.remnant_id, {})
+        rest_energy = remnant.get('rest_energy', 20)
+        flavor = remnant.get('rest_flavor', "You take a moment to catch your breath.")
+
+        player_data = await db_cog.get_player(self.user_id)
+        max_energy = player_data.get('max_energy', 100)
+        current_energy = player_data.get('energy', 0)
+        restored = min(rest_energy, max_energy - current_energy)
+        new_energy = current_energy + restored
+
+        await db_cog.update_player(self.user_id, energy=new_energy)
+
+        # Rebuild embed + view with updated state
+        new_embed = await get_remnant_embed(self.bot, self.user_id, self.remnant_id)
+        new_embed.add_field(
+            name="🔥 Rested",
+            value=f"*{flavor}*\n\n+**{restored} energy** restored.",
+            inline=False
+        )
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+        if player_and_pet_data:
+            new_embed.set_footer(text=get_status_bar(
+                player_and_pet_data['player_data'], player_and_pet_data['main_pet_data']
+            ))
+
+        # Rebuild buttons — Rest may disappear if energy is now sufficient
+        self.clear_items()
+        await self.initial_setup()
+
+        try:
+            await self.message.edit(embed=new_embed, view=self)
+        except (discord.NotFound, discord.HTTPException):
+            pass
+
     async def travel_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
-        travel_cost = ACTION_COSTS.get("travel", {}).get("energy", 3)
-        if player_data['energy'] < travel_cost:
-            return await interaction.followup.send(
-                f"You need at least {travel_cost} energy to travel.", ephemeral=True
-            )
         remnant = REMNANTS.get(self.remnant_id, {})
         connections = remnant.get('connections', {})
         if not connections:
             return await interaction.followup.send("There's nowhere to go from here.", ephemeral=True)
-        travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message)
+
+        # Check energy against cheapest available route
+        default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
+        min_cost = min(get_travel_cost(self.remnant_id, loc_id, default_cost) for loc_id in connections)
+        if player_data.get('energy', 0) < min_cost:
+            return await interaction.followup.send(
+                f"You're too exhausted to move. You need at least **{min_cost} energy**. Rest first.",
+                ephemeral=True
+            )
+
+        travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message,
+                                 from_location_id=self.remnant_id, player_energy=player_data.get('energy', 0))
         travel_msg = await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
         travel_view.message = travel_msg
 
@@ -649,20 +731,12 @@ class TownView(discord.ui.View):
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
 
-        travel_cost = ACTION_COSTS.get("travel", {}).get("energy", 0)
-        if player_data['energy'] < travel_cost:
-            return await interaction.followup.send(
-                f"You don't have enough energy to travel. You need at least {travel_cost} energy.",
-                ephemeral=True
-            )
-
         town_data = get_location_data(self.town_id)
         all_connections = town_data.get('connections', {})
         connection_reqs = town_data.get('connection_requirements', {})
         player_flags = player_data.get('flags', set())
 
-        # Filter out wilds zones (shown as Explore Wilds button, not in travel dropdown)
-        # and destinations the player hasn't unlocked yet
+        # Filter out wilds zones and locked destinations
         connections = {
             loc_id: name for loc_id, name in all_connections.items()
             if not get_location_data(loc_id).get('is_wilds')
@@ -672,7 +746,17 @@ class TownView(discord.ui.View):
         if not connections:
             return await interaction.followup.send("There's nowhere to travel to from here.", ephemeral=True)
 
-        travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message)
+        # Check player has enough energy for at least one route
+        default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
+        min_cost = min(get_travel_cost(self.town_id, loc_id, default_cost) for loc_id in connections)
+        if player_data.get('energy', 0) < min_cost:
+            return await interaction.followup.send(
+                f"You're too exhausted to travel. You need at least **{min_cost} energy** for the nearest road.",
+                ephemeral=True
+            )
+
+        travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message,
+                                 from_location_id=self.town_id, player_energy=player_data.get('energy', 0))
         travel_msg = await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
         travel_view.message = travel_msg
 

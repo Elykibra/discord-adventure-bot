@@ -19,7 +19,11 @@ TOWNS = {
         # outpostWilds accessed via Explore Wilds button, not Travel.
         # Step-by-step travel: Oakhaven → Weeping Chasm → Mirefields → Whisperwood
         "connections": {
+            "outpostWilds": "Outpost Wilds",   # is_wilds=True → renders as Explore Wilds button
             "weeping_chasm": "Weeping Chasm",
+        },
+        "connection_costs": {
+            "weeping_chasm": 10,
         },
         "connection_requirements": {
             "weeping_chasm": "quest_a_guildsmans_first_steps_completed"
@@ -157,6 +161,9 @@ TOWNS = {
         "connections": {
             "mirefields": "Mirefields",
             "whisperwoodWilds": "Whisperwood Wilds",  # is_wilds=True → renders as Explore Wilds button
+        },
+        "connection_costs": {
+            "mirefields": 12,  # Leaving the Grove back into the bog costs more
         },
 
         "locations": {
