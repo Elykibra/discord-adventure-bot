@@ -68,6 +68,25 @@ REMNANTS = {
                     "The mist curls upward around your ankles. The darkness below is total. "
                     "Nothing attacks. Something is just checking."
                 ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_chasms_edge",
+                        "text": (
+                            "The cold hits before you reach the rim. Your pet stops a full "
+                            "step behind you and won't come closer. From below — not wind, "
+                            "not echo — something like breathing."
+                        ),
+                    },
+                    {
+                        "condition": "time:night",
+                        "once": False,
+                        "text": (
+                            "*The mist curls upward around your ankles. "
+                            "Nothing attacks. Something is just checking.*"
+                        ),
+                    },
+                ],
                 "services": {
                     "explore_zone": "weeping_chasm",
                     "gloom_level": 25,
@@ -89,6 +108,27 @@ REMNANTS = {
                     "A folded note is pinned to the post with a Guild insignia pin.\n\n"
                     "*\"Gone at dark. You should be too. — O.\"*"
                 ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_wardens_post",
+                        "text": (
+                            "Orin glances up from his logbook. *\"Road's passable. "
+                            "Mostly. Don't linger at the edge — the creatures here "
+                            "are drawn to the source and they don't watch where they're going.\"*"
+                        ),
+                    },
+                    {
+                        "condition": "flag:quest_a_guildsmans_first_steps_completed",
+                        "once": True,
+                        "flag": "orin_recruit_acknowledged",
+                        "text": (
+                            "Orin looks up, recognizes the Guild insignia. "
+                            "*\"Recruit. Good — you made it this far.\"* "
+                            "A pause. *\"That's not nothing.\"*"
+                        ),
+                    },
+                ],
                 "services": {},
                 "npcs": {
                     "warden_orin": {
@@ -96,6 +136,18 @@ REMNANTS = {
                         "role": "Guild Warden",
                         "emoji": "🛡️",
                         "availability": "day",
+                        "pet": {
+                            "species": "Barkback",
+                            "nickname": None,
+                            "nickname_visible_flag": None,
+                            "description": (
+                                "A Barkback sits at Orin's side, quiet and watchful. "
+                                "It evolved from a Pineling issued early in his posting. "
+                                "Tough, reliable. Doesn't flinch at the cold air anymore. "
+                                "Neither does Orin."
+                            ),
+                            "player_species_reactions": {},
+                        },
                         "dialogue": {
                             "default": (
                                 "This is as close as most people get. The Chasm draws "
@@ -109,6 +161,16 @@ REMNANTS = {
                             "returning_recruit": (
                                 "Ah — a Guild recruit. Good. The road east gets worse before "
                                 "it gets better. Keep your pet fed and your energy up."
+                            ),
+                            "lore_east_wall": (
+                                "*\"The east section of the wall is webbed over some mornings. "
+                                "Something large made that overnight.\"* "
+                                "He doesn't elaborate. *\"I don't go near it.\"*"
+                            ),
+                            "lore_breathing": (
+                                "*\"Some mornings the mist is different. Heavier. "
+                                "Like something exhaled the whole of it at once.\"* "
+                                "He says it the way you'd report weather."
                             ),
                         },
                     },
@@ -131,6 +193,18 @@ REMNANTS = {
                     "The lamp is still burning. The notebooks are still open. "
                     "Kael doesn't sleep much when he's onto something."
                 ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_scholars_camp",
+                        "text": (
+                            "Kael looks up immediately, already talking. "
+                            "*\"You're here — good. I've been waiting for someone "
+                            "Vexia would actually trust with this. "
+                            "The origin point is right here and nobody studies it properly.\"*"
+                        ),
+                    },
+                ],
                 "services": {},
                 "npcs": {
                     "lore_keeper_kael": {
@@ -138,6 +212,24 @@ REMNANTS = {
                         "role": "Guild Scholar",
                         "emoji": "🔬",
                         "availability": "all",
+                        "pet": {
+                            "species": "Duskspinner",
+                            "nickname": "threnody",
+                            "nickname_visible_flag": None,  # Kael tells everyone immediately
+                            "description": (
+                                "A Duskspinner perches on the edge of Kael's equipment case, "
+                                "perfectly still. He named it Threnody — a funeral song — "
+                                "after the Gloom's origin in collective sorrow. "
+                                "He will explain the etymology if asked. You didn't ask."
+                            ),
+                            "player_species_reactions": {
+                                "Grimweave": (
+                                    "*\"Oh, a Grimweave. Threnody's base form — "
+                                    "interesting choice for a traveler. "
+                                    "Give it time and the right conditions.\"*"
+                                ),
+                            },
+                        },
                         "dialogue": {
                             "default": (
                                 "You found me. Good — I wasn't sure Vexia would send anyone "
@@ -150,6 +242,26 @@ REMNANTS = {
                                 "unlike anything recorded further out. When you reach the "
                                 "Oasis, find the Obsidian Monoliths. I'll be there. "
                                 "There's something I need to show you."
+                            ),
+                            "lore_gloom_origin": (
+                                "The Gloom didn't spread from a single point by accident. "
+                                "Every record points here — the Chasm — as the breach site. "
+                                "My theory: collective grief. A catastrophic loss, enough "
+                                "souls in enough pain at once to tear something open. "
+                                "The Guild doesn't like that theory. Too difficult to quantify."
+                            ),
+                            "lore_hollowed_vs_corrupted": (
+                                "Corrupted pets can still be reached — the Gloom has touched "
+                                "them but hasn't consumed them. There's still something there "
+                                "to work with. Hollowed is different. When a creature Hollows, "
+                                "there's nothing left that remembers being a creature. "
+                                "That distinction matters. Remember it."
+                            ),
+                            "lore_east_wall": (
+                                "He shows you a single research note. "
+                                "*'Specimen of unusual scale observed on east face. "
+                                "Preliminary classification impossible.'* "
+                                "One entry. The next page is blank."
                             ),
                         },
                     },
@@ -172,6 +284,28 @@ REMNANTS = {
                     "She's always awake at night — she learned not to sleep deeply here "
                     "a long time ago."
                 ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_lookout_hollow",
+                        "text": (
+                            "Gretta looks up from the fire. Takes you in once, top to bottom. "
+                            "*\"Guild sends another one.\"* She looks back at the fire. "
+                            "*\"They always look the same.\"*"
+                        ),
+                    },
+                    {
+                        "condition": "has_pet_species:Threshling",
+                        "once": True,
+                        "flag": "gretta_threshling_reaction_seen",
+                        "text": (
+                            "Gretta's eyes go to your pet. Stay there longer than usual. "
+                            "*\"You caught one of those.\"* Not a question. "
+                            "She looks back at the half-solid shape near her fire. "
+                            "Doesn't say anything else."
+                        ),
+                    },
+                ],
                 "services": {
                     "rest": {
                         "type": "rough_camp",
@@ -191,6 +325,18 @@ REMNANTS = {
                         "role": "Chasm Watcher",
                         "emoji": "🗡️",
                         "availability": "all",
+                        "pet": {
+                            "species": "Threshling",
+                            "nickname": None,
+                            "nickname_visible_flag": None,
+                            "description": (
+                                "Something half-solid crouches near Gretta's fire. "
+                                "Parts of it solid, parts mist. One eye clear, one eye dark. "
+                                "She didn't purify it. She made it clear who was in charge. "
+                                "It stays because she makes it stay."
+                            ),
+                            "player_species_reactions": {},
+                        },
                         "dialogue": {
                             "default": (
                                 "Guild sends another one. They always look the same — "
@@ -208,6 +354,19 @@ REMNANTS = {
                                 "I've watched that fail more times than you've been alive. "
                                 "Control is not cruelty. It's honesty. "
                                 "There's another way — if you're willing to hear it."
+                            ),
+                            "lore_deep_chasm": (
+                                "*\"Nothing worth finding out there.\"*"
+                            ),
+                            "lore_deep_chasm_pressed": (
+                                "She looks at you for a long moment. "
+                                "*\"The breathing. You've heard it. "
+                                "Don't go looking for what makes it.\"*"
+                            ),
+                            "returning_high_rank": (
+                                "She looks you over once. Looks back at the fire. "
+                                "*\"Still here.\"* That's all she gives you. "
+                                "From Gretta, it means something."
                             ),
                         },
                     },

@@ -246,6 +246,185 @@ EXPLORE_EVENTS = {
     ],
 
     # ─────────────────────────────────────────────
+    # Weeping Chasm — The Chasm's Edge
+    # ─────────────────────────────────────────────
+    "weeping_chasm": [
+
+        # --- Flavor Events ---
+        {
+            "type": "flavor",
+            "weight": 10,
+            "text": (
+                "The chasm exhales cold air in a slow, rhythmic pulse. "
+                "Your pet refuses to approach the edge. "
+                "It doesn't move until the pulse stops."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 9,
+            "text": (
+                "A Guild marker post — cracked, the rune barely holding. "
+                "Someone scratched a tally into the wood. Thirty-seven marks. "
+                "You don't know what they were counting."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 8,
+            "text": (
+                "A sound rises from below. Not a creature — more like a voice, "
+                "too deep and too slow to understand. "
+                "It stops the moment you move."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 7,
+            "text": (
+                "Near the Whispering Stones — a cluster of rounded rocks at the "
+                "sealed section — the air hums faintly. Guild records say this is "
+                "where the first ward was placed. Whatever it was holding, it's still holding."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 6,
+            "text": (
+                "The mist curls upward around your ankles. "
+                "Nothing attacks. Something is just checking.",
+            ),
+            "time": "night",
+        },
+        {
+            "type": "flavor",
+            "weight": 5,
+            "text": (
+                "The breathing from below changes rhythm. Slower. Deeper. "
+                "Your pet goes completely still and won't move until it resumes."
+            ),
+            "time": "night",
+        },
+
+        # --- Pet Sightings ---
+        {
+            "type": "pet_sighting",
+            "weight": 8,
+            "text": (
+                "A Corroder sits at the chasm's lip, staring down into the dark "
+                "instead of at you. It doesn't react to your presence. "
+                "It seems drawn to the source."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 6,
+            "text": (
+                "Something pale drifts upward from the chasm on the cold thermal — "
+                "translucent, barely there, gone before you can focus on it."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 5,
+            "text": (
+                "The east wall of the Chasm is covered in thick, dark silk from rim "
+                "to rock face. Something enormous spun this overnight. "
+                "The webbing is still faintly warm."
+            ),
+        },
+
+        # --- Hazard Events ---
+        {
+            "type": "hazard",
+            "weight": 7,
+            "text": (
+                "A cold updraft hits without warning — disorienting, wrong. "
+                "Not wind. An exhale from below. Your pet stumbles. You catch it."
+            ),
+            "outcome": {"hp": -8},
+        },
+        {
+            "type": "hazard",
+            "weight": 6,
+            "text": (
+                "The ground near the Tainted Ledge shifts. A crack opens, "
+                "runs three feet, stops. You step back slowly. "
+                "The crack doesn't close."
+            ),
+            "outcome": {"energy": -1},
+        },
+
+        # --- Loot Bonus ---
+        {
+            "type": "loot_bonus",
+            "weight": 5,
+            "text": (
+                "A Guild emergency cache bolted to a post near the sealed section. "
+                "Still stocked. Someone kept resupplying this long after the post was abandoned."
+            ),
+            "outcome": {"item": {"item_id": "zone_loot", "qty": 1}},
+        },
+
+        # --- Choice Events ---
+        {
+            "type": "choice",
+            "weight": 6,
+            "text": (
+                "A sealed Guild journal is wedged in a crack near the Tainted Ledge. "
+                "It's been here a while — the wax seal is intact but the cover is "
+                "warped from cold. You could pry it open."
+            ),
+            "choices": [
+                {
+                    "label": "Pry it open",
+                    "emoji": "📖",
+                    "text": (
+                        "The seal breaks. Inside: field notes, precise until the last few pages "
+                        "where the handwriting changes. You take the fragment. "
+                        "The Gloom around you feels slightly heavier."
+                    ),
+                    "outcome": {"item": {"item_id": "lore_fragment", "qty": 1}, "gloom_tick": 5},
+                },
+                {
+                    "label": "Leave it",
+                    "emoji": "🚶",
+                    "text": "Some things stay sealed for a reason. You walk away.",
+                    "outcome": {},
+                },
+            ],
+        },
+
+        # --- Apex Lore Events (Chasmbane + Veilmother) ---
+        # These are atmosphere/scare events — no battle, no capture.
+        # Full rank-gated encounter logic tagged for later.
+        {
+            "type": "hazard",
+            "weight": 3,
+            "text": (
+                "The mist stops. All of it — in an instant. The chasm goes completely "
+                "silent. Something at the rim of your vision, near the base of the wall, "
+                "is large enough that your mind refuses to measure it. "
+                "It isn't looking at you. Then it is. "
+                "The Gloom floods your senses before you consciously decide to back away."
+            ),
+            "outcome": {"gloom_tick": 15},
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 2,
+            "time": "night",
+            "text": (
+                "The east wall moves. Not shifts — moves, deliberately, slowly. "
+                "A section of what you thought was webbing detaches from the rock face "
+                "and redistributes itself further up. The scale of it doesn't make sense "
+                "until you find a marker post for reference. "
+                "You stop using the marker post for reference."
+            ),
+        },
+    ],
+
+    # ─────────────────────────────────────────────
     # Mirefields — The Mire Path
     # ─────────────────────────────────────────────
     "mirefields": [
@@ -413,6 +592,11 @@ ZONE_LOOT_TABLES = {
         ("sun_kissed_berries", 4),
         ("trail_morsels",      2),
         ("moss_balm",          1),
+    ],
+    "weeping_chasm": [
+        ("moss_balm",     3),
+        ("tether_orb",    3),
+        ("trail_morsels", 2),
     ],
     "mirefields": [
         ("trail_morsels",    4),

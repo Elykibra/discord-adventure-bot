@@ -394,6 +394,38 @@ ITEMS = {
     },
 
     # Lore Items
+    "lore_fragment": {
+        "name": "Guild Record Fragment",
+        "description": (
+            "A page torn from a sealed Guild journal found near the Tainted Ledge. "
+            "The handwriting is steady until the last few lines, where it isn't."
+        ),
+        "dropdown_description": "Lore item from the Weeping Chasm.",
+        "menu_description": "A fragment from a sealed Guild journal. Read to learn what it contained.",
+        "category": "Lore Items",
+        "price": 0,
+        "actions": ["inspect", "drop"],
+        "lore_text": (
+            "**Guild Field Record — Warden Post Attachment**\n\n"
+            "The handwriting is precise for the first half — dates, creature sightings, "
+            "patrol notes. Standard warden documentation.\n\n"
+            "Near the bottom the writing changes. Faster. Less careful.\n\n"
+            "*'The mist tonight came up from the chasm in a single column. Not diffuse — "
+            "directed. It moved toward the post. Stopped at the ward line. "
+            "I watched it for approximately four minutes.*\n\n"
+            "*It went back down.*\n\n"
+            "*I don't know what to put in the official report.'*"
+        ),
+    },
+    "gloom_mist_sample": {
+        "name": "Gloom-mist Sample",
+        "description": "A sealed vial of dense Gloom-mist collected from a hollow in the rock at the Chasm's Edge. The glass is cold to the touch.",
+        "dropdown_description": "Quest item — Kael's research.",
+        "menu_description": "A vial of Gloom-mist for Lore-Keeper Kael. Part of the echoes_from_below quest.",
+        "category": "Quest Items",
+        "price": 0,
+        "actions": ["inspect"],
+    },
     "waystation_ledger": {
         "name": "Waystation Ledger",
         "description": (

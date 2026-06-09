@@ -236,9 +236,9 @@ PET_DATABASE = {
 
         # --- EVOLUTIONS ARE NOW NESTED ---
         "evolutions": {
-            "Sludge Shell": {
+            "Grimplate": {
                 "evolves_at": 15,
-                "species": "Sludge Shell", "pet_type": ["Rock", "Poison"], "rarity": "Uncommon",
+                "species": "Grimplate", "pet_type": ["Rock", "Poison"], "rarity": "Uncommon",
                 "description": "A larger, more heavily armored successor to the Corroder. Its shell has fused into dense, layered rock, and the toxic sludge it secretes has thickened into a viscous, slow-dripping poison.",
                 "base_stat_ranges": {"hp": [60, 65], "attack": [45, 50], "defense": [70, 75],
                                      "special_attack": [35, 40],
@@ -252,9 +252,9 @@ PET_DATABASE = {
                     "25": ["miasmal_aura"]
                 },
                 "evolutions": {
-                    "Ossuary Golem": {
+                    "Blightcrust": {
                         "evolves_at": 30,
-                        "species": "Ossuary Golem", "pet_type": ["Rock", "Poison"], "rarity": "Rare",
+                        "species": "Blightcrust", "pet_type": ["Rock", "Poison"], "rarity": "Rare",
                         "description": "A towering construct of fused bones and hardened sludge, shaped by years of Gloom exposure into something ancient and terrifying. It moves slowly but radiates an aura of decay that withers anything that lingers too close.",
                         "base_stat_ranges": {"hp": [80, 85], "attack": [70, 75], "defense": [110, 115],
                                              "special_attack": [50, 55],
@@ -391,8 +391,8 @@ PET_DATABASE = {
         }
     },
 
-    "Gloom Weaver": {
-        "species": "Gloom Weaver",
+    "Grimweave": {
+        "species": "Grimweave",
         "pet_type": ["Ghost", "Poison"],
         "rarity": "Uncommon",
         "personality": "Aggressive",
@@ -414,9 +414,9 @@ PET_DATABASE = {
             "14": {"choice": ["umbral_shift", "grudge"]}
         },
         "evolutions": {
-            "Dreadspinner": {
+            "Duskspinner": {
                 "evolves_at": 16,
-                "species": "Dreadspinner",
+                "species": "Duskspinner",
                 "pet_type": ["Ghost", "Poison"],
                 "rarity": "Rare",
                 "description": "A larger, more terrifying form that wraps itself in a shroud of writhing Gloom-silk. Its eight limbs move with unsettling precision, and the webs it spins can trap both body and spirit.",
@@ -433,6 +433,36 @@ PET_DATABASE = {
                     "22": ["caustic_venom"],
                     "27": {"choice": ["sludge_bomb", "venomous_erosion"]},
                     "32": ["soulrend"]
+                },
+                "evolutions": {
+                    "Veilmother": {
+                        "evolves_at": 30,
+                        "species": "Veilmother",
+                        "pet_type": ["Ghost", "Poison"],
+                        "rarity": "Ancient",
+                        "is_gloom_touched": True,
+                        "description": (
+                            "The final form of the Grimweave line. Lives on the east wall face "
+                            "of the Weeping Chasm, passive and vast. Doesn't hunt — waits. "
+                            "Everything that falls into the chasm finds its web. The east wall "
+                            "webbing is visible from the Chasm's Edge. Capturable only at "
+                            "Legend rank, theoretically."
+                        ),
+                        "base_capture_rate": 2,
+                        "passive_ability": {
+                            "name": "Endless Web",
+                            "description": "At battle start, the opponent's speed is reduced by 20% and cannot be increased.",
+                        },
+                        "base_stat_ranges": {"hp": [90, 96], "attack": [82, 88], "defense": [65, 71],
+                                             "special_attack": [105, 111], "special_defense": [78, 84], "speed": [70, 76]},
+                        "growth_rates": {"hp": 2.8, "attack": 2.6, "defense": 2.0, "special_attack": 3.2,
+                                         "special_defense": 2.4, "speed": 2.2},
+                        "skill_tree": {
+                            "32": ["soulrend"],
+                            "38": {"choice": ["umbral_shift", "venomous_erosion"]},
+                            "45": ["miasmal_aura"],
+                        },
+                    }
                 }
             }
         }
@@ -482,6 +512,183 @@ PET_DATABASE = {
                 }
             }
         }
+    },
+
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Weeping Chasm
+    # -------------------------------------------------------------------------
+
+    "Gauntling": {
+        "species": "Gauntling", "pet_type": ["Ghost", "Normal"], "rarity": "Common",
+        "personality": "Timid",
+        "is_gloom_touched": True,
+        "description": (
+            "A creature that has lived too close to the Gloom source for generations. "
+            "Not violently corrupted — born already fading. Partially translucent, "
+            "slow-moving, like something losing its physical definition over time. "
+            "It isn't Hollowed yet. It's on the way there and doesn't know it."
+        ),
+        "base_capture_rate": 38,
+        "passive_ability": {
+            "name": "Fading Form",
+            "description": "Small chance to phase through incoming physical attacks.",
+        },
+        "base_stat_ranges": {
+            "hp": [35, 40], "attack": [25, 30], "defense": [20, 25],
+            "special_attack": [38, 43], "special_defense": [30, 35], "speed": [32, 37],
+        },
+        "growth_rates": {
+            "hp": 1.6, "attack": 1.2, "defense": 1.0, "special_attack": 1.8,
+            "special_defense": 1.4, "speed": 1.5,
+        },
+        "skill_tree": {
+            "1": ["pound", "confuse_ray"],
+            "6": ["mist"],
+            "11": {"choice": ["umbral_shift", "siphon_sorrow"]},
+        },
+        "evolutions": {
+            "Waneling": {
+                "evolves_at": 15,
+                "species": "Waneling", "pet_type": ["Ghost", "Normal"], "rarity": "Uncommon",
+                "is_gloom_touched": True,
+                "description": (
+                    "Further faded. More ghost than creature now. Barely there. "
+                    "Still moves. Still hunts. At this stage it barely registers on "
+                    "the eye — you sense it more than see it."
+                ),
+                "base_stat_ranges": {
+                    "hp": [50, 56], "attack": [38, 44], "defense": [30, 36],
+                    "special_attack": [58, 64], "special_defense": [46, 52], "speed": [50, 56],
+                },
+                "growth_rates": {
+                    "hp": 2.0, "attack": 1.6, "defense": 1.3, "special_attack": 2.2,
+                    "special_defense": 1.8, "speed": 1.9,
+                },
+                "skill_tree": {
+                    "16": ["grudge"],
+                    "21": ["soulrend"],
+                    "26": {"choice": ["umbral_shift", "precognition"]},
+                },
+            },
+        },
+    },
+
+    "Rimecrawl": {
+        "species": "Rimecrawl", "pet_type": ["Ice", "Poison"], "rarity": "Uncommon",
+        "personality": "Defensive",
+        "is_gloom_touched": True,
+        "description": (
+            "Moves along the chasm walls, slow and methodical. Leaves trails of "
+            "frost-laced Gloom residue. Where it passes, the stone gets colder. "
+            "You notice the trails before you notice the creature. "
+            "Patient. Creeping. Wrong in a quiet way."
+        ),
+        "base_capture_rate": 28,
+        "passive_ability": {
+            "name": "Cold Trail",
+            "description": "Leaves a frost residue on the field — minor damage and speed reduction to opponents who attack.",
+        },
+        "base_stat_ranges": {
+            "hp": [44, 50], "attack": [30, 36], "defense": [48, 54],
+            "special_attack": [42, 48], "special_defense": [44, 50], "speed": [18, 24],
+        },
+        "growth_rates": {
+            "hp": 1.9, "attack": 1.3, "defense": 2.1, "special_attack": 1.8,
+            "special_defense": 1.9, "speed": 0.9,
+        },
+        "skill_tree": {
+            "1": ["pound", "poison_sting"],
+            "7": ["harden"],
+            "13": {"choice": ["acid_armor", "venomous_haze"]},
+        },
+        "evolutions": {
+            "Frostbile": {
+                "evolves_at": 16,
+                "species": "Frostbile", "pet_type": ["Ice", "Poison"], "rarity": "Rare",
+                "is_gloom_touched": True,
+                "description": (
+                    "Larger, slower. The trail it leaves now crystallizes into something "
+                    "that damages anything walking through it. Turns the terrain into a weapon."
+                ),
+                "base_stat_ranges": {
+                    "hp": [65, 71], "attack": [46, 52], "defense": [72, 78],
+                    "special_attack": [62, 68], "special_defense": [66, 72], "speed": [14, 20],
+                },
+                "growth_rates": {
+                    "hp": 2.3, "attack": 1.7, "defense": 2.5, "special_attack": 2.2,
+                    "special_defense": 2.3, "speed": 0.8,
+                },
+                "skill_tree": {
+                    "17": ["miasmal_aura"],
+                    "23": ["caustic_venom"],
+                    "28": {"choice": ["venomous_erosion", "contagious_blight"]},
+                    "35": ["ossuary_aegis"],
+                },
+            },
+        },
+    },
+
+    "Threshling": {
+        "species": "Threshling", "pet_type": ["Dark", "Ghost"], "rarity": "Rare",
+        "personality": "Aggressive",
+        "is_gloom_touched": True,
+        "description": (
+            "Caught at the threshold between existence and full Gloom consumption. "
+            "Parts of it solid, parts of it mist. One eye clear, one eye dark. "
+            "Not fully Hollowed — locked in between states. "
+            "Gretta caught one at this exact moment and has held it there."
+        ),
+        "base_capture_rate": 12,
+        "passive_ability": {
+            "name": "Threshold",
+            "description": "Drains a small amount of the opponent's Gloom Meter passively each turn.",
+        },
+        "base_stat_ranges": {
+            "hp": [52, 58], "attack": [58, 64], "defense": [38, 44],
+            "special_attack": [55, 61], "special_defense": [42, 48], "speed": [44, 50],
+        },
+        "growth_rates": {
+            "hp": 2.1, "attack": 2.4, "defense": 1.6, "special_attack": 2.2,
+            "special_defense": 1.7, "speed": 1.8,
+        },
+        "skill_tree": {
+            "1": ["rotten_grasp", "grudge"],
+            "8": ["siphon_sorrow"],
+            "15": {"choice": ["umbral_shift", "soulrend"]},
+        },
+        "evolutions": {
+            "Threshbound": {
+                "evolves_at": 20,
+                "species": "Threshbound", "pet_type": ["Dark", "Ghost"], "rarity": "Ancient",
+                "is_gloom_touched": True,
+                "description": (
+                    "Has been held at the threshold so long it IS the threshold. "
+                    "Not because it grew larger, but because it became something that "
+                    "defies classification. Barely contained. Seeing one should feel "
+                    "like a warning. Gretta has one. Nobody else does."
+                ),
+                "base_capture_rate": 1,
+                "passive_ability": {
+                    "name": "Threshold Mastery",
+                    "description": "Drains the opponent's Gloom Meter each turn and converts it to HP.",
+                },
+                "base_stat_ranges": {
+                    "hp": [80, 86], "attack": [88, 94], "defense": [58, 64],
+                    "special_attack": [82, 88], "special_defense": [62, 68], "speed": [62, 68],
+                },
+                "growth_rates": {
+                    "hp": 2.5, "attack": 2.8, "defense": 2.0, "special_attack": 2.6,
+                    "special_defense": 2.1, "speed": 2.2,
+                },
+                "skill_tree": {
+                    "21": ["soulrend"],
+                    "26": ["umbral_shift"],
+                    "32": {"choice": ["grudge", "sorrowful_strike"]},
+                    "40": ["overwhelm"],
+                },
+            },
+        },
     },
 
     # -------------------------------------------------------------------------
@@ -699,10 +906,14 @@ ENCOUNTER_TABLES = {
     },
     "whisperwoodGrove": {
         "day": ["Mossling", "Sunpetal Moth"],
-        "night": ["Mossling", "Gloom Weaver", "Moonpetal Sprite"]
+        "night": ["Mossling", "Grimweave", "Moonpetal Sprite"]
     },
     "mirefields": {
         "day": ["Murkback", "Pallefin", "Mossling", "Corroder"],
-        "night": ["Murkback", "Gloom Weaver", "Siltborn", "Corroder"],
+        "night": ["Murkback", "Grimweave", "Siltborn", "Corroder"],
+    },
+    "weeping_chasm": {
+        "day": ["Gauntling", "Rimecrawl", "Corroder"],
+        "night": ["Gauntling", "Rimecrawl", "Grimweave", "Corroder", "Waneling", "Frostbile", "Grimplate", "Threshling"],
     },
 }
