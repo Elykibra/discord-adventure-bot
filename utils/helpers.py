@@ -39,6 +39,17 @@ def get_connections(location_id: str) -> dict:
     """Returns the connections dict for a town or remnant."""
     return get_location_data(location_id).get('connections', {})
 
+
+def get_travel_cost(from_id: str, to_id: str, default: int = 10) -> int:
+    """
+    Returns the energy cost to travel from one location to another.
+    Checks connection_costs on the source location first.
+    Falls back to the provided default (usually ACTION_COSTS["travel"]["energy"]).
+    """
+    source = get_location_data(from_id)
+    return source.get('connection_costs', {}).get(to_id, default)
+
+
 async def get_town_embed(bot, user_id, town_id):
     """Creates a dynamic embed for a town without the status bar."""
     db_cog = bot.get_cog('Database')
