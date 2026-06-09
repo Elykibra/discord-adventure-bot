@@ -22,6 +22,22 @@ from data.quests import QUESTS
 from data.skills import PET_SKILLS
 from .constants import PET_IMAGE_URLS, CREST_RANKS, DEFENSIVE_TYPE_CHART
 from data.towns import TOWNS
+from data.remnants import REMNANTS
+
+
+def get_location_data(location_id: str) -> dict:
+    """Returns location data from TOWNS or REMNANTS, whichever has the id."""
+    return TOWNS.get(location_id) or REMNANTS.get(location_id) or {}
+
+
+def is_remnant(location_id: str) -> bool:
+    """Returns True if the location is a Remnant (road stop), not a town."""
+    return location_id in REMNANTS
+
+
+def get_connections(location_id: str) -> dict:
+    """Returns the connections dict for a town or remnant."""
+    return get_location_data(location_id).get('connections', {})
 
 async def get_town_embed(bot, user_id, town_id):
     """Creates a dynamic embed for a town without the status bar."""
@@ -46,6 +62,32 @@ async def get_town_embed(bot, user_id, town_id):
         embed.set_image(url=town_image_url)
     return embed
 
+async def get_remnant_embed(bot, user_id: int, remnant_id: str) -> discord.Embed:
+    """Creates a discord Embed for a Remnant road stop."""
+    db_cog = bot.get_cog('Database')
+    player_data = await db_cog.get_player(user_id)
+    time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
+    remnant = REMNANTS.get(remnant_id, {})
+    description = (
+        remnant.get(f'description_{time_of_day}')
+        or remnant.get('description_day')
+        or remnant.get('description', 'A quiet stretch of road.')
+    )
+    embed = discord.Embed(
+        title=f"{remnant.get('emoji', '📍')} {remnant.get('name', remnant_id)}",
+        description=description,
+        color=discord.Color.dark_green()
+    )
+    gloom = remnant.get('gloom_level', 0)
+    if gloom > 0:
+        embed.add_field(
+            name="🌑 Zone Hazard: Lingering Gloom",
+            value=f"The corruption is strong here. All battles will start with **{gloom}% Gloom**.",
+            inline=False
+        )
+    return embed
+
+
 def get_player_rank_info(num_crests):
     """Determines the player's rank and provides progress info."""
     current_rank_info = CREST_RANKS[0]
@@ -69,7 +111,7 @@ def get_location_display_name(location_id: str) -> str:
     Returns a human-readable name for a location ID.
     Checks top-level towns first, then sub-location explore zones, then falls back to a clean ID format.
     """
-    # Top-level town (e.g. "oakhavenWilds", "oakhavenOutpost")
+    # Top-level town (e.g. "outpostWilds", "oakhavenOutpost")
     if location_id in TOWNS:
         return TOWNS[location_id]['name']
     # Sub-location explore zone (e.g. "oakhavenOutpost_rottingPits")

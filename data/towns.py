@@ -16,14 +16,13 @@ TOWNS = {
         "description_day": "The scent of fresh-cut pine fills the air. A single, ancient oak tree stands as a silent sentinel over this humble collection of sturdy log cabins.",
 
         # --- THIS IS FOR THE "TRAVEL" BUTTON ---
-        # Oakhaven Wilds is NOT here — it's accessed via Explore Wilds, not Travel.
+        # outpostWilds accessed via Explore Wilds button, not Travel.
+        # Step-by-step travel: Oakhaven → Weeping Chasm → Mirefields → Whisperwood
         "connections": {
-            "whisperwoodGrove": "Whisperwood Grove"
+            "weeping_chasm": "Weeping Chasm",
         },
-        # Optional flag required per destination. If set, the destination is hidden
-        # from the travel menu until the player has that flag.
         "connection_requirements": {
-            "whisperwoodGrove": "quest_a_guildsmans_first_steps_completed"
+            "weeping_chasm": "quest_a_guildsmans_first_steps_completed"
         },
 
         # --- THIS IS FOR THE DROPDOWN MENU ---
@@ -126,18 +125,22 @@ TOWNS = {
             }
         }
     },
-                # --- MOVED TO HERE ---
-                "oakhavenWilds": {
-                    "id": "oakhavenWilds",
-                    "name": "Oakhaven Wilds",
-                    "is_wilds": True,
-                    "description": "The rugged wilderness just outside the safety of the outpost.",
-                    "connections": {
-                        "oakhavenOutpost": "Oakhaven Outpost"
-                    },
-                    "explore_zone": "oakhavenWilds"
-                },
+    # Outpost Wilds — accessed via Explore Wilds button from Oakhaven Outpost
+    "outpostWilds": {
+        "id": "outpostWilds",
+        "name": "Outpost Wilds",
+        "is_wilds": True,
+        "description": "The rugged wilderness just outside the safety of the outpost. Tar fumes drift on the wind, and the underbrush stirs with unseen creatures.",
+        "connections": {
+            "oakhavenOutpost": "Oakhaven Outpost"
+        },
+        "explore_zone": "outpostWilds"
+    },
 
+    # ---------------------------------------------------------------------------
+    # TOWN 2 — Whisperwood Grove
+    # First real town. Home of the Verdant Crest and Elder Vexia.
+    # ---------------------------------------------------------------------------
     "whisperwoodGrove": {
         "id": "whisperwoodGrove",
         "name": "Whisperwood Grove",
@@ -148,31 +151,90 @@ TOWNS = {
         "description_night": "Under the soft glow of the moon, the forest takes on a mystical quality. Lumina-moths float gently through the air, casting a soft light on the winding paths.",
         # Legacy fallback
         "description_day": "A tranquil and ancient forest where colossal trees reach for the sky. The town is built into the trees themselves, with winding rope bridges connecting cozy, treetop homes.",
+
+        # Travel connections — Whisperwood Wilds accessed via Explore Wilds button, not Travel
+        # Step-by-step travel: Whisperwood ← Mirefields ← Weeping Chasm ← Oakhaven
         "connections": {
-            "whisperwoodWilds": "Whisperwood Wilds",
-            "oakhavenOutpost": "Oakhaven Outpost"  # Travel back to the outpost itself
+            "mirefields": "Mirefields",
+            "whisperwoodWilds": "Whisperwood Wilds",  # is_wilds=True → renders as Explore Wilds button
         },
-        "prerequisite": None,
+
         "locations": {
-            "guild_hall": {
-                "name": "The Verdant Spire Guild Hall",
-                "availability": "day",
-                "description": "The center of Guild operations in Whisperwood Grove. Elder Vexia can often be found here, her wisdom as ancient as the trees.",
+            # ------------------------------------------------------------------
+            # 1. The Leaf-Lit Lodge — rest & pet healing, Arboreal the Treant
+            # ------------------------------------------------------------------
+            "leaf_lit_lodge": {
+                "name": "The Leaf-Lit Lodge",
+                "emoji": "🌳",
+                "menu_description": "A healing lodge tended by an ancient Treant. Restore your companions here.",
+                "availability": "all",
+                "description_day": "A large, welcoming lodge woven from living branches and glowing moss. Soft light emanates from within, and the gentle chirping of various forest creatures fills the air.",
+                "description_night": "Even in the dark, the lodge glows with a warm, bioluminescent light. The old Treant's lanterns never go out.",
+                "services": {
+                    "rest": {
+                        "type": "lodge",
+                        "cost": 0,
+                        "energy_restore_percent": 0,
+                        "health_restore_percent": 100,  # Free full pet HP restore
+                    }
+                },
                 "npcs": {
-                    "vexia": {
-                        "name": "Elder Vexia",
-                        "role": "Guild Master",
+                    "arboreal": {
+                        "name": "Arboreal",
+                        "role": "Treant Healer",
+                        "availability": "all",
                         "dialogue": {
-                            "day": "Welcome, young one. The whispers of the woods precede you. There is a sickness in this forest that needs a steady hand.",
-                            "quest_related": "A darkness gnaws at the heart of this grove. I need you to venture into the Whispering Thicket and find the source of the corruption."
+                            "default": "Welcome, young Adventurer. Let the forest's embrace soothe your companions. Rest here, for the path ahead demands strong bonds.",
+                            "after_heal": "May your roots grow deep, and your spirit soar.",
                         }
                     }
                 }
             },
-            "shop": {
-                "name": "The Root & Branch Emporium",
+
+            # ------------------------------------------------------------------
+            # 2. The Verdant Spire Guild Hall — Elder Vexia + Linden the Scribe
+            # ------------------------------------------------------------------
+            "verdant_spire": {
+                "name": "The Verdant Spire Guild Hall",
+                "emoji": "🏛️",
+                "menu_description": "The heart of Guild activity in the Grove. Speak with Elder Vexia.",
                 "availability": "day",
-                "description": "A cozy shop built into the base of a massive tree, run by a friendly Snail-folk named Slithers.",
+                "description_day": "A massive, hollowed-out ancient tree spiraling upwards with mossy walls and natural light. The air smells of old parchment and fresh leaves. Adventurers bustle throughout.",
+                "description_night": "The Guild Hall is dimly lit at night. Linden keeps a single candle burning at the Quest Board, but Elder Vexia has retired for the evening.",
+                "npcs": {
+                    "vexia": {
+                        "name": "Elder Vexia",
+                        "role": "Guild Master",
+                        "availability": "day",
+                        "dialogue": {
+                            "default": "The Grand Master's vision echoes even here, young one. The Verdant Crest is not won, but earned through understanding of nature's delicate balance.",
+                            "quest_whisperwoods_plea_active": "The Thicket grows darker by the day. Find the source of the corruption — the Heart of Decay. The forest is counting on you.",
+                            "quest_whisperwoods_plea_complete": "You've shown kindness and understanding. Now, let us see the strength of your bond. Face my companion — and prove yourself worthy.",
+                            "crest_earned": "The Verdant Crest rests with a worthy guardian, Adventurer. May its light guide you to the next challenge.",
+                        }
+                    },
+                    "linden": {
+                        "name": "Linden",
+                        "role": "Guild Scribe",
+                        "availability": "all",
+                        "dialogue": {
+                            "default": "Welcome to the Verdant Spire Guild Hall! Please check the Quest Board for available tasks. Remember, proper documentation is key!",
+                            "quest_complete": "Another quest completed? Excellent! Make sure you fill out the proper forms, Adventurer.",
+                        }
+                    }
+                }
+            },
+
+            # ------------------------------------------------------------------
+            # 3. The Root & Branch Emporium — Slithers the Snail-folk shopkeeper
+            # ------------------------------------------------------------------
+            "root_branch_emporium": {
+                "name": "The Root & Branch Emporium",
+                "emoji": "🛒",
+                "menu_description": "A quirky shop in the roots of the oldest tree. Pick up supplies and Capture Orbs.",
+                "availability": "day",
+                "description_day": "A quirky, charming shop built into the sprawling root system of the Grove's oldest tree. Shelves are laden with vials of dewdrop potions, bundles of strong vines, and various unusual forest finds.",
+                "description_night": "The shutters are closed. Slithers keeps early hours — come back when the sun warms the canopy.",
                 "items_for_sale": ["capture_orb", "moss_balm", "simple_sleeping_bag", "potion", "greater_potion"],
                 "services": {
                     "shop": True
@@ -181,58 +243,106 @@ TOWNS = {
                     "slithers": {
                         "name": "Slithers",
                         "role": "Shopkeeper",
-                        "dialogue": { "day": "Looking for supplies? You've come to the right... shell!" }
+                        "availability": "day",
+                        "dialogue": {
+                            "default": "Welcome, welcome, Adventurer! Need anything for the road? My wares are as fresh as the morning dew!",
+                            "capture_orb_hint": "Ah, a Capture Orb! Essential for befriending new forest friends!",
+                        }
                     }
                 }
             },
-            "inn": {
+
+            # ------------------------------------------------------------------
+            # 4. The Moonpetal Inn — full rest (costs coins)
+            # ------------------------------------------------------------------
+            "moonpetal_inn": {
                 "name": "The Moonpetal Inn",
+                "emoji": "🌙",
+                "menu_description": "A cozy inn glowing with moonpetal light. Sleep here to fully restore.",
                 "availability": "all",
-                "description": "A comfortable inn where you can get a full night's rest for a small fee.",
+                "description_day": "A cozy inn constructed from large, glowing moonpetal flowers and sturdy tree trunks. The air inside is filled with soothing, herbal scents.",
+                "description_night": "The inn glows warmly against the dark forest. A perfect place to rest weary bones and restore your companions.",
                 "services": {
                     "rest": {
                         "type": "inn",
-                        "cost": 10,
+                        "cost": 15,
                         "energy_restore_percent": 100,
-                        "health_restore_percent": 100
+                        "health_restore_percent": 100,
+                    }
+                },
+                "npcs": {
+                    "mira": {
+                        "name": "Mira",
+                        "role": "Innkeeper",
+                        "availability": "all",
+                        "dialogue": {
+                            "default": "Welcome to the Moonpetal Inn. Dust off your boots and rest a while — the forest will still be there in the morning.",
+                            "night": "You've come at the right hour. The inn is quietest now. The Lumina-moths are out, and the moonpetals are in full bloom. Quite a sight, if you're not too tired to look.",
+                            "after_rest": "Sleep well? The grove has a way of making even the most restless adventurers feel at home.",
+                        }
                     }
                 }
             },
-                "exploration": {
-                    "name": "The Whispering Thicket",
-                    "availability": "all",
-                    "description": "The deeper, untamed part of the forest. Be wary, as stronger creatures lurk here.",
-                    "services": {
-                        "explore_zone": "whisperwoodGrove"
+
+            # ------------------------------------------------------------------
+            # 5. The Whispering Thicket — primary explore zone, Fae Whisper NPC
+            # ------------------------------------------------------------------
+            "whispering_thicket": {
+                "name": "The Whispering Thicket",
+                "emoji": "🌿",
+                "menu_description": "Darker and wilder than the grove. Strange calls echo from within.",
+                "availability": "all",
+                "description_day": "A deeper, more overgrown section of the Whisperwood. The paths are less clear and the shadows are heavier. Strange calls echo from within.",
+                "description_night": "Under the moonlight, the Thicket feels genuinely threatening. The Gloom is stronger here, and the rustle of unseen creatures follows your every step.",
+                "services": {
+                    "explore_zone": "whisperwoodGrove",
+                    "gloom_level": 15,
+                },
+                "npcs": {
+                    "fae_whisper": {
+                        "name": "Fae Whisper",
+                        "role": "Pixie Sprite",
+                        "availability": "all",
+                        "dialogue": {
+                            "default": "*A tiny sprite flits past, leaving a trail of glittering dust.* Follow the lights, Adventurer... if you dare.",
+                        }
                     }
-                },
-                "whisperwoodWilds": { # --- NEW WILDS ZONE ---
-                    "id": "whisperwoodWilds",
-                    "name": "Whisperwood Wilds",
-                    "is_wilds": True,
-                    "description": "The dense, untamed forest surrounding the Grove.",
-                    "connections": {
-                        "whisperwoodGrove": "Whisperwood Grove"
-                    },
-                    "explore_zone": "whisperwoodGrove"
-                },
-            }
+                }
+            },
+        }
+    },
+
+    # Whisperwood Wilds — accessed via Explore Wilds button from Whisperwood Grove
+    "whisperwoodWilds": {
+        "id": "whisperwoodWilds",
+        "name": "Whisperwood Wilds",
+        "is_wilds": True,
+        "description": "The dense, untamed forest surrounding the Grove. Ancient trees loom overhead, their roots twisting across the path. The deeper you go, the heavier the air becomes.",
+        "connections": {
+            "whisperwoodGrove": "Whisperwood Grove"
         },
-            "sunstoneOasis": {
-                "id": "sunstoneOasis",
-                "name": "Sunstone Oasis",
-                "rank": "Journeyman",
-                "description_morning": "The desert air is crisp and cool before the sun fully rises. Merchants set up their stalls early, and the oasis glimmers with the promise of another day.",
-                "description_noon": "The heat is at its peak, driving most locals into the shade of canvas awnings. The oasis water shimmers brilliantly — a welcome refuge from the relentless sun.",
-                "description_evening": "As the sun sinks toward the dunes, the temperature drops rapidly and the oasis town truly comes alive. Lanterns are lit, music drifts through warm evening air.",
-                "description_night": "Under the cool desert night, the oasis comes alive with the glow of lanterns and the sound of music. The stars above are brilliant and clear.",
-                # Legacy fallback
-                "description_day": "A bustling town built around a life-giving oasis in the heart of a vast, sun-scorched desert. The heat is intense, but the spirit of the locals is resilient.",
-                "connections": ["whisperwoodGrove"], # Connection back to the grove
-                "prerequisite": None,
-                "locations": {
-                    # We can leave this empty for now
-                }
-            },
-    # ... (rest of the town data would go here)
-            }
+        "explore_zone": "whisperwoodGrove"
+    },
+
+    # ---------------------------------------------------------------------------
+    # TOWN 3 — Sunstone Oasis (stub, unlocked after Verdant Crest)
+    # ---------------------------------------------------------------------------
+    "sunstoneOasis": {
+        "id": "sunstoneOasis",
+        "name": "Sunstone Oasis",
+        "rank": "Journeyman",
+        "description_morning": "The desert air is crisp and cool before the sun fully rises. Merchants set up their stalls early, and the oasis glimmers with the promise of another day.",
+        "description_noon": "The heat is at its peak, driving most locals into the shade of canvas awnings. The oasis water shimmers brilliantly — a welcome refuge from the relentless sun.",
+        "description_evening": "As the sun sinks toward the dunes, the temperature drops rapidly and the oasis town truly comes alive. Lanterns are lit, music drifts through warm evening air.",
+        "description_night": "Under the cool desert night, the oasis comes alive with the glow of lanterns and the sound of music. The stars above are brilliant and clear.",
+        # Legacy fallback
+        "description_day": "A bustling town built around a life-giving oasis in the heart of a vast, sun-scorched desert. The heat is intense, but the spirit of the locals is resilient.",
+        "connections": {
+            "whisperwoodGrove": "Whisperwood Grove",
+        },
+        "locations": {
+            # Content coming in Town 3 update
+        }
+    },
+    # ... (remaining towns to be added)
+}

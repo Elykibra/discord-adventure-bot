@@ -13,10 +13,10 @@ from data.pets import PET_DATABASE, ENCOUNTER_TABLES
 from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE
 from data.explore_events import get_zone_events, get_zone_loot
-from utils.helpers import get_status_bar, get_town_embed, check_quest_progress, get_notification
+from utils.helpers import get_status_bar, get_town_embed, get_remnant_embed, check_quest_progress, get_notification, is_remnant
 from core.battle_engine import BattleState  # <-- Key Change: Importing from core
 from .resources import ACTION_COSTS
-from .views.towns import TownView, WildsView
+from .views.towns import TownView, WildsView, RemnantView
 from .views.combat import CombatView
 
 
@@ -41,6 +41,10 @@ class Adventure(commands.Cog):
         if location_data.get('is_wilds', False):
             view = WildsView(self.bot, interaction, location_id)
             embed = view.embed
+        elif is_remnant(location_id):
+            embed = await get_remnant_embed(self.bot, interaction.user.id, location_id)
+            view = RemnantView(self.bot, interaction, location_id)
+            await view.initial_setup()
         else:
             embed = await get_town_embed(self.bot, interaction.user.id, location_id)
             view = TownView(self.bot, interaction, location_id)

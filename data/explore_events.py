@@ -131,9 +131,9 @@ EXPLORE_EVENTS = {
     ],
 
     # ─────────────────────────────────────────────
-    # Oakhaven Wilds
+    # Outpost Wilds
     # ─────────────────────────────────────────────
-    "oakhavenWilds": [
+    "outpostWilds": [
 
         # --- Flavor ---
         {
@@ -262,7 +262,7 @@ ZONE_LOOT_TABLES = {
         ("moss_balm",        2),
         ("tether_orb",       1),
     ],
-    "oakhavenWilds": [
+    "outpostWilds": [
         ("sun_kissed_berries", 4),
         ("trail_morsels",      2),
         ("moss_balm",          1),
