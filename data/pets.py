@@ -519,7 +519,7 @@ def get_pet_data(species: str) -> dict:
 
 ENCOUNTER_TABLES = {
 
-    "oakhavenWilds": {
+    "outpostWilds": {
         "day": ["Pineling"],
         "night": ["Pineling"]
     },

@@ -5,7 +5,7 @@ from discord.ext import commands
 # This dictionary defines the costs for each action.
 ACTION_COSTS = {
     "explore": {"energy": 2, "hunger": 1},
-    "travel": {"energy": 3, "hunger": 2},
+    "travel": {"energy": 10, "hunger": 2},
     "battle": {"energy": 5, "hunger": 3}
 }
 
