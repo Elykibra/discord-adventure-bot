@@ -23,6 +23,16 @@ ITEMS = {
         "effect": {"type": "heal_pet", "value": 20},
         "actions": ["use", "drop", "inspect"]
     },
+    "mire_balm": {
+        "name": "Mire Balm",
+        "description": "A compress made from bog herbs. Slightly less potent than Moss Balm, but Sable always has it in stock. Heals for 15 HP.",
+        "dropdown_description": "Heals your pet.",
+        "menu_description": "Heals your pet for 15 HP. A Mirefields staple.",
+        "category": "Consumables",
+        "price": 15,
+        "effect": {"type": "heal_pet", "value": 15},
+        "actions": ["use", "drop", "inspect"]
+    },
     "sun_kissed_berries": {
         "name": "Sun-Kissed Berries",
         "description": "Sweet berries that restore 25 player energy.",
@@ -46,6 +56,33 @@ ITEMS = {
     },
 
     # Crafting Materials
+    "bog_reed_bundle": {
+        "name": "Bog Reed Bundle",
+        "description": "Dense dried reeds from the Mirefields, bound tight. No use yet — but something this sturdy probably has one.",
+        "dropdown_description": "Crafting material.",
+        "menu_description": "Dense Mirefields reeds. Future crafting use.",
+        "category": "Crafting Materials",
+        "price": 8,
+        "actions": ["drop", "inspect"],
+    },
+    "murk_fragment": {
+        "name": "Murk Fragment",
+        "description": "A shard of mud-rock plating that flakes off a Murkback or Murkwall naturally. Dense and oddly smooth on one side.",
+        "dropdown_description": "Crafting material from Murkback.",
+        "menu_description": "Shed plating from a Murkback or Murkwall. Future crafting use.",
+        "category": "Crafting Materials",
+        "price": 12,
+        "actions": ["drop", "inspect"],
+    },
+    "pallefin_scale": {
+        "name": "Pallefin Scale",
+        "description": "A translucent, faintly luminescent scale shed by a Pallefin or Shimmerdeep. Rare. Catches light in a way that doesn't quite make sense.",
+        "dropdown_description": "Rare crafting material from Pallefin.",
+        "menu_description": "A rare luminescent scale. Future crafting use.",
+        "category": "Crafting Materials",
+        "price": 35,
+        "actions": ["drop", "inspect"],
+    },
     "mana_stone": {
         "name": "Mana Stone",
         "description": "A crystal humming with raw magical energy. Used to craft powerful artifacts.",
@@ -354,5 +391,30 @@ ITEMS = {
             "type": "restore_hunger",
             "value": 30
         }
-    }
+    },
+
+    # Lore Items
+    "waystation_ledger": {
+        "name": "Waystation Ledger",
+        "description": (
+            "Trader records from the Mirefields crossroads, back when it was still active. "
+            "Cargo manifests, names, dates — a place that mattered to people. "
+            "The last entry cuts off mid-sentence. The ink is still dry."
+        ),
+        "dropdown_description": "Lore item from the Old Crossroads.",
+        "menu_description": "Records from the Mirefields waystation. Read to learn its history.",
+        "category": "Lore Items",
+        "price": 0,
+        "actions": ["inspect", "drop"],
+        "lore_text": (
+            "**Waystation Ledger — Final Entries**\n\n"
+            "The records are methodical until the last few pages. Cargo in, cargo out. "
+            "Names of traders, quantities, dates. A place that worked.\n\n"
+            "The second-to-last entry notes a \"territorial disturbance near the south "
+            "foundation\" and a recommendation to reroute the eastern path.\n\n"
+            "The last entry is dated two weeks later. It reads: *\"Something has moved into "
+            "the ruins. Orin says leave it. Vessan says we can drive it out if we —\"*\n\n"
+            "It stops there."
+        ),
+    },
 }

@@ -259,6 +259,24 @@ REMNANTS = {
                     "The trail is nearly invisible in the dark. Every sound is amplified. "
                     "Moving through here at night requires patience and a steady pet."
                 ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_bogside_trail",
+                        "text": (
+                            "The path disappears under two inches of brown water. "
+                            "You can't tell if it continues forward or if you've already stepped off it. "
+                            "Somewhere to your left, something shifts in the reeds."
+                        ),
+                    },
+                    {
+                        "condition": "time:night",
+                        "once": False,
+                        "text": (
+                            "*The fog is worse at night. You knew that before you came out here.*"
+                        ),
+                    },
+                ],
                 "services": {
                     "explore_zone": "mirefields",
                     "gloom_level": 8,
@@ -274,15 +292,47 @@ REMNANTS = {
                 "description_day": (
                     "A compact camp built from salvaged wood and waterproofed canvas. "
                     "Traps and pelts hang from a line. Sable runs a lean operation — "
-                    "everything here has a purpose."
+                    "everything here has a purpose. A large armored creature rests on "
+                    "a flat rock near the water's edge, motionless."
                 ),
                 "description_night": (
                     "The camp lantern is on. Sable keeps late hours. "
-                    "Half the road traffic passes through at night, and she knows it."
+                    "The armored creature on the flat rock hasn't moved. "
+                    "You're not sure it's sleeping."
                 ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_sables_post",
+                        "text": (
+                            "Sable glances up from her work. *\"You lost? Most people "
+                            "don't come through here by choice. I've got supplies — "
+                            "nothing fancy, but it'll keep you alive.\"*"
+                        ),
+                    },
+                    {
+                        "condition": "has_pet_species:Murkback",
+                        "once": True,
+                        "flag": "sable_murkback_reaction_seen",
+                        "text": (
+                            "Sable's eyes drop to your pet for a moment. "
+                            "*\"Caught one of those, did you. Give it time.\"* "
+                            "She doesn't elaborate."
+                        ),
+                    },
+                    {
+                        "condition": "time:night",
+                        "once": False,
+                        "text": (
+                            "*\"You're braver than most, traveling through here at night. "
+                            "Or dumber. Hard to tell.\"*"
+                        ),
+                    },
+                ],
                 "services": {
                     "shop": True,
-                    "shop_items": ["moss_balm", "trail_morsels", "tether_orb"],
+                    "shop_items": ["mire_balm", "trail_morsels", "tether_orb", "bog_reed_bundle", "murk_fragment"],
+                    "shop_items_night": ["trail_morsels", "tether_orb", "bog_reed_bundle", "murk_fragment"],  # mire_balm out of stock at night
                     "rest": {
                         "type": "rough_camp",
                         "cost": 0,
@@ -301,6 +351,22 @@ REMNANTS = {
                         "role": "Bog Trapper",
                         "emoji": "🪤",
                         "availability": "all",
+                        "pet": {
+                            "species": "murkwall",
+                            "nickname": "ledge",
+                            "nickname_visible_flag": "sable_ledge_name_revealed",
+                            "description": (
+                                "A large armored creature rests on a flat rock near the "
+                                "water's edge. It doesn't patrol. It just exists there. "
+                                "Everything else in the mire has done the math."
+                            ),
+                            "player_species_reactions": {
+                                "Murkback": (
+                                    "*\"Caught one of those, did you. Give it time.\"* "
+                                    "She doesn't elaborate."
+                                ),
+                            },
+                        },
                         "dialogue": {
                             "default": (
                                 "You lost? Most people don't come through here by choice. "
@@ -312,9 +378,158 @@ REMNANTS = {
                                 "Or dumber. Hard to tell. Watch your step — the mire shifts after dark."
                             ),
                             "sell": "Take what you need and move on. I don't do small talk.",
+                            "lore_crossroads": (
+                                "Used to be busy. Road ran right through — traders, couriers, "
+                                "a waystation that served maybe thirty people a day. Then one wet "
+                                "season the mire came up and didn't stop. "
+                                "*\"Not everything's meant to last.\"*"
+                            ),
+                            "lore_ferryn": (
+                                "*\"She's going to measure every reed in this bog and go home "
+                                "with a headache.\"* No malice in it. She just knows how this ends."
+                            ),
+                            "lore_deep_mire": (
+                                "*\"Nothing worth finding out there.\"*"
+                            ),
+                            "returning_player": (
+                                "She recognizes you. Doesn't say anything about it. "
+                                "Just sets out the usual without being asked."
+                            ),
                         },
                     },
                 },
+            },
+
+            "reed_hollow": {
+                "name": "The Reed Hollow",
+                "emoji": "🌿",
+                "menu_description": "A naturalist's camp in the reeds. Someone is studying the mire.",
+                "availability": "all",
+                # TODO: seasonal logic — Ferryn is gone at higher rank/story flag.
+                # When absent: show her field notes instead of NPC. Wire when quest line is ready.
+                "description_day": (
+                    "A tidy research camp tucked into a bend in the reeds. Charts and "
+                    "specimen jars line a folding table. A small creature is perched on "
+                    "the edge of a water sample jar, watching it intently."
+                ),
+                "description_night": (
+                    "A lantern burns low over the research table. Notes are spread across "
+                    "it, weighted down against the breeze. She works late."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_reed_hollow",
+                        "text": (
+                            "A young woman looks up from her instruments with immediate "
+                            "curiosity. *\"Oh — a traveler. Perfect timing, actually. "
+                            "Have you noticed anything unusual on the Bogside Trail? "
+                            "Unusual even for here, I mean.\"*"
+                        ),
+                    },
+                    {
+                        "condition": "has_pet_species:Pallefin",
+                        "once": True,
+                        "flag": "ferryn_pallefin_reaction_seen",
+                        "text": (
+                            "Ferryn's eyes go wide. *\"Is that — that's a Pallefin. "
+                            "Where did you find it? I've only seen Silt behave like that "
+                            "near the crossroads boundary — does yours do that too?\"* "
+                            "She's already reaching for her notes."
+                        ),
+                    },
+                ],
+                "npcs": {
+                    "ferryn": {
+                        "name": "Ferryn",
+                        "role": "Field Naturalist",
+                        "emoji": "🌿",
+                        "availability": "all",
+                        "pet": {
+                            "species": "pallefin",
+                            "nickname": "silt",
+                            "nickname_visible_flag": None,  # Ferryn tells everyone immediately
+                            "description": (
+                                "A small, almost translucent creature perches on the rim "
+                                "of a water sample jar, watching the surface intently. "
+                                "Ferryn named it on the first day. She will tell you this "
+                                "story whether you ask or not."
+                            ),
+                            "player_species_reactions": {
+                                "Pallefin": (
+                                    "*\"You have one too! I named mine Silt — it was in "
+                                    "the silt, it seemed right. What's yours called?\"*"
+                                ),
+                            },
+                        },
+                        "dialogue": {
+                            "default": (
+                                "Oh — yes, hello. I'm cataloguing the bog expansion. "
+                                "The mire is growing faster than natural rates should allow. "
+                                "Something is accelerating it. I don't know what yet, "
+                                "but the instruments point toward the Old Crossroads."
+                            ),
+                            "about_sable": (
+                                "*\"She knows this place better than anyone. She just "
+                                "doesn't seem curious about why it is the way it is.\"* "
+                                "A pause. *\"She told me not to go near the crossroads. "
+                                "I'm... taking that under advisement.\"*"
+                            ),
+                            "lore_expansion": (
+                                "The growth rate is wrong. Bog expansion is measurable — "
+                                "predictable, even. This isn't that. Something here is "
+                                "feeding it. My instruments read differently near the "
+                                "Old Crossroads than anywhere else in the mire."
+                            ),
+                            "lore_crossroads": (
+                                "*\"I want to document it properly. Get close, take "
+                                "readings. Sable says not to. She didn't explain why — "
+                                "just 'not to.' I've noted it as a local superstition "
+                                "for now, but...\"* She trails off, glancing toward the fog."
+                            ),
+                        },
+                    },
+                },
+            },
+
+            "old_crossroads": {
+                "name": "The Old Crossroads",
+                "emoji": "🪨",
+                "menu_description": "Ruins of a waystation, half-swallowed by the mire.",
+                "availability": "all",
+                "description_day": (
+                    "The stone foundations of the old waystation are still visible — "
+                    "half-submerged, overgrown with dark reeds. The signpost still stands. "
+                    "Three arrows, all pointing different directions. No legible names. "
+                    "Something has been dragging through here. Recently. "
+                    "There is an unnatural stillness to this part of the mire."
+                ),
+                "description_night": (
+                    "The ruins are barely visible in the fog. The signpost casts a long "
+                    "shadow in the lantern light. You have the distinct sense that "
+                    "something here is aware of you. Not hostile. Just aware."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_old_crossroads",
+                        "text": (
+                            "The air here is different. Heavier. Your pet moves closer "
+                            "to you without being told."
+                        ),
+                    },
+                    {
+                        "condition": "time:night",
+                        "once": False,
+                        "text": (
+                            "*You came here at night. That was your choice.*"
+                        ),
+                    },
+                ],
+                # TODO: Choice event (take the ledger) — wire when quest lines are ready.
+                # The Mirewarden territory interaction is lore only for now.
+                "services": {},
+                "npcs": {},
             },
         },
     },

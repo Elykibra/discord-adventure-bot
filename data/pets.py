@@ -483,6 +483,176 @@ PET_DATABASE = {
             }
         }
     },
+
+    # -------------------------------------------------------------------------
+    # Mirefields
+    # -------------------------------------------------------------------------
+
+    "Murkback": {
+        "species": "Murkback", "pet_type": ["Water", "Ground"], "rarity": "Common",
+        "personality": "Defensive",
+        "description": (
+            "A squat, wide-bodied amphibian armored with a crust of dried mud and silt. "
+            "Slow on land, fast in shallow water. Territorial — it won't attack unless "
+            "you've stepped into its space, and then it won't stop."
+        ),
+        "base_capture_rate": 40,
+        "passive_ability": {
+            "name": "Bog Anchor",
+            "description": "Resistant to speed debuffs. Reduced knockback from all sources.",
+        },
+        "base_stat_ranges": {
+            "hp": [48, 54], "attack": [35, 40], "defense": [52, 58],
+            "special_attack": [22, 27], "special_defense": [45, 50], "speed": [18, 23],
+        },
+        "growth_rates": {
+            "hp": 2.0, "attack": 1.4, "defense": 2.4, "special_attack": 0.9,
+            "special_defense": 1.8, "speed": 0.8,
+        },
+        "skill_tree": {
+            "1": ["pound", "mud_slap"],
+            "6": ["water_pulse"],
+            "12": {"choice": ["iron_defense", "muddy_water"]},
+        },
+        "evolutions": {
+            "Murkwall": {
+                "evolves_at": 15,
+                "species": "Murkwall", "pet_type": ["Water", "Ground"], "rarity": "Uncommon",
+                "description": (
+                    "Larger, slower, and nearly immovable. The hide has thickened into "
+                    "layered mud-rock plating. Murkback's territorial instinct has become "
+                    "something quieter — it doesn't need to threaten. Everything else "
+                    "in the mire already knows to give it room."
+                ),
+                "base_stat_ranges": {
+                    "hp": [72, 78], "attack": [52, 58], "defense": [82, 88],
+                    "special_attack": [30, 36], "special_defense": [68, 74], "speed": [14, 19],
+                },
+                "growth_rates": {
+                    "hp": 2.4, "attack": 1.8, "defense": 2.8, "special_attack": 1.0,
+                    "special_defense": 2.2, "speed": 0.7,
+                },
+                "skill_tree": {
+                    "16": ["rock_wall"],
+                    "20": ["body_slam"],
+                    "25": {"choice": ["fortress_stance", "tidal_crush"]},
+                    "32": ["unyielding_focus"],
+                },
+            },
+        },
+    },
+
+    "Pallefin": {
+        "species": "Pallefin", "pet_type": "Water", "rarity": "Uncommon",
+        "personality": "Timid",
+        "description": (
+            "A small, almost translucent creature that skims the water surface without "
+            "disturbing it. Disappears into mist when startled. Unusually sensitive to "
+            "pressure and temperature — it reacts to changes in the environment before "
+            "any instrument does."
+        ),
+        "base_capture_rate": 28,
+        "passive_ability": {
+            "name": "Mist Veil",
+            "description": "Small evasion chance in fog or night conditions.",
+        },
+        "base_stat_ranges": {
+            "hp": [30, 35], "attack": [20, 25], "defense": [22, 27],
+            "special_attack": [45, 51], "special_defense": [38, 44], "speed": [50, 56],
+        },
+        "growth_rates": {
+            "hp": 1.4, "attack": 0.9, "defense": 1.0, "special_attack": 2.0,
+            "special_defense": 1.6, "speed": 2.2,
+        },
+        "skill_tree": {
+            "1": ["bubble", "swift"],
+            "7": ["mist"],
+            "13": {"choice": ["aqua_jet", "confuse_ray"]},
+        },
+        "evolutions": {
+            "Shimmerdeep": {
+                "evolves_at": 16,
+                "species": "Shimmerdeep", "pet_type": "Water", "rarity": "Rare",
+                "description": (
+                    "No longer skims the surface — descends. The translucency becomes "
+                    "a faint bioluminescence, generating soft light in dark water. "
+                    "Less ghost-like, more defined. Still environmentally sensitive, "
+                    "but now it draws attention to changes rather than fleeing from them."
+                ),
+                "base_stat_ranges": {
+                    "hp": [48, 54], "attack": [32, 38], "defense": [36, 42],
+                    "special_attack": [68, 74], "special_defense": [58, 64], "speed": [65, 71],
+                },
+                "growth_rates": {
+                    "hp": 1.8, "attack": 1.2, "defense": 1.4, "special_attack": 2.4,
+                    "special_defense": 2.0, "speed": 2.6,
+                },
+                "skill_tree": {
+                    "17": ["water_pulse"],
+                    "22": ["aurora_beam"],
+                    "27": {"choice": ["deep_current", "flash"]},
+                    "34": ["hydro_pump"],
+                },
+            },
+        },
+    },
+
+    "Siltborn": {
+        "species": "Siltborn", "pet_type": ["Poison", "Grass"], "rarity": "Rare",
+        "personality": "Aggressive",
+        "is_gloom_touched": False,
+        "description": (
+            "A roughly creature-shaped mass of compressed reeds, root tangles, and dark "
+            "silt. Low to the ground, slow, nearly indistinguishable from the bog floor "
+            "until it moves. Not Gloom-touched — the mire's wrongness is ancient and "
+            "organic. Ancient-feeling even as a young specimen. Night only."
+        ),
+        "base_capture_rate": 18,
+        "passive_ability": {
+            "name": "Reclaim",
+            "description": "Recovers a small amount of HP at the end of each turn. The bog sustains it.",
+        },
+        "base_stat_ranges": {
+            "hp": [55, 61], "attack": [48, 54], "defense": [44, 50],
+            "special_attack": [36, 42], "special_defense": [40, 46], "speed": [16, 21],
+        },
+        "growth_rates": {
+            "hp": 2.2, "attack": 2.0, "defense": 1.8, "special_attack": 1.4,
+            "special_defense": 1.6, "speed": 0.8,
+        },
+        "skill_tree": {
+            "1": ["pound", "poison_sting"],
+            "8": ["vine_whip"],
+            "14": {"choice": ["toxic", "leech_seed"]},
+        },
+        "evolutions": {
+            "Mirewarden": {
+                "evolves_at": 18,
+                "species": "Mirewarden", "pet_type": ["Poison", "Grass"], "rarity": "Very Rare",
+                "is_gloom_touched": False,
+                "description": (
+                    "Larger, denser. Reeds and roots have grown through it, not just "
+                    "coating it. Moves slower but hits like the terrain itself shifted. "
+                    "No longer blends in — looks like a landmark that happens to move. "
+                    "The Old Crossroads Mirewarden is implied to be beyond even this stage."
+                ),
+                "base_stat_ranges": {
+                    "hp": [82, 88], "attack": [72, 78], "defense": [66, 72],
+                    "special_attack": [50, 56], "special_defense": [60, 66], "speed": [12, 17],
+                },
+                "growth_rates": {
+                    "hp": 2.6, "attack": 2.4, "defense": 2.2, "special_attack": 1.6,
+                    "special_defense": 2.0, "speed": 0.7,
+                },
+                "skill_tree": {
+                    "19": ["poison_fang"],
+                    "24": ["power_whip"],
+                    "29": {"choice": ["toxic_spikes", "sludge_bomb"]},
+                    "36": ["overwhelm"],
+                },
+            },
+        },
+    },
 }
 
 # =================================================================================
@@ -530,5 +700,9 @@ ENCOUNTER_TABLES = {
     "whisperwoodGrove": {
         "day": ["Mossling", "Sunpetal Moth"],
         "night": ["Mossling", "Gloom Weaver", "Moonpetal Sprite"]
-    }
+    },
+    "mirefields": {
+        "day": ["Murkback", "Pallefin", "Mossling", "Corroder"],
+        "night": ["Murkback", "Gloom Weaver", "Siltborn", "Corroder"],
+    },
 }

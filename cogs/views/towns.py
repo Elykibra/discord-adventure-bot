@@ -356,7 +356,7 @@ class RemnantView(discord.ui.View):
                     emoji=loc_data.get('emoji'),
                 ))
             if options:
-                select = discord.ui.Select(placeholder="Explore this area...", options=options)
+                select = discord.ui.Select(placeholder="🔍 Explore this area...", options=options)
                 select.callback = self.select_location_callback
                 self.add_item(select)
 
@@ -459,6 +459,62 @@ class RemnantView(discord.ui.View):
         self.build_ui(time_of_day, player_flags, active_quest_ids, remnant)
         await interaction.edit_original_response(embed=new_embed, view=self)
 
+        # on_enter — fire matching auto-dialogue as a separate ephemeral pop
+        on_enter_text = await self._resolve_on_enter(
+            location_info, player_data, player_flags, time_of_day, db_cog
+        )
+        if on_enter_text:
+            await interaction.followup.send(on_enter_text, ephemeral=True)
+
+    async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog):
+        """Check on_enter conditions and return the first matching text, or None."""
+        on_enter = location_info.get('on_enter', [])
+        if not on_enter:
+            return None
+
+        player_and_pet = await db_cog.get_player_and_pet_data(self.user_id)
+        active_pet_species = None
+        if player_and_pet and player_and_pet.get('main_pet_data'):
+            active_pet_species = player_and_pet['main_pet_data'].get('species')
+
+        for entry in on_enter:
+            condition = entry.get('condition', '')
+            text = entry.get('text', '')
+            flag = entry.get('flag')
+            once = entry.get('once', False)
+
+            matched = False
+
+            if condition == 'first_visit':
+                if flag and flag not in player_flags:
+                    matched = True
+            elif condition.startswith('has_pet_species:'):
+                species = condition.split(':', 1)[1]
+                if active_pet_species == species:
+                    # once=True: only fire if the flag hasn't been set yet
+                    if once and flag:
+                        matched = flag not in player_flags
+                    else:
+                        matched = True
+            elif condition.startswith('flag:'):
+                check_flag = condition.split(':', 1)[1]
+                matched = check_flag in player_flags
+            elif condition.startswith('no_flag:'):
+                check_flag = condition.split(':', 1)[1]
+                matched = check_flag not in player_flags
+            elif condition == 'time:day':
+                matched = time_of_day in self._DAY_PHASES
+            elif condition == 'time:night':
+                matched = time_of_day in self._NIGHT_PHASES
+
+            if matched and text:
+                # Set flag if required (first_visit or once=True entries)
+                if flag and (condition == 'first_visit' or once):
+                    await db_cog.set_flag(self.user_id, flag)
+                return text
+
+        return None
+
     async def _build_sublocation_embed(self, location_info: dict):
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
@@ -531,8 +587,24 @@ class RemnantView(discord.ui.View):
 
     async def shop_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
+        is_night = time_of_day in self._NIGHT_PHASES
+
         remnant = REMNANTS.get(self.remnant_id, {})
         location_info = remnant.get('locations', {}).get(self.current_sub_location_id, {})
+        services = location_info.get('services', {})
+
+        # Resolve time-aware item list
+        if is_night and 'shop_items_night' in services:
+            items_for_sale = services['shop_items_night']
+        else:
+            items_for_sale = services.get('shop_items', services.get('items_for_sale', []))
+
+        # Inject resolved list as items_for_sale so ShopView reads it correctly
+        location_info = {**location_info, 'items_for_sale': items_for_sale}
+
         from .shop import ShopView
         shop_view = ShopView(self.bot, self.user_id, self.parent_interaction, location_info)
         await shop_view.rebuild_ui()
@@ -866,13 +938,6 @@ class TownView(discord.ui.View):
                 select = discord.ui.Select(placeholder="🔍 Explore locations in town...", options=location_options)
                 select.callback = self.select_location_callback
                 self.add_item(select)
-            wilds_id = next(
-                (loc_id for loc_id in town_info.get('connections', {}) if TOWNS.get(loc_id, {}).get('is_wilds')), None)
-            if wilds_id:
-                explore_wilds_button = discord.ui.Button(label="Explore Wilds", style=discord.ButtonStyle.green,
-                                                         emoji="🌲")
-                explore_wilds_button.callback = self.explore_wilds_callback
-                self.add_item(explore_wilds_button)
 
             # Inline travel dropdown — replaces Travel button
             all_connections = town_info.get('connections', {})
@@ -904,6 +969,15 @@ class TownView(discord.ui.View):
                 travel_select = discord.ui.Select(placeholder="🗺️ Travel to...", options=travel_options)
                 travel_select.callback = self.inline_travel_callback
                 self.add_item(travel_select)
+
+            # Explore Wilds button goes after both dropdowns
+            wilds_id = next(
+                (loc_id for loc_id in town_info.get('connections', {}) if TOWNS.get(loc_id, {}).get('is_wilds')), None)
+            if wilds_id:
+                explore_wilds_button = discord.ui.Button(label="Explore Wilds", style=discord.ButtonStyle.green,
+                                                         emoji="🌲")
+                explore_wilds_button.callback = self.explore_wilds_callback
+                self.add_item(explore_wilds_button)
 
     async def explore_wilds_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -998,6 +1072,61 @@ class TownView(discord.ui.View):
         self.build_ui()
         await interaction.edit_original_response(embed=new_embed, view=self)
 
+        # on_enter — fire matching auto-dialogue as a separate ephemeral pop
+        player_flags = player_data.get('flags', set()) if player_data else set()
+        on_enter_text = await self._resolve_on_enter(
+            location_info, player_data, player_flags, time_of_day, db_cog
+        )
+        if on_enter_text:
+            await interaction.followup.send(on_enter_text, ephemeral=True)
+
+    async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog):
+        """Check on_enter conditions and return the first matching text, or None."""
+        on_enter = location_info.get('on_enter', [])
+        if not on_enter:
+            return None
+
+        player_and_pet = await db_cog.get_player_and_pet_data(self.user_id)
+        active_pet_species = None
+        if player_and_pet and player_and_pet.get('main_pet_data'):
+            active_pet_species = player_and_pet['main_pet_data'].get('species')
+
+        for entry in on_enter:
+            condition = entry.get('condition', '')
+            text = entry.get('text', '')
+            flag = entry.get('flag')
+            once = entry.get('once', False)
+
+            matched = False
+
+            if condition == 'first_visit':
+                if flag and flag not in player_flags:
+                    matched = True
+            elif condition.startswith('has_pet_species:'):
+                species = condition.split(':', 1)[1]
+                if active_pet_species == species:
+                    if once and flag:
+                        matched = flag not in player_flags
+                    else:
+                        matched = True
+            elif condition.startswith('flag:'):
+                check_flag = condition.split(':', 1)[1]
+                matched = check_flag in player_flags
+            elif condition.startswith('no_flag:'):
+                check_flag = condition.split(':', 1)[1]
+                matched = check_flag not in player_flags
+            elif condition == 'time:day':
+                matched = time_of_day in self._DAY_PHASES
+            elif condition == 'time:night':
+                matched = time_of_day in self._NIGHT_PHASES
+
+            if matched and text:
+                if flag and (condition == 'first_visit' or once):
+                    await db_cog.set_flag(self.user_id, flag)
+                return text
+
+        return None
+
     async def back_to_town_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
         self.current_sub_location_id = None
@@ -1032,7 +1161,6 @@ class TownView(discord.ui.View):
 
         await db_cog.update_player(self.user_id, **update_kwargs)
 
-        from cogs.views.wilds import WildsView
 
         if destination_id in TOWNS:
             if dest_data.get('is_wilds'):
@@ -1140,7 +1268,22 @@ class TownView(discord.ui.View):
 
     async def shop_callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+        db_cog = self.bot.get_cog('Database')
+        player_data = await db_cog.get_player(self.user_id)
+        time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
+        is_night = time_of_day in self._NIGHT_PHASES
+
         location_info = TOWNS.get(self.town_id, {}).get('locations', {}).get(self.current_sub_location_id, {})
+        services = location_info.get('services', {})
+
+        # Resolve time-aware item list
+        if is_night and 'shop_items_night' in services:
+            items_for_sale = services['shop_items_night']
+        else:
+            items_for_sale = services.get('shop_items', services.get('items_for_sale', []))
+
+        location_info = {**location_info, 'items_for_sale': items_for_sale}
+
         shop_view = ShopView(self.bot, self.user_id, self.parent_interaction, location_info)
         await shop_view.rebuild_ui()
         embed = await shop_view.build_embed()
