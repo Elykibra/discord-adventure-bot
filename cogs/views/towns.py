@@ -279,12 +279,13 @@ class RemnantView(discord.ui.View):
         player_data = await db_cog.get_player(self.user_id)
         time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
         player_flags = player_data.get('flags', set()) if player_data else set()
+        player_energy = player_data.get('energy', 0) if player_data else 0
         active_quests = await db_cog.get_active_quests(self.user_id)
         active_quest_ids = {q['quest_id'] for q in active_quests}
         remnant = REMNANTS.get(self.remnant_id, {})
-        self.build_ui(time_of_day, player_flags, active_quest_ids, remnant)
+        self.build_ui(time_of_day, player_flags, active_quest_ids, remnant, player_energy)
 
-    def build_ui(self, time_of_day='morning', player_flags=None, active_quest_ids=None, remnant=None):
+    def build_ui(self, time_of_day='morning', player_flags=None, active_quest_ids=None, remnant=None, player_energy=0):
         self.clear_items()
         if player_flags is None:
             player_flags = set()
@@ -367,9 +368,38 @@ class RemnantView(discord.ui.View):
                 btn.callback = self.explore_callback
                 self.add_item(btn)
 
-            travel_btn = discord.ui.Button(label="Travel", style=discord.ButtonStyle.blurple, emoji="🗺️")
-            travel_btn.callback = self.travel_callback
-            self.add_item(travel_btn)
+            # Inline travel dropdown — replaces Travel button
+            connections = remnant.get('connections', {})
+            connection_reqs = remnant.get('connection_requirements', {})
+            visible_connections = {
+                loc_id: name for loc_id, name in connections.items()
+                if loc_id not in connection_reqs or connection_reqs[loc_id] in player_flags
+            }
+            if visible_connections:
+                default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
+                travel_options = []
+                for loc_id, name in visible_connections.items():
+                    cost = get_travel_cost(self.remnant_id, loc_id, default_cost)
+                    can_afford = player_energy >= cost
+                    loc_data = get_location_data(loc_id)
+                    gloom = loc_data.get('gloom_level', 0)
+                    loc_type = "Town" if loc_id in TOWNS else "Remnant"
+                    desc_parts = [f"⚡ {cost} energy"]
+                    if gloom > 0:
+                        desc_parts.append(f"Gloom: {gloom}%")
+                    desc_parts.append(loc_type)
+                    travel_options.append(discord.SelectOption(
+                        label=name if can_afford else f"🔒 {name}",
+                        value=loc_id,
+                        description=" · ".join(desc_parts),
+                        emoji=loc_data.get('emoji'),
+                    ))
+                travel_select = discord.ui.Select(
+                    placeholder="🗺️ Travel to...",
+                    options=travel_options,
+                )
+                travel_select.callback = self.inline_travel_callback
+                self.add_item(travel_select)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
@@ -533,35 +563,67 @@ class RemnantView(discord.ui.View):
         )
         await interaction.edit_original_response(embed=new_embed, view=self)
 
-    async def travel_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+    async def inline_travel_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        destination_id = interaction.data['values'][0]
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
-        remnant = REMNANTS.get(self.remnant_id, {})
-        connections = remnant.get('connections', {})
-        connection_reqs = remnant.get('connection_requirements', {})
-        player_flags = player_data.get('flags', set())
-
-        # Filter locked connections
-        connections = {
-            loc_id: name for loc_id, name in connections.items()
-            if loc_id not in connection_reqs or connection_reqs[loc_id] in player_flags
-        }
-        if not connections:
-            return await interaction.followup.send("There's nowhere to go from here.", ephemeral=True)
 
         default_cost = ACTION_COSTS.get("travel", {}).get("energy", 10)
-        min_cost = min(get_travel_cost(self.remnant_id, loc_id, default_cost) for loc_id in connections)
-        if player_data.get('energy', 0) < min_cost:
-            return await interaction.followup.send(
-                f"You're too exhausted to move. You need at least **{min_cost} energy**. Rest first.",
+        energy_cost = get_travel_cost(self.remnant_id, destination_id, default_cost)
+        current_energy = player_data.get('energy', 0)
+
+        # Block if locked route selected
+        if current_energy < energy_cost:
+            remnant = REMNANTS.get(self.remnant_id, {})
+            dest_name = remnant.get('connections', {}).get(destination_id, destination_id)
+            await interaction.followup.send(
+                f"🔒 Not enough energy to reach **{dest_name}**. "
+                f"Need **{energy_cost}** — you have **{current_energy}**.",
                 ephemeral=True
             )
+            return
 
-        travel_view = TravelView(self.bot, self.parent_interaction, connections, self.message,
-                                 from_location_id=self.remnant_id, player_energy=player_data.get('energy', 0))
-        travel_msg = await interaction.followup.send("Where would you like to travel?", view=travel_view, ephemeral=True)
-        travel_view.message = travel_msg
+        new_energy = max(0, current_energy - energy_cost)
+        update_kwargs = {"current_location": destination_id, "energy": new_energy}
+        if destination_id in TOWNS and not get_location_data(destination_id).get('is_wilds'):
+            update_kwargs["last_town_id"] = destination_id
+        await db_cog.update_player(self.user_id, **update_kwargs)
+
+        destination_data = get_location_data(destination_id)
+        if destination_data.get('is_wilds'):
+            new_embed = discord.Embed(
+                title=f"Location: {destination_data.get('name')}",
+                description=destination_data.get('description'),
+                color=discord.Color.dark_green()
+            )
+            new_view = WildsView(self.bot, self.parent_interaction, destination_id)
+        elif is_remnant(destination_id):
+            new_embed = await get_remnant_embed(self.bot, self.user_id, destination_id)
+            new_view = RemnantView(self.bot, self.parent_interaction, destination_id)
+            await new_view.initial_setup()
+        else:
+            new_embed = await get_town_embed(self.bot, self.user_id, destination_id)
+            new_view = TownView(self.bot, self.parent_interaction, destination_id)
+            await new_view.initial_setup()
+
+        player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
+        if player_and_pet_data:
+            new_embed.set_footer(text=get_status_bar(
+                player_and_pet_data['player_data'], player_and_pet_data['main_pet_data']
+            ))
+
+        try:
+            await self.message.edit(embed=new_embed, view=new_view)
+            new_view.message = self.message
+        except (discord.NotFound, discord.HTTPException):
+            msg = await interaction.followup.send(embed=new_embed, view=new_view, ephemeral=True)
+            new_view.message = msg
+
+        await check_quest_progress(
+            self.bot, self.user_id, "travel", {"location_id": destination_id},
+            channel=self.parent_interaction.channel
+        )
 
     async def update_with_activity_log(self, log_list: list[str]):
         """
