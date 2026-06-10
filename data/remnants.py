@@ -137,14 +137,13 @@ REMNANTS = {
                         "emoji": "🛡️",
                         "availability": "day",
                         "pet": {
-                            "species": "Barkback",
+                            "species": "Frostbile",
                             "nickname": None,
                             "nickname_visible_flag": None,
                             "description": (
-                                "A Barkback sits at Orin's side, quiet and watchful. "
-                                "It evolved from a Pineling issued early in his posting. "
-                                "Tough, reliable. Doesn't flinch at the cold air anymore. "
-                                "Neither does Orin."
+                                "A Frostbile moves along the chasm wall a few feet behind Orin, "
+                                "unhurried. It followed him for weeks before he stopped chasing "
+                                "it off. He does not consider that a bonding experience."
                             ),
                             "player_species_reactions": {},
                         },

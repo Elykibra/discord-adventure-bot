@@ -206,7 +206,7 @@ class Adventure(commands.Cog):
                     return
 
                 if outcome == "tutorial_pet":
-                    chosen_species_name, level = "Pineling", 1
+                    chosen_species_name, level = "Bristlecone", 1
                 else:
                     # time_of_day already resolved above
                     # Map 4 phases to encounter table keys (day/night)

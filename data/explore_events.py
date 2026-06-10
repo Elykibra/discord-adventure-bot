@@ -117,7 +117,7 @@ EXPLORE_EVENTS = {
                 {
                     "label": "Investigate",
                     "emoji": "🔍",
-                    "text": "You clear the rubble and find a startled Pineling, unhurt. It bolts the moment it is free. Small victories.",
+                    "text": "You clear the rubble and find a startled Bristlecone, unhurt. It bolts the moment it is free. Small victories.",
                     "outcome": {"energy": 1},
                 },
                 {
@@ -144,7 +144,7 @@ EXPLORE_EVENTS = {
         {
             "type": "flavor",
             "weight": 10,
-            "text": "A Pineling watches you from a low branch, perfectly still. The moment you look directly at it, it vanishes into the underbrush without a sound.",
+            "text": "A Bristlecone watches you from a low branch, perfectly still. The moment you look directly at it, it vanishes into the underbrush without a sound.",
         },
         {
             "type": "flavor",
@@ -171,7 +171,7 @@ EXPLORE_EVENTS = {
         {
             "type": "pet_sighting",
             "weight": 7,
-            "text": "Two Pinelings chase each other through the canopy at reckless speed, crashing through branches and raining bark down around you. Neither one acknowledges your presence.",
+            "text": "Two Bristlecones chase each other through the canopy at reckless speed, crashing through branches and raining bark down around you. Neither one acknowledges your presence.",
         },
 
         # --- Loot Bonus ---

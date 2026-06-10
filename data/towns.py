@@ -41,15 +41,36 @@ TOWNS = {
                 "availability": "day",
                 "description_day": "The main administrative building of the outpost. A large oak desk sits at the far end, behind which you can see Recruitment Officer Elara organizing various Guild contracts and notice board postings.",
                 "description_night": "The hut is dark and quiet, the desk neatly organized for the next day's work. Elara is not present.",
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_recruitment_hut",
+                        "once": True,
+                        "text": "In the corner near the door, something low and moss-covered doesn't move when you walk in. It watches you with small amber eyes, then looks away. Elara doesn't mention it."
+                    },
+                    {
+                        "condition": "has_pet_species:Thornmoss",
+                        "flag": "spur_thornmoss_reaction",
+                        "once": True,
+                        "text": "The Thornmoss in the corner raises its head when it sees yours. A long pause. Then it settles back down. Elara glances over but says nothing."
+                    },
+                ],
                 "npcs": {
                     "elara": {
                         "name": "Recruitment Officer Elara",
                         "role": "Guild Officer",
                         "availability": "day",
+                        "pet": {
+                            "species": "Thornmoss",
+                            "nickname": "Spur",
+                            "nickname_visible_flag": None,
+                            "lore": "A Mossling wandered in from the Wilds road years ago and decided the recruitment hut doorstep was home. Elara named it when she was still a recruit herself. Thought she'd be embarrassed by the name later. She wasn't."
+                        },
                         # --- ENHANCED DIALOGUE ---
                         "dialogue": {
                             "default": "Welcome, Adventurer. The Guild welcomes you. I am here to make sure you're ready for the path ahead.",
-                            "quest_the_first_step_step_1": "I see Grit Galen is back from the pits. That old scavenger has seen more of this world than most. You should speak with him."
+                            "quest_the_first_step_step_1": "I see Grit Galen is back from the pits. That old scavenger has seen more of this world than most. You should speak with him.",
+                            "ask_about_pet": "I named him when I was a recruit. Figured I'd regret it. I didn't."
                         }
                     }
                 }
@@ -63,11 +84,29 @@ TOWNS = {
                 "availability": "all",
                 "description": "A large, reinforced chest stocked with basic supplies...",
                 "items_for_sale": ["tether_orb", "moss_balm", "sun_kissed_berries", "trail_morsels"],
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_supply_chest",
+                        "once": True,
+                        "text": "Behind the counter, something large and brown is wedged between two crates. It doesn't acknowledge you. Neither does Bea, really. Business as usual, apparently."
+                    },
+                ],
                 "npcs": {
                     "bea": {
                         "name": "Bea",
                         "role": "Supply Merchant",
-                        "availability": "day"
+                        "availability": "day",
+                        "pet": {
+                            "species": "Burlback",
+                            "nickname": "Knot",
+                            "nickname_visible_flag": None,
+                            "lore": "Bea brought a Bristlecone seedling-creature when the outpost was being built and it stayed. It evolved somewhere along the years. She barely noticed. It just got bigger and slower and harder to step around."
+                        },
+                        "dialogue": {
+                            "default": "What do you need? I've got supplies for the road.",
+                            "ask_about_pet": "Oh, it's been here longer than most of the furniture."
+                        }
                     }
                 },
                 "services": {
@@ -109,6 +148,26 @@ TOWNS = {
                 "availability": "all",
                 "description_day": "A series of bubbling tar pits exude a foul, corrupting smell. The air is thick with a palpable sense of Gloom, making the area feel unsettling even in broad daylight. You sense that creatures here are more aggressive.",
                 "description_night": "Under the moonlight, the pits seem to glow with a sickly luminescence. The Gloom is stronger now, and the strange sounds bubbling up from the sludge suggest that the creatures within are even more dangerous.",
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_rotting_pits",
+                        "once": True,
+                        "text": "A stick with a strip of red cloth marks the pit's edge. It looks recent — the ground around it is freshly turned. Someone moved it not long ago."
+                    },
+                    {
+                        "condition": "time:night",
+                        "flag": "rotting_pits_night_first",
+                        "once": True,
+                        "text": "Galen isn't here. Neither is Slag. The pits don't care — they glow the same either way. The marker is still there, a little further back than you remember."
+                    },
+                    {
+                        "condition": "flag:visited_chasms_edge",
+                        "flag": "pits_chasm_connection_seen",
+                        "once": True,
+                        "text": "You've seen the Chasm now. Standing at the pit's edge, the smell is the same. The Gloom-haze sits at the same height. You don't know if that means anything. Galen probably does."
+                    },
+                ],
                 "services": {"explore_zone": "oakhavenOutpost_rottingPits",
                              "gloom_level": 20,
                              },
@@ -117,12 +176,22 @@ TOWNS = {
                         "name": "Grit Galen",
                         "role": "Scavenger",
                         "availability": "day",
+                        "pet": {
+                            "species": "Grimplate",
+                            "nickname": "Slag",
+                            "nickname_visible_flag": None,
+                            "lore": "Galen pulled a Corroder out of the Pits seven years ago — it had a claw caught in collapsed tar-stone. He freed it. It followed him home. He called it Slag, a leftover word from the smelting trade. By the time he realized he only used the name for this one, it was too late to change it. It evolved at some point. Galen doesn't remember when."
+                        },
                         # --- ENHANCED DIALOGUE ---
                         "dialogue": {
                             "default": "Don't get too close to the pits, adventurer. The Guild taught you nothing of what lives in there. Only what you can fight.",
                             "quest_offer": "A satchel of my tools lies at the bottom of the pits. It's sinking fast. I can't get it myself. Find it for me, and I'll give you something for your troubles.",
                             "quest_active": "Still looking for my satchel? Be careful down there. The Gloom makes things... twitchy.",
-                            "quest_complete": "You found it! By the Spirits, I thought it was lost for good. Here, take this. It's a compass of sorts. Doesn't point north, but it has a knack for finding things that don't want to be found. Good luck, adventurer."
+                            "quest_complete": "You found it! By the Spirits, I thought it was lost for good. Here, take this. It's a compass of sorts. Doesn't point north, but it has a knack for finding things that don't want to be found. Good luck, adventurer.",
+                            "ask_about_pet": "It came out of the pits. The pits are mine. So it's mine."
+                            # pit_growth & returning_high_rank now live in data/dialogues.py
+                            # (DIALOGUES['grit_galen']['dialogue_tree']) — that's the dialogue
+                            # source actually used by TownView's talk button.
                         }
                     }
                 }

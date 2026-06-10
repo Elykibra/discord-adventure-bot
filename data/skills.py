@@ -1679,7 +1679,7 @@ PET_SKILLS = {
         }
     },
 
-    # --- Pineling / Barkback Skills ---
+    # --- Bristlecone / Burlback Skills ---
     "needle_shot": {
         "name": "Needle Shot",
         "power": 40,
