@@ -1389,8 +1389,16 @@ class TownView(discord.ui.View):
         inventory = await db_cog.get_player_inventory(self.user_id)
         owned_items = {i['item_id'] for i in inventory}
 
+        # Build player rank for required_rank checks
+        from utils.helpers import get_player_rank_info
+        from utils.constants import CREST_RANKS
+        num_crests = await db_cog.count_player_crests(self.user_id)
+        player_rank = get_player_rank_info(num_crests)['rank']
+        rank_order = [r['rank'] for r in CREST_RANKS]
+        player_rank_index = rank_order.index(player_rank) if player_rank in rank_order else 0
+
         _req_keys = ("required_flag", "required_item", "required_quest_status",
-                     "required_quest_step", "required_time")
+                     "required_quest_step", "required_time", "required_rank")
 
         for node in dialogue_tree:
             # --- required_flag ---
@@ -1427,6 +1435,13 @@ class TownView(discord.ui.View):
             # --- required_time: list of valid time-of-day phases ---
             if "required_time" in node:
                 if time_of_day not in node["required_time"]:
+                    continue
+
+            # --- required_rank: minimum rank (by CREST_RANKS order) ---
+            if "required_rank" in node:
+                req_rank = node["required_rank"]
+                req_rank_index = rank_order.index(req_rank) if req_rank in rank_order else 0
+                if player_rank_index < req_rank_index:
                     continue
 
             # Node passed all checks — return it if it has any required key

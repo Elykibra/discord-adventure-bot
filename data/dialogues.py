@@ -7,6 +7,7 @@
 #   required_quest_status — {"quest_id": "x", "status": "active"|"completed"|"failed"}
 #   required_quest_step  — {"quest_id": "x", "step": N}  (matches when count == N)
 #   required_time        — list of valid phases: ["morning","noon","evening","night"]
+#   required_rank        — minimum player rank by CREST_RANKS order (e.g. "Veteran")
 #
 # text / default can be a string OR a list — a list picks a random line each visit.
 
@@ -130,6 +131,11 @@ DIALOGUES = {
         "name": "Grit Galen", "role": "Scavenger",
         "dialogue_tree": [
 
+            # --- Quest completed, Veteran rank or above ---
+            {"required_flag": "quest_sunk_cost_completed",
+             "required_rank": "Veteran",
+             "text": "You made it this far. Good. Come back when you've seen the Chasm. Tell me if what's down there looks anything like what's in the Pits."},
+
             # --- Quest completed ---
             {"required_flag": "quest_sunk_cost_completed",
              "text": [
@@ -137,6 +143,7 @@ DIALOGUES = {
                  "You know, I prospected these pits for six years before I quit. Some things down there still follow me in my sleep.",
                  "The Gloom takes things. Tools, time, people. You did good getting that satchel back.",
                  "Not many Guildsmen would bother with a scavenger's lost kit. I won't forget it.",
+                 "The far edge moved another foot this week. Don't put that in any report.",
              ]},
 
             # --- Quest failed ---

@@ -188,9 +188,10 @@ TOWNS = {
                             "quest_offer": "A satchel of my tools lies at the bottom of the pits. It's sinking fast. I can't get it myself. Find it for me, and I'll give you something for your troubles.",
                             "quest_active": "Still looking for my satchel? Be careful down there. The Gloom makes things... twitchy.",
                             "quest_complete": "You found it! By the Spirits, I thought it was lost for good. Here, take this. It's a compass of sorts. Doesn't point north, but it has a knack for finding things that don't want to be found. Good luck, adventurer.",
-                            "ask_about_pet": "It came out of the pits. The pits are mine. So it's mine.",
-                            "pit_growth": "The far edge moved another foot this week. Don't put that in any report.",
-                            "returning_high_rank": "You made it this far. Good. Come back when you've seen the Chasm. Tell me if what's down there looks anything like what's in the Pits."
+                            "ask_about_pet": "It came out of the pits. The pits are mine. So it's mine."
+                            # pit_growth & returning_high_rank now live in data/dialogues.py
+                            # (DIALOGUES['grit_galen']['dialogue_tree']) — that's the dialogue
+                            # source actually used by TownView's talk button.
                         }
                     }
                 }
