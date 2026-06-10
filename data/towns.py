@@ -397,7 +397,7 @@ TOWNS = {
         "connections": {
             "whisperwoodGrove": "Whisperwood Grove"
         },
-        "explore_zone": "whisperwoodGrove"
+        "explore_zone": "whisperwoodWilds"
     },
 
     # ---------------------------------------------------------------------------

@@ -345,8 +345,8 @@ PET_DATABASE = {
         }
     },
 
-    "Sunpetal Moth": {
-        "species": "Sunpetal Moth",
+    "Sunmoth": {
+        "species": "Sunmoth",
         "pet_type": ["Bug", "Flying"],
         "rarity": "Common",
         "personality": "Timid",
@@ -468,8 +468,8 @@ PET_DATABASE = {
         }
     },
 
-    "Moonpetal Sprite": {
-        "species": "Moonpetal Sprite",
+    "Moonwisp": {
+        "species": "Moonwisp",
         "pet_type": ["Fairy", "Grass"],
         "rarity": "Uncommon",
         "personality": "Tactical",
@@ -905,8 +905,8 @@ ENCOUNTER_TABLES = {
         "night": ["Corroder", "Corroder", "Corroder", "Grimplate"]  # Grimplate ~25% — surfaces after dark
     },
     "whisperwoodGrove": {
-        "day": ["Mossling", "Sunpetal Moth"],
-        "night": ["Mossling", "Grimweave", "Moonpetal Sprite"]
+        "day": ["Mossling", "Sunmoth"],
+        "night": ["Mossling", "Grimweave", "Moonwisp"]
     },
     "mirefields": {
         "day": ["Murkback", "Pallefin", "Mossling", "Corroder"],
