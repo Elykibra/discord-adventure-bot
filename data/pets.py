@@ -345,16 +345,16 @@ PET_DATABASE = {
         }
     },
 
-    "Sunmoth": {
-        "species": "Sunmoth",
-        "pet_type": ["Bug", "Flying"],
+    "Glimmerva": {
+        "species": "Glimmerva",
+        "pet_type": "Bug",
         "rarity": "Common",
         "personality": "Timid",
-        "description": "A delicate moth with wings patterned like blooming sunflowers. It drifts lazily through sun-dappled clearings and is drawn to bright light, making it easy to spot — and easy to startle.",
+        "description": "A soft-bodied, wingless larva covered in fine, glowing scales. It clings to sun-warmed leaves and bark, pulsing faintly with light when disturbed. Slow and harmless-looking, but the dust it sheds when threatened can be surprisingly disorienting.",
         "base_capture_rate": 50,
         "passive_ability": {
             "name": "Powder Scales",
-            "description": "When this pet is hit by a physical attack, there is a 20% chance the attacker is left Confused by the disorienting scales that shake loose."
+            "description": "When this pet is hit by a physical attack, there is a 20% chance the attacker is left Confused by a cloud of urticating light-dust shaken loose from its scales."
         },
         "base_stat_ranges": {"hp": [35, 40], "attack": [25, 30], "defense": [25, 30], "special_attack": [40, 45],
                              "special_defense": [35, 40], "speed": [40, 45]},
@@ -367,15 +367,15 @@ PET_DATABASE = {
             "13": {"choice": ["leaf_slap", "infestation"]}
         },
         "evolutions": {
-            "Solarmoth": {
+            "Luminara": {
                 "evolves_at": 15,
-                "species": "Solarmoth",
-                "pet_type": ["Bug", "Flying"],
+                "species": "Luminara",
+                "pet_type": ["Bug"],
                 "rarity": "Uncommon",
-                "description": "A larger, more resplendent moth whose wings now radiate a warm golden glow. In bright sunlight its wing patterns shimmer with an almost hypnotic beauty that can leave opponents momentarily dazzled.",
+                "description": "Freshly emerged from its cocoon, Luminara's wings are still soft and unfolding, glimmering faintly even in shade. It moves in short, fluttering bursts, not yet trusting its new wings, but already drawn toward warmth and light.",
                 "passive_ability": {
-                    "name": "Solar Scales",
-                    "description": "In bright conditions, this pet's Special Attack is slightly increased and its Powder Scales effect triggers more reliably."
+                    "name": "Gilded Wings",
+                    "description": "In daylight, this pet's Special Attack is slightly increased, and its half-formed wings shed drifting light-motes that briefly distract attackers."
                 },
                 "base_stat_ranges": {"hp": [55, 60], "attack": [35, 40], "defense": [38, 43], "special_attack": [65, 70],
                                      "special_defense": [55, 60], "speed": [60, 65]},
@@ -384,8 +384,30 @@ PET_DATABASE = {
                 "skill_tree": {
                     "17": ["bug_buzz"],
                     "21": ["barbed_spores"],
-                    "26": {"choice": ["accelerated_decay", "cinder_trap"]},
+                    "26": {"choice": ["accelerated_decay", "gust"]},
                     "30": ["dazzling_gleam"]
+                },
+                "evolutions": {
+                    "Solarmoth": {
+                        "evolves_at": 30,
+                        "species": "Solarmoth",
+                        "pet_type": ["Bug", "Fire"],
+                        "rarity": "Rare",
+                        "description": "Its metamorphosis complete, Solarmoth's wings have unfurled into great radiant fans that seem to burn with trapped sunlight. It glides rather than flutters now, leaving faint trails of warmth in the air, and even at night its wings continue to glow like embers.",
+                        "passive_ability": {
+                            "name": "Radiant Core",
+                            "description": "This pet's Special Attack is permanently boosted by 10%. At night, its core burns brighter against the dark, doubling the boost to 20%."
+                        },
+                        "base_stat_ranges": {"hp": [75, 80], "attack": [55, 60], "defense": [58, 63], "special_attack": [95, 100],
+                                             "special_defense": [78, 83], "speed": [85, 90]},
+                        "growth_rates": {"hp": 2.6, "attack": 2.0, "defense": 1.9, "special_attack": 3.4,
+                                         "special_defense": 2.6, "speed": 2.8},
+                        "skill_tree": {
+                            "32": ["cinder_trap"],
+                            "38": {"choice": ["bug_buzz", "fireball"]},
+                            "45": ["dazzling_gleam"]
+                        }
+                    }
                 }
             }
         }
@@ -511,6 +533,155 @@ PET_DATABASE = {
                     "30": ["precognition"]
                 }
             }
+        }
+    },
+
+    "Serpentine": {
+        "species": "Serpentine",
+        "pet_type": ["Grass", "Dark"],
+        "rarity": "Uncommon",
+        "personality": "Tactical",
+        "description": "A slender, vine-like serpent that moves silently through the underbrush, its scales shifting between deep green and shadow depending on the light. It prefers to watch from cover for long stretches before ever striking.",
+        "base_capture_rate": 35,
+        "passive_ability": {
+            "name": "Shifting Scales",
+            "description": "While in shaded or low-light conditions (night encounters), this pet's Defense is slightly increased."
+        },
+        "base_stat_ranges": {"hp": [42, 47], "attack": [48, 53], "defense": [35, 40], "special_attack": [40, 45],
+                             "special_defense": [38, 43], "speed": [55, 60]},
+        "growth_rates": {"hp": 1.9, "attack": 2.2, "defense": 1.5, "special_attack": 1.8, "special_defense": 1.7,
+                         "speed": 2.3},
+        "skill_tree": {
+            "1": ["scratch", "leaf_slap"],
+            "6": ["leech_seed"],
+            "10": ["umbral_shift"],
+            "14": {"choice": ["branch_whip", "grudge"]}
+        },
+        "evolutions": {
+            "Serpumbra": {
+                "evolves_at": 20,
+                "species": "Serpumbra",
+                "pet_type": ["Grass", "Dark"],
+                "rarity": "Rare",
+                "description": "Serpentine's final form — a long, shadow-wreathed serpent whose scales seem to drink in the light around it. In dappled forest shade it can vanish almost entirely, becoming little more than a rustle in the leaves and a pair of watching eyes.",
+                "passive_ability": {
+                    "name": "Living Camouflage",
+                    "description": "At the start of battle, this pet has a 25% chance to avoid the opponent's first attack entirely, vanishing into the surrounding cover."
+                },
+                "base_stat_ranges": {"hp": [62, 67], "attack": [70, 75], "defense": [52, 57], "special_attack": [60, 65],
+                                     "special_defense": [58, 63], "speed": [80, 85]},
+                "growth_rates": {"hp": 2.4, "attack": 2.8, "defense": 2.0, "special_attack": 2.3, "special_defense": 2.2,
+                                 "speed": 2.9},
+                "skill_tree": {
+                    "22": ["umbral_shift"],
+                    "26": ["branch_whip"],
+                    "31": {"choice": ["grudge", "sorrowful_strike"]},
+                    "36": ["soulrend"]
+                }
+            }
+        }
+    },
+
+    "Glamorose": {
+        "species": "Glamorose",
+        "pet_type": ["Grass", "Poison"],
+        "rarity": "Common",
+        "personality": "Tactical",
+        "description": "A small, flower-headed creature with petals of an almost unnaturally vivid pink. Its sweet fragrance draws other creatures close — a little too close, and a little too often for it to be entirely accidental.",
+        "base_capture_rate": 45,
+        "passive_ability": {
+            "name": "Toxic Bloom",
+            "description": "When this pet is hit by a physical attack, there is a 15% chance the attacker is left Poisoned by pollen released from its petals."
+        },
+        "base_stat_ranges": {"hp": [38, 43], "attack": [28, 33], "defense": [30, 35], "special_attack": [42, 47],
+                             "special_defense": [40, 45], "speed": [32, 37]},
+        "growth_rates": {"hp": 1.7, "attack": 1.3, "defense": 1.5, "special_attack": 1.9, "special_defense": 1.8,
+                         "speed": 1.4},
+        "skill_tree": {
+            "1": ["pound", "poison_sting"],
+            "5": ["leech_seed"],
+            "9": ["acid_armor"],
+            "13": {"choice": ["sludge_bomb", "barbed_spores"]}
+        },
+        "evolutions": {
+            "Malicea": {
+                "evolves_at": 18,
+                "species": "Malicea",
+                "pet_type": ["Grass", "Poison"],
+                "rarity": "Uncommon",
+                "description": "Malicea's petals have unfurled wider and its fragrance grown richer — sweeter, even, the closer one gets to the soft rot at its core. Things that wander too near tend to linger longer than they mean to.",
+                "passive_ability": {
+                    "name": "Sweet Decay",
+                    "description": "At the end of each turn, the opponent loses a small amount of HP, lulled into lingering near this pet's fragrance, while this pet recovers a portion of that HP."
+                },
+                "base_stat_ranges": {"hp": [58, 63], "attack": [48, 53], "defense": [48, 53], "special_attack": [68, 73],
+                                     "special_defense": [62, 67], "speed": [50, 55]},
+                "growth_rates": {"hp": 2.1, "attack": 1.7, "defense": 1.9, "special_attack": 2.4, "special_defense": 2.3,
+                                 "speed": 1.8},
+                "skill_tree": {
+                    "20": ["sludge_bomb"],
+                    "24": ["corrosive_gaze"],
+                    "28": {"choice": ["contagious_blight", "leech_seed"]},
+                    "33": ["miasmal_aura"]
+                },
+                "evolutions": {
+                    "Aberraflora": {
+                        "evolves_at": 38,
+                        "species": "Aberraflora",
+                        "pet_type": ["Grass", "Poison"],
+                        "rarity": "Ancient",
+                        "description": (
+                            "The final form of the Glamorose line. A sprawling mass of bloom and "
+                            "rot, half-buried in the deep Thicket where the canopy never quite "
+                            "lets in the light. Its fragrance carries for a long way, and "
+                            "everything that follows it eventually stops moving. Capturable "
+                            "only at Legend rank, theoretically."
+                        ),
+                        "base_capture_rate": 2,
+                        "passive_ability": {
+                            "name": "Bloom of Ruin",
+                            "description": "At the end of each turn, the opponent loses a portion of their max HP to drifting toxic pollen, and this pet recovers a portion of that HP."
+                        },
+                        "base_stat_ranges": {"hp": [88, 94], "attack": [70, 76], "defense": [75, 81],
+                                             "special_attack": [100, 106], "special_defense": [95, 101], "speed": [65, 71]},
+                        "growth_rates": {"hp": 2.7, "attack": 2.3, "defense": 2.5, "special_attack": 3.3,
+                                         "special_defense": 3.0, "speed": 2.0},
+                        "skill_tree": {
+                            "40": ["miasmal_aura"],
+                            "46": {"choice": ["sludge_bomb", "contagious_blight"]},
+                            "52": ["acid_armor"],
+                        }
+                    }
+                }
+            }
+        }
+    },
+
+    "Verdanthorn": {
+        "species": "Verdanthorn",
+        "pet_type": ["Grass", "Normal"],
+        "rarity": "Ancient",
+        "personality": "Defensive",
+        "description": (
+            "An ancient, towering presence at the heart of the Thicket — easy to mistake "
+            "for a particularly old tree until it shifts, slowly, and you realize it has "
+            "been watching you the entire time. It rarely moves and rarely needs to. "
+            "Capturable only at Legend rank, theoretically."
+        ),
+        "base_capture_rate": 2,
+        "passive_ability": {
+            "name": "Stillness",
+            "description": "While this pet does not act on its turn, it restores a portion of its HP and gains a stacking Defense boost. Acting resets the bonus."
+        },
+        "base_stat_ranges": {"hp": [100, 108], "attack": [60, 66], "defense": [100, 106], "special_attack": [55, 61],
+                             "special_defense": [90, 96], "speed": [20, 26]},
+        "growth_rates": {"hp": 3.2, "attack": 1.8, "defense": 3.0, "special_attack": 1.7, "special_defense": 2.8,
+                         "speed": 1.0},
+        "skill_tree": {
+            "1": ["harden", "leech_seed"],
+            "30": ["wood_hammer"],
+            "40": {"choice": ["nature_shield", "earthen_bulwark"]},
+            "50": ["ironbark"]
         }
     },
 
@@ -905,8 +1076,12 @@ ENCOUNTER_TABLES = {
         "night": ["Corroder", "Corroder", "Corroder", "Grimplate"]  # Grimplate ~25% — surfaces after dark
     },
     "whisperwoodGrove": {
-        "day": ["Mossling", "Sunmoth"],
-        "night": ["Mossling", "Grimweave", "Moonwisp"]
+        "day": ["Mossling", "Mossling", "Glimmerva", "Glimmerva", "Verdanthorn"],   # Verdanthorn ~20% — ancient, rare sighting
+        "night": ["Mossling", "Mossling", "Grimweave", "Moonwisp", "Glamorose", "Glamorose", "Malicea"]  # Malicea ~14% — low-chance evolution
+    },
+    "whisperwoodWilds": {
+        "day": ["Mossling", "Mossling", "Serpentine"],
+        "night": ["Mossling", "Serpentine", "Serpentine", "Grimweave", "Serpumbra"]  # Serpumbra ~20% — low-chance evolution
     },
     "mirefields": {
         "day": ["Murkback", "Pallefin", "Mossling", "Corroder"],

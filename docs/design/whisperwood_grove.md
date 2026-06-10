@@ -35,14 +35,14 @@ Wilds), a main quest (`whisperwoods_plea`), and (per this doc) two attached remn
    Treant Legendary, source of Arboreal's healing, and the thing the Heart of Decay quest
    ultimately concerns.
 7. Rough sketches of the two attached remnants — **The Ashen Verge** (free) and
-   **The Blind Well** (quest-gated). Marked OPEN where decisions are still pending.
+   **The Weeping Root** (quest-gated). Marked OPEN where decisions are still pending.
 
 **Still open / not yet designed (flagged inline below):**
 - `whisperwoods_plea` quest structure — what the "Heart of Decay" actually is mechanically,
   and the full step-by-step (only the start/end dialogue beats exist in code today).
 - Side story beat (Luna/Mira, Fae Whisper, Arboreal/Sylven thread).
 - Ashen Verge: Cinderkit→Ashveil wild-catchable vs NPC-only; Kaelen's bounty target species.
-- Blind Well: full dialogue trees for Anora / Scribe / Elowen.
+- Weeping Root: full dialogue trees for Anora / Scribe / Elowen.
 - Verdanthorn's Reflection: lore-seeded only, mechanically deferred (Veilmother/Chasmbane pattern).
 
 ---
@@ -74,7 +74,7 @@ This recontextualizes everything else in the Thicket:
 - **Verdanthorn** lives in the Thicket because Sylven's presence protects ancient creatures.
 - **Arboreal's** healing ability draws from Sylven's roots — this is why the Lodge works.
 - **Fae Whisper** lives in the Thicket, knows Sylven, and has been watching the corruption.
-  She's been to the Blind Well before — alone.
+  She's been to the Weeping Root before — alone.
 - The corruption arc (`whisperwoods_plea` / Heart of Decay) isn't "clear a forest problem" —
   it's "something ancient and protective is dying/corrupting from the inside, and the player
   has to deal with that."
@@ -82,6 +82,98 @@ This recontextualizes everything else in the Thicket:
 Gameplay note: Sylven is **never an encounter inside the Thicket**. After `whisperwoods_plea`,
 Sylven remains a passive presence (see Pet Sighting events below — "something large moves
 through the undergrowth... it is part of the ground").
+
+---
+
+## Gloom Sickness — Framework: State / Type / Mark (NOT FINAL — Town 2 era)
+
+**Important framing:** This is presented as the *current* scholarly/in-world understanding of
+how Gloom affects living things — not a locked taxonomy. We're early (Town 2 is effectively
+still "early game" if Oakhaven Outpost is the tutorial zone). The Gloom should be able to
+**evolve, mutate, and reveal worse/stranger stages later** as the story progresses. Treat
+everything below as "what characters in-world currently believe," which may turn out to be
+incomplete or wrong. This gives future towns room to escalate or add nuance without
+contradicting anything locked here.
+
+**This is not a new system — it's a name for something already in the code**, just never
+tied together into one framework before now. The framework has three independent layers:
+
+### 1. Gloom State — degree of progression (like a status condition)
+
+How far along the affliction is. Deliberately kept simple/universal so it stays legible no
+matter how many Types get added later:
+
+1. **Touched** — early. Subtle changes; the afflicted is still fully "themselves." Often
+   manageable/treatable.
+2. **Hollowing** — active, ongoing. Still present, still has agency, but visibly losing
+   pieces of themselves over time. Dangerous, not yet understood how to stop reliably.
+3. **Hollowed** — the worst State *documented so far*. Original self mostly gone. Explicitly
+   **not** labeled final/terminal — future content can reveal Hollowed creatures/people can
+   still change further, for better or worse.
+
+### 2. Gloom Type — manner of manifestation (varies by exposure/region)
+
+*How* the Gloom expresses itself — this is what makes "Touched" mean something different
+depending on what you're looking at, and gives the State system room to feel less vague as
+more Types get introduced over time. Two are named so far:
+
+- **Withering** (NEW — native to the Weeping Root) — root/sap-based corruption; slow
+  replacement of living tissue from the inside. This is the Type that originates here.
+- **Calcifying** (NEW name, but already precedented in code) — the Gloom locks/freezes its
+  own progression instead of advancing it, leaving the afflicted "stuck" partway. The
+  existing **Threshling → Threshbound** pet line (`data/pets.py`) — *"Caught at the threshold
+  between existence and full Gloom consumption... locked in between states"* — is this Type,
+  already in the roster, just not named until now.
+- (Likely more Types exist unnamed in the current codebase — e.g., Gauntling→Waneling reads
+  like a "Fading" Type, Rimecrawl→Frostbile reads like a "Frostbound" Type. Not authored here;
+  flagged for whoever picks up Gloom framework work next.)
+
+### 3. Gloom Mark — the individual visible symptom
+
+What you actually *see* on a specific creature/person — the physical "tell" of their State.
+Two individuals in the same State can have completely different-looking Marks depending on
+species/Type. The Mark is how players (and NPCs) identify a State at a glance.
+
+### How the three Weeping Root NPCs map onto this
+
+- **Elowen** — State: **Touched**. Type: **Withering**. Mark: the corrupted bark arm.
+- **Anora** — State: **Hollowing**. Type: **Withering**. Mark: root-fusion + weeping,
+  glowing sap from the eyes.
+- **Corvin** — State: **Touched** (arguably never progressed further). Type: **Calcifying**.
+  Mark: the petrified/calcified body. Two Types coexist at this site because Corvin's
+  exposure (pre-Guild, long ago) predates the Withering Type that dominates here now.
+
+### Existing-code anchors (for the coding session)
+
+- `is_gloom_touched` — existing boolean flag on pets (`data/pets.py`), used by
+  `battle_engine.py` for the Gloom meter and capture-rate logic. Currently a yes/no flag —
+  maps to "has *some* Gloom State" (i.e. not the baseline/unafflicted case). Whether it later
+  becomes a richer field (storing State/Type/Mark) instead of a boolean is an
+  implementation decision, not a design one — flagged for the coding session.
+- `data/remnants.py` (Mirefields/Chasm content) already has an NPC dialogue line
+  (`lore_hollowed_vs_corrupted`) that draws the Touched-vs-Hollowed distinction in-world:
+  *"Corrupted pets can still be reached — the Gloom has touched them but hasn't consumed
+  them. There's still something there to work with. Hollowed is different. When a creature
+  Hollows, there's nothing left that remembers being a creature. That distinction matters."*
+- The same Mirefields/Chasm content has a `lore_gloom_origin` line establishing Gloom has a
+  **single breach site** ("the Chasm"), theorized to be caused by "collective grief — a
+  catastrophic loss, enough souls in enough pain at once to tear something open." The Heart
+  of Decay / Weeping Root is **not** that origin point — it's a separate growth of the same
+  overarching Gloom phenomenon, taken root inside Sylven specifically (different growth site,
+  same underlying force — and likely a different Type, since Withering is native here).
+- Purity Orbs and similar items (`gloom_effect` in `data/items.py`) are the existing
+  treatment mechanic — most effective on Touched-State afflictions.
+
+This framework is reusable for future towns/remnants — new States, Types, or Marks can be
+added later without needing to retcon anything here.
+
+**Connection to Oakhaven Outpost (Town 1):** Oakhaven already planted hints of this without
+naming it — Galen's unspoken suspicion that the Rotting Pits and the Weeping Chasm "share a
+Gloom source — same breach, different surface points" (`docs/design/done/oakhaven_outpost.md`)
+is the same underlying phenomenon, just not yet given a framework. Whisperwood Grove —
+specifically the Weeping Root — is where the player first gets the *vocabulary* (State / Type
+/ Mark) to understand what Oakhaven was hinting at. Nothing in Oakhaven needs to change; this
+is presented as the payoff of an earlier breadcrumb, not a retcon.
 
 ---
 
@@ -224,7 +316,7 @@ day visitors see Mira, night visitors see Luna, not both).
 No dialogue changes beyond what's in code (`default` line about following the lights).
 Per the NPC Pets design rule, Fae Whisper does **not** get an assigned companion pet — she's
 a pixie sprite, arguably a creature herself. Her role is lore/atmosphere + (per the lore lock
-above) she's tied directly to Sylven and the Blind Well. Side story material.
+above) she's tied directly to Sylven and the Weeping Root. Side story material.
 
 ---
 
@@ -284,7 +376,7 @@ above) she's tied directly to Sylven and the Blind Well. Side story material.
 - Aberraflora (Stage 3, Ancient): ancient and overwhelming — fills the space around it.
 - Night only, Whispering Thicket. Naming note: any earlier "Glamourise"/"Hollow-" prefix
   references should be corrected to **Glamorose** wherever they appear (carries forward into
-  Elowen's material at the Blind Well).
+  Elowen's material at the Weeping Root).
 
 ### Verdanthorn (NEW — standalone Ancient, "Thicket day")
 
@@ -517,7 +609,7 @@ the Whispering Thicket is Sylven's resting form, and the corruption is growing i
 - How the player actually "finds" the Heart of Decay mechanically (explore trigger? item?
   NPC dialogue chain?).
 - What "kindness and understanding" means mechanically before the crest battle.
-- Whether/how the Blind Well (see below) ties into this quest as the location where the
+- Whether/how the Weeping Root (see below) ties into this quest as the location where the
   Heart of Decay's source is actually confronted.
 
 ---
@@ -526,7 +618,7 @@ the Whispering Thicket is Sylven's resting form, and the corruption is growing i
 
 Identified threads, not yet written into a structured beat:
 - The Luna/Mira dynamic (day/night halves of the same inn, complementary knowledge).
-- Fae Whisper's role — she's been to the Blind Well before, alone, and has crossed paths
+- Fae Whisper's role — she's been to the Weeping Root before, alone, and has crossed paths
   with Luna at night. Neither repeats what the other said, but attentive players connect them.
 - Arboreal and Sylven — Arboreal's healing draws from Sylven's roots; does he know what's
   happening to Sylven?
@@ -575,7 +667,7 @@ fire was the only thing the roots couldn't pretend to be."*
 Generations later: the ritual continues, but its original purpose has been mostly forgotten.
 Kaelen tends it out of inherited duty. Bram & Pip have noticed the boundary slowly
 shrinking — without Pyrehart at full strength, the containment is quietly weakening. This
-line is meant to pay off later in the Blind Well — the player goes from "huh, ash circle" up
+line is meant to pay off later in the Weeping Root — the player goes from "huh, ash circle" up
 top to "oh, THAT'S why" down below.
 
 ### NPC 1 — Kaelen, the Hearth-Steward (anchor NPC)
@@ -806,15 +898,88 @@ Zone key: TBD (e.g. `ashenVerge`). Tone: quiet, smoky, cold, *managed* — not h
 
 ---
 
-## The Blind Well (quest-gated remnant)
+## The Weeping Root (quest-gated remnant)
+
+**Status:** Quest-gated remnant — unlocked partway through `whisperwoods_plea`. Not visible
+in travel options until the gate fires (see Connection/Flow below). Once unlocked, stays
+accessible afterward (Elowen is a recurring merchant, Corvin is a recurring lore stop, and
+Anora's resolved state remains visitable).
 
 **Visuals:** A pitch-black subterranean abyss beneath the oldest roots of Sylven the Treant.
 Air thick with a sweet, sickening smell of decay, illuminated entirely by intense,
 bruised-purple bioluminescent sap oozing from giant, pulsating root veins.
 
-**Connection:** This is where the `whisperwoods_plea` / Heart of Decay quest leads — because
-this is where the corruption goes to its source. Fae Whisper knows the path because she's
-been here before, alone.
+**Connection / Flow:** While `whisperwoods_plea` is active, a quest-only Choice Event in the
+Whispering Thicket fires (mirrors the Ferryn's-Fetch pattern from Mirefields — quest-gated
+explore event, but the payoff is a location unlock instead of an item). Fae Whisper steps out
+from between two roots that "weren't there a moment ago" — *"I've been down there. I don't go
+anymore. But you need to."* — and opens the path down into The Weeping Root. She knows the way
+because she's been here before, alone.
+
+### Gloom Sickness — this is the source
+
+See "Gloom Sickness — Framework: State / Type / Mark" earlier in this doc for the full
+framework and its existing-code anchors. **The Weeping Root is the growth site** for the
+**Withering** Type — not the original Chasm breach (that's a separate, older lore thread
+already in `data/remnants.py`), but where Withering specifically originates. All three NPCs
+here represent different points in the framework:
+
+- **Elowen** — State: Touched, Type: Withering, Mark: corrupted bark arm
+- **Anora** — State: Hollowing, Type: Withering, Mark: root-fusion + weeping sap eyes
+- **Corvin** — State: Touched, Type: Calcifying, Mark: petrified/calcified body
+
+### Lore Spine (locked)
+
+**The wound that couldn't be burned out.** Ashen Verge was a fragment of Whisperwood's
+corruption that broke off long ago and got sealed with fire — a scar on the surface,
+contained. The Weeping Root is the *source* fire could never reach, because it isn't a
+separate thing sitting on the land — it's grown directly into **Sylven's own root system**.
+You can't burn it out without burning Sylven himself.
+
+**The sap has turned.** Sylven's sap — his lifeblood — runs bruised-purple and bioluminescent
+down here, "weeping" out of the root walls like an infected wound seeping. Prolonged exposure
+to it doesn't kill outright — it sets off the Gloom Sickness progression (see "Gloom Sickness
+— Working Theory of Stages" above), slowly replacing what a living thing was with something
+that serves the wound, while leaving fragments of the original self behind (memory,
+personality, mannerisms bleeding through). The Weeping Root is where this *originates* — the
+source spring of Gloom Sickness, not just another infected site. (Note: stage names like
+"Hollowing"/"Hollowed" are the *current* in-world understanding, not locked endpoints — see
+the Gloom Sickness section for why.)
+
+**Three case studies, told through three NPCs — each at a different point in the
+State/Type/Mark framework:**
+
+- **Corvin, the Root-Eaten Scribe** (long ago, pre-Guild) — found the wound first. His
+  exposure predates Withering — instead his Gloom Type is **Calcifying**, which locked his
+  State at "Touched" and froze him mid-transformation, "Petrified" — a living record of the
+  "before."
+- **Anora** (decades ago, Guild scout) — Type: **Withering**, State: **Hollowing**. The
+  process ran its full course, unobstructed. She *is* the wound now, fused into the root
+  wall — the current active threat/quest climax.
+- **Elowen** (present day) — Type: **Withering**, State: **Touched** (a corrupted bark arm).
+  She sought out the Weeping Root deliberately — Corvin and Anora are her two case studies, and
+  her forbidden magic is self-directed research into whether the process can be deliberately
+  *stopped/frozen* (like Corvin) before it runs its course (like Anora). Her "evolution item"
+  trade (Glamorose → Malicea → Aberraflora line; naming fix Glamourise → **Glamorose** applies
+  here) is part of that research, not just commerce.
+
+**Verdanthorn's Reflection** is the wound's "immune response" — a corrupted echo of
+Verdanthorn (Sylven's living guardian presence above) grown from the same toxic root-matter,
+patrolling the deep veins. It's a preview of what Verdanthorn — and all of Sylven — becomes
+if the wound wins. Ties directly to Corvin's line: *"It showed me what Sylven could become."*
+
+**Anora's choice (purify vs. defeat) pays off the structure:**
+
+- **Purify** — draw the toxic sap out of her without destroying the host. Slow, risky, but
+  she may survive in a recovering form; her alcove's sap clears from bruised-purple toward
+  something healthier.
+- **Defeat** — remove the corrupted mass outright. Faster, decisive, but Anora doesn't
+  survive in any recognizable form; her alcove becomes an empty, scarred cavity.
+
+Either way, severing this "active terminal" stops the spread and stabilizes the region —
+mirroring the "the line is moving" thread from Ashen Verge (the shrinking boundary stops once
+this is dealt with). Full healing of Sylven himself stays a longer-term/future-arc thread.
+Exact mechanical/dialogue differences between the two outcomes: **TBD, later pass.**
 
 ### NPC 1 — Anora, the Hollowed Weaver (quest climax / boss encounter)
 
@@ -826,8 +991,9 @@ gives players a gut-punch if they ever cross-reference old Guild records (future
   toxic sap into the earth.
 - Mechanics: main narrative milestone/boss of Town 2. Defeating or purifying her
   vine-manifestations stabilizes the region (and may unlock further progression).
+- Player choice (purify vs. defeat) — see Lore Spine above. Outcome details TBD.
 
-### NPC 2 — The Root-Eaten Scribe (hidden historian / lore)
+### NPC 2 — Corvin, the Root-Eaten Scribe (hidden historian / lore)
 
 A pre-Guild scholar trapped in a deep cavern pocket decades ago, surrounded by calcified,
 petrified journals. Gives the player the "before" picture while Anora is the "after" — could
@@ -840,20 +1006,155 @@ literally be the journal/remains of whoever was with Anora when it happened.
 ### NPC 3 — Elowen
 
 Forbidden magic + a literal corrupted limb (left arm transforming into dark wooden bark).
-Conducts forbidden magic right outside the town's jurisdiction.
+Conducts forbidden magic right outside the town's jurisdiction. Currently
+**State: Touched, Type: Withering, Mark: corrupted bark arm** — see Lore Spine and Gloom
+Sickness section above.
 
+- **Personality:** all three of "pragmatic," "desperate," and "resigned" at once — not in
+  conflict, but layered. She treats her own affliction like a research problem (pragmatic),
+  because she's racing her own timeline (desperate), while having already accepted that
+  "cured" probably isn't a realistic outcome — "frozen" or "gone" are the likely endpoints,
+  and she's trying to land on the better of those two (resigned). Not bitter or cruel —
+  matter-of-fact, even gentle, about things most people would find horrifying.
 - Mechanics: plant/pet merchant — sells seeds, spores, and evolution items (ties to the
   Glamorose → Malicea → Aberraflora line; naming fix Glamourise → **Glamorose** applies here).
   Offers dangerous, high-risk bounties.
 - Narrative: she'd recognize what Anora's becoming because she's a few steps behind on the
-  same path — a "warning of what could happen to YOU" beat for the player too.
+  same path — a "warning of what could happen to YOU" beat for the player too. Her research
+  uses Corvin (frozen/Petrified) and Anora (fully Hollowing) as her two reference points —
+  she didn't stumble into the Weeping Root, she sought it out *because* they're here.
+
+**Pet — TBD name, species TBD, State: Touched / Type: Withering** (same Mark framework as
+Elowen herself — see Pets section below for the proposed Glamorose-based design). Her
+"control subject" — a small creature she's been monitoring/treating alongside her own
+affliction, its condition mirroring (and informing) her own progression. Not framed as a warm
+companion in the usual sense, but not cold either — she's quietly trying to keep it from
+progressing further than she has, even while accepting she may not be able to do the same for
+herself.
+
+- **Side story seed (future expansion):** at some point along her arc, she may have to "let
+  go" of this pet — release it, or lose her ability to treat it — as part of a larger
+  "searching for answers to treat Gloom Sickness" thread. Not structured yet; flagged here so
+  it isn't lost. Could tie into future towns/NPCs working on the same problem from other
+  angles.
 
 ### Verdanthorn's Reflection (lore-seeded, mechanically deferred)
 
-A towering knight of jagged black thorns patrolling the pulsing veins of the deep earth.
-Treated like Veilmother/Chasmbane — lore-seeded now (via the Scribe's line above), not a
-designed boss fight yet. Seed for "the other connected location" in a future main-quest
-pairing alongside the Blind Well.
+A towering knight of jagged black thorns patrolling the pulsing veins of the deep earth. Not
+literally the same creature as Verdanthorn (the standalone Ancient pet in the main
+Whisperwood roster) — a corrupted mirror/doppelganger of it, born from the same toxic
+root-matter as the rest of the Weeping Root. Treated like Veilmother/Chasmbane — lore-seeded
+now (via Corvin's line above), not a designed boss fight yet. Seed for "the other connected
+location" in a future main-quest pairing alongside the Weeping Root.
+
+### Locations (5, proposed)
+
+Mirrors the Ashen Verge structure (NPC locations + main explore zone + lore zone). Rough flow
+order, following the path Fae Whisper opens:
+
+1. **Elowen's Camp** — just outside the town's jurisdiction, positioned as the
+   threshold/last stop before the descent. Merchant beat before the dive.
+2. **Corvin's Hollow** — the petrified-journal cavern pocket. Lore-heavy "before" picture.
+3. **The Weeping Root** — main explore zone (encounter table, explore events).
+4. **The Deep Vein** — lore zone, Verdanthorn's Reflection (Hollowthorn) seeded here. "May
+   still change" flag, same as The First Ring in Ashen Verge.
+5. **Anora's Hollow** — the central root wall. Quest climax/boss encounter.
+
+### Pets (template for State/Type/Mark going forward)
+
+Only **one new species** for this remnant — Stillroot. Hollowthorn (Verdanthorn's Reflection)
+remains lore-seeded/mechanically deferred (Veilmother/Chasmbane pattern), so it isn't counted
+as "added" yet. Everything else reuses existing species with a Gloom Mark applied.
+
+| Pet | Type | Rarity | State / Type / Mark | Role |
+|---|---|---|---|---|
+| Stillroot (NEW) | Rock/Grass | Common (standalone) | Touched / Calcifying / stone-plated patches | Corvin's companion; rare wild encounter |
+| Veinglow (NEW) | Poison/Grass | Uncommon (standalone) | Not Gloom-Marked — adapted/immune | Ambient — The Weeping Root, sap-veins |
+| Glamorose (Withering variant) | Grass/Poison | Common | Touched / Withering / one wilted petal | Elowen's pet |
+| Mossling (Withering variant) | (existing type) | Common | Touched / Withering | Ambient — Weeping Root |
+| Serpentine (Withering variant) | (existing type) | Uncommon | Hollowing / Withering | Ambient — Weeping Root |
+| Hollowthorn (Verdanthorn's Reflection) | Grass/Ghost | Ancient (standalone, deferred) | Hollowed / Withering (extreme) | Lore-seeded only — The Deep Vein |
+
+### Pet Appearances & Passives (rough — locked as foundation, numbers TBD)
+
+**Stillroot** (Common, Rock/Grass, standalone — Touched/Calcifying)
+- Appearance: a small root-and-moss creature with patches of genuine stone-like growth
+  spreading across its body — like lichen-covered rock fused onto living moss. Fully mobile,
+  alert, and able to fight/communicate normally; the calcified patches haven't progressed in
+  a long time and likely never will.
+- Passive: *Stonecrust* — bonus passive Defense from the calcified plating, **no Speed
+  penalty** — armored, not slow. Rewards patience without making it feel inert or "stuck in
+  place."
+- Found among Corvin's petrified journals (his companion); also a rare wild encounter in The
+  Weeping Root proper — signals to the player that Corvin's "Calcifying" case isn't unique,
+  just rare.
+
+**Veinglow** (NEW — Uncommon, Poison/Grass, standalone)
+- Appearance: a small, eel-like or larval creature that lives directly within the sap-veins,
+  bioluminescent in the same bruised-purple as its surroundings. The glow brightens briefly
+  when it first notices something approaching, then gradually fades/dims as it settles back
+  into stillness — a natural "hint, then fade" signal rather than a constant light.
+- Lore: explicitly **not** Gloom-Marked (`is_gloom_touched: False`, same precedent as
+  Siltborn in Mirefields) — its body chemistry has *adapted* to neutralize the toxic sap
+  rather than being afflicted by it. The first hint of something that isn't sick down here.
+  Elowen would be very interested in one (side-story seed for the "searching for a Gloom
+  Sickness treatment" thread — not a cure, just a clue).
+- Passive (rough): *Neutralize* — small chance to resist or shrug off poison-type status
+  effects against it, reflecting its natural resistance to the sap's toxicity.
+
+**Glamorose (Withering Mark)** — Elowen's pet
+- Appearance: identical to standard Glamorose (soft, floating, delicate petals) except for
+  **one petal** that's wilted, discolored, and faintly leaking the same bruised-purple
+  bioluminescence as the Weeping Root's sap veins — small, easy to miss unless you're looking
+  for it.
+- Passive: same as base Glamorose for now (no mechanical change at Touched State) — the Mark
+  is presented as primarily *visual/narrative* at this stage. Reinforces that Touched is
+  "manageable" — barely different from an unafflicted pet.
+
+**Mossling (Withering Mark)** — ambient, ~Touched
+- Appearance: standard Mossling, but its moss has gone a duller, ashier green, with faint
+  purple-ish veining visible just under the surface in patches.
+- Passive: as base Mossling — same "barely different" framing as Elowen's Glamorose.
+
+**Serpentine (Withering Mark)** — ambient, ~Hollowing
+- Appearance: a more visibly disturbing step up — the vine-body looks like it's *unraveling*
+  in places, with the bruised-purple sap visibly seeping from the unraveled ends. Less
+  "indistinguishable from a vine" (its normal trait) and more "a vine that's coming apart
+  from the inside."
+- Passive: existing Serpentine kit, possibly with a minor downside/quirk reflecting
+  instability (exact mechanic TBD) — first taste of "Hollowing doesn't just look different,
+  it behaves differently."
+
+**Hollowthorn (Verdanthorn's Reflection)** — lore-seeded, deferred
+- No appearance/passive lock yet beyond what's already written ("a towering knight of jagged
+  black thorns patrolling the pulsing veins of the deep earth"). Full design deferred to a
+  future pass, same as Veilmother/Chasmbane.
+
+### Encounter Table — The Weeping Root (main explore zone)
+
+| Tier | Pet (Mark) |
+|---|---|
+| Common | Mossling (Withering Mark, Touched) |
+| Uncommon | Serpentine (Withering Mark, Hollowing), Glamorose (Withering Mark, Touched) |
+| Rare | Stillroot (Calcifying Mark, Touched) |
+| Lore zone (The Deep Vein) only | Hollowthorn (very rare sighting) |
+
+This table is the "tour" structure: common encounters show **Withering at Touched**, rarer
+ones show **Withering progressing toward Hollowing**, a special rare shows the **other Type
+(Calcifying)** existing alongside it, and the lore zone teases the framework's extreme
+endpoint via Hollowthorn.
+
+### A note on terminology ("pets")
+
+Open idea, not acted on yet: is there an in-world term the people of Aethelgard use instead
+of "pets" (companions, partners, etc.)? Flagged here so it isn't lost — for now, "pets"
+stays the working term throughout this doc and in code.
+
+Still TBD: exact dropdown structure/zone keys, encounter tables for the other 4 locations
+(if any need their own beyond the main zone), explore events, items, full dialogue trees,
+Anora's purify/defeat mechanics and dialogue branches (including whether her
+"vine-manifestations" boss mechanic uses Withering/Hollowing-Marked creatures as the fight's
+building blocks).
 
 ---
 
@@ -872,6 +1173,38 @@ pairing alongside the Blind Well.
 6. `data/items.py` — add `lore_fragment`.
 7. `whisperwoods_plea` quest — needs full design pass before implementation (see OPEN section).
 8. Side story beat — needs design pass.
-9. Remnants (Ashen Verge, Blind Well) — rough sketches only; need full design pass
+9. Remnants (Ashen Verge, Weeping Root) — rough sketches only; need full design pass
    (NPC dialogue trees, encounter tables, items, explore events) before implementation.
    Two open questions flagged inline above.
+
+---
+
+## Implementation Status (tracking)
+
+**Done (this implementation pass):**
+- Pet renames + new evolution lines (Glimmerva→Luminara→Solarmoth, Serpentine→Serpumbra,
+  Glamorose→Malicea→Aberraflora, Verdanthorn) + encounter tables.
+- Full NPC pet roster (Vexia/Fen, Linden/Frond, Slithers/Glim, Mira/Petal, Luna/Lunarblossom).
+- Luna added (Moonpetal Inn, night shift); Mira split to day-only.
+- on_enter embed redesign (`build_on_enter_embed` in `cogs/views/towns.py`) — personalizable
+  speaker/icon/color/footer, used for new on_enter entries across 5 Grove locations.
+- Explore events + loot tables for `whisperwoodGrove` (Whispering Thicket) and
+  `whisperwoodWilds`.
+
+**Flagged for Pass 5+ (OPEN — needs design pass before implementation):**
+- `whisperwoods_plea` quest structure — see "whisperwoods_plea — Quest Structure (OPEN/TBD)"
+  above. Blockers: how the player finds the Heart of Decay, what "kindness and
+  understanding" means mechanically, whether the Weeping Root is the confrontation site.
+- Side Story Beat (Luna/Mira dynamic, Fae Whisper ↔ Weeping Root connection,
+  Arboreal/Sylven thread) — see "Side Story Beat (OPEN/TBD)" above.
+- `DIALOGUES` entries for Vexia, Linden, Slithers, Mira, Luna — `dialogue` dicts exist in
+  `data/towns.py` but `_get_dialogue_node` finds nothing in `data/dialogues.py`, so "Talk to
+  X" currently falls back to "They have nothing to say to you right now." Intentionally left
+  unwired until quest/side-story flags exist to give these NPCs something conditional to say.
+
+**Remaining, separate design passes (not started, not blocking the above):**
+- The Ashen Verge (free remnant) — rough sketch only, see "Remnants — Rough Sketches" above.
+- The Weeping Root (quest-gated remnant) — rough sketch only, includes Gloom Sickness tie-in.
+- Gloom Sickness — State/Type/Mark framework (see section above) — marked NOT FINAL,
+  Town 2 era; needs its own design pass before any code (status/mark application, gloom_tick
+  wiring in `cogs/adventure.py`, etc.).
