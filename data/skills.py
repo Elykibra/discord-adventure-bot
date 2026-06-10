@@ -1661,7 +1661,7 @@ PET_SKILLS = {
 
         #New Skills here
 
-    # --- Sunpetal Moth / Flying Skills ---
+    # --- Glimmerva / Flying Skills ---
     "gust": {
         "name": "Gust",
         "power": 40,

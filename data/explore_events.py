@@ -570,6 +570,306 @@ EXPLORE_EVENTS = {
             ],
         },
     ],
+
+    # ─────────────────────────────────────────────
+    # Whisperwood Grove — The Whispering Thicket
+    # gloom_level 15. Tone: ancient, beautiful, something is wrong underneath.
+    # ─────────────────────────────────────────────
+    "whisperwoodGrove": [
+
+        # --- Flavor Events ---
+        {
+            "type": "flavor",
+            "weight": 10,
+            "text": (
+                "The canopy is so dense overhead that noon looks like dusk. "
+                "The light that filters through is green and old."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 9,
+            "text": (
+                "Something has woven vines across the path overnight — not blocking it, "
+                "just crossing it. Like a boundary marker that wasn't there yesterday."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 8,
+            "text": (
+                "The bark of the nearest tree has a shallow indent — like a handprint. "
+                "Far too large to be human."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 6,
+            "text": (
+                "A cluster of Glamorose drifts past at eye level, trailing a faint sweet "
+                "scent. You hold your breath without quite deciding to. It continues "
+                "without slowing."
+            ),
+            "time": "night",
+        },
+
+        # --- Pet Sighting Events ---
+        {
+            "type": "pet_sighting",
+            "weight": 8,
+            "text": (
+                "Verdanthorn stands motionless between two massive oaks, watching. "
+                "When you move, it doesn't. When you stop, it already isn't there."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 6,
+            "text": (
+                "Something large moves through the undergrowth — slow, deliberate. "
+                "The ground doesn't crack under it. It is part of the ground."
+            ),
+        },
+
+        # --- Hazard Events ---
+        {
+            "type": "hazard",
+            "weight": 7,
+            "text": (
+                "Hollowed petals lie scattered across the path. You don't notice them "
+                "until you've already walked through. Your pet pulls back from the residue."
+            ),
+            "outcome": {"hp": -6},
+        },
+        {
+            "type": "hazard",
+            "weight": 5,
+            "text": (
+                "A branch shifts above you — there's no wind. Something heavy was resting "
+                "there a moment ago."
+            ),
+            "outcome": {"energy": -1},
+        },
+
+        # --- Loot Bonus ---
+        {
+            "type": "loot_bonus",
+            "weight": 6,
+            "text": (
+                "A Guild researcher's cache, half-buried in moss at the base of an old "
+                "trunk. Old, but still sealed."
+            ),
+            "outcome": {"item": {"item_id": "moss_balm", "qty": 1}},
+        },
+
+        # --- Choice Events ---
+        {
+            "type": "choice",
+            "weight": 6,
+            "text": (
+                "The oldest tree in the Thicket has something carved into its bark. "
+                "Not words — more like a map, or a warning. You could take a rubbing."
+            ),
+            "choices": [
+                {
+                    "label": "Take a rubbing",
+                    "emoji": "📜",
+                    "text": (
+                        "You press a scrap of cloth against the bark and rub gently. "
+                        "The pattern transfers cleanly. Somewhere in the canopy above, "
+                        "something shifts — and goes still again."
+                    ),
+                    "outcome": {"item": {"item_id": "lore_fragment", "qty": 1}},
+                },
+                {
+                    "label": "Leave it",
+                    "emoji": "🚶",
+                    "text": "Some markings aren't meant to be copied. You walk on.",
+                    "outcome": {},
+                },
+            ],
+        },
+        {
+            "type": "choice",
+            "weight": 4,
+            "time": "night",
+            "text": (
+                "A cluster of Glamorose has surrounded a Mossling in the middle of the "
+                "path, its struggling slowing by the second as the sweet fragrance settles "
+                "over it. You could pull it free."
+            ),
+            "choices": [
+                {
+                    "label": "Pull it free",
+                    "emoji": "💚",
+                    "text": (
+                        "You wade in, breath held, and haul the Mossling clear. The "
+                        "fragrance clings to your skin and clothes long after the bloom "
+                        "loses interest. The Mossling bolts without a sound."
+                    ),
+                    "outcome": {"hp": -5, "energy": 1},
+                },
+                {
+                    "label": "Walk past",
+                    "emoji": "🚶",
+                    "text": (
+                        "You walk past. The Mossling stops struggling before you're out "
+                        "of sight. You feel the fragrance for a while after, even though "
+                        "you never got close."
+                    ),
+                    "outcome": {},
+                },
+            ],
+        },
+    ],
+
+    # ─────────────────────────────────────────────
+    # Whisperwood Wilds
+    # Tone: untamed, primordial, not corrupted — just old and unmanaged.
+    # ─────────────────────────────────────────────
+    "whisperwoodWilds": [
+
+        # --- Flavor Events ---
+        {
+            "type": "flavor",
+            "weight": 10,
+            "text": (
+                "The path here isn't really a path. It's a gap that was cleared once and "
+                "hasn't been cleared since. The forest is taking it back, slowly."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 9,
+            "text": (
+                "A split oak, struck by lightning long ago, has grown back around the "
+                "scar. Something lives in the hollow where the wood rejoined."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 8,
+            "text": (
+                "Tracks cut through the mud ahead — three toes, deep. Something heavy "
+                "passed this way recently."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 6,
+            "text": (
+                "The further you go, the quieter it gets. Not peaceful quiet. "
+                "Waiting quiet."
+            ),
+        },
+
+        # --- Pet Sighting Events ---
+        {
+            "type": "pet_sighting",
+            "weight": 8,
+            "text": (
+                "A Serpentine hangs perfectly still from an overhead branch, "
+                "indistinguishable from a vine — until it turns one eye toward you."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 6,
+            "text": (
+                "Two Mosslings chase each other through the undergrowth at the edge of "
+                "your vision, then vanish into the moss without a sound."
+            ),
+        },
+
+        # --- Hazard Events ---
+        {
+            "type": "hazard",
+            "weight": 7,
+            "text": (
+                "You step onto what looks like solid ground. A root hollow collapses "
+                "beneath you, and you scramble back onto the path, muddy and annoyed."
+            ),
+            "outcome": {"energy": -1},
+        },
+        {
+            "type": "hazard",
+            "weight": 5,
+            "text": (
+                "Something drops from the canopy — not a branch. It's gone before you "
+                "can get a look at it, but the impact still caught you."
+            ),
+            "outcome": {"hp": -5},
+        },
+
+        # --- Loot Bonus ---
+        {
+            "type": "loot_bonus",
+            "weight": 6,
+            "text": (
+                "A traveller's pack, wedged in a root hollow. Whoever left it isn't "
+                "coming back for it."
+            ),
+            "outcome": {"item": {"item_id": "trail_morsels", "qty": 1}},
+        },
+
+        # --- Choice Events ---
+        {
+            "type": "choice",
+            "weight": 6,
+            "text": (
+                "A Serpentine is coiled around the base of a tree, pinning a sealed tin "
+                "beneath it. It hasn't moved since you spotted it."
+            ),
+            "choices": [
+                {
+                    "label": "Try to retrieve it",
+                    "emoji": "🤿",
+                    "text": (
+                        "You ease the tin out from under the coils. The Serpentine's eye "
+                        "tracks you the entire time, but it doesn't strike — until the "
+                        "very last moment, and even then it's barely a warning bite."
+                    ),
+                    "outcome": {"item": {"item_id": "tether_orb", "qty": 1}, "hp": -8},
+                },
+                {
+                    "label": "Leave it",
+                    "emoji": "🚶",
+                    "text": (
+                        "The Serpentine doesn't even look at you as you pass. Whatever's "
+                        "in that tin can stay there."
+                    ),
+                    "outcome": {},
+                },
+            ],
+        },
+        {
+            "type": "choice",
+            "weight": 5,
+            "text": (
+                "You come across a perfectly circular clearing — no trees within it, old "
+                "ash marks scorched into the ground. Something happened here, and not "
+                "recently."
+            ),
+            "choices": [
+                {
+                    "label": "Examine the marks",
+                    "emoji": "🔍",
+                    "text": (
+                        "The ash is old, but the pattern is deliberate — too even to be "
+                        "natural. You note the shape before moving on. It stays with you "
+                        "longer than you'd like."
+                    ),
+                    "outcome": {"item": {"item_id": "lore_fragment", "qty": 1}},
+                },
+                {
+                    "label": "Keep moving",
+                    "emoji": "🚶",
+                    "text": "You look at it for a long moment before you do.",
+                    "outcome": {},
+                },
+            ],
+        },
+    ],
 }
 
 
@@ -604,7 +904,19 @@ ZONE_LOOT_TABLES = {
         ("bog_reed_bundle",  3),
         ("tether_orb",       1),
     ],
-    # Whisperwood and beyond added here when towns are built
+    "whisperwoodGrove": [
+        ("moss_balm",          3),
+        ("sun_kissed_berries", 3),
+        ("trail_morsels",      2),
+        ("tether_orb",         1),
+    ],
+    "whisperwoodWilds": [
+        ("trail_morsels",      3),
+        ("moss_balm",          2),
+        ("tether_orb",         2),
+        ("sun_kissed_berries", 2),
+    ],
+    # Whisperwood remnants and beyond added here when towns are built
 }
 
 _DEFAULT_LOOT_TABLE = [("sun_kissed_berries", 1)]

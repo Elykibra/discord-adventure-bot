@@ -246,6 +246,17 @@ TOWNS = {
                 "availability": "all",
                 "description_day": "A large, welcoming lodge woven from living branches and glowing moss. Soft light emanates from within, and the gentle chirping of various forest creatures fills the air.",
                 "description_night": "Even in the dark, the lodge glows with a warm, bioluminescent light. The old Treant's lanterns never go out.",
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_leaf_lit_lodge",
+                        "once": True,
+                        "speaker": "Arboreal",
+                        "icon": "🌳",
+                        "color": 0x556B2F,
+                        "text": "The lodge's living walls seem to lean inward as you step inside, as if listening. Arboreal doesn't seem surprised by your arrival — only by how long you took to find it."
+                    },
+                ],
                 "services": {
                     "rest": {
                         "type": "lodge",
@@ -277,11 +288,28 @@ TOWNS = {
                 "availability": "day",
                 "description_day": "A massive, hollowed-out ancient tree spiraling upwards with mossy walls and natural light. The air smells of old parchment and fresh leaves. Adventurers bustle throughout.",
                 "description_night": "The Guild Hall is dimly lit at night. Linden keeps a single candle burning at the Quest Board, but Elder Vexia has retired for the evening.",
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_verdant_spire",
+                        "once": True,
+                        "speaker": "Elder Vexia",
+                        "icon": "🏛️",
+                        "color": 0x2E7D32,
+                        "text": "Near Elder Vexia's desk, a Ferngale rests against the wall like a particularly large, mossy boulder. It doesn't open its eyes. Vexia doesn't introduce it."
+                    },
+                ],
                 "npcs": {
                     "vexia": {
                         "name": "Elder Vexia",
                         "role": "Guild Master",
                         "availability": "day",
+                        "pet": {
+                            "species": "Ferngale",
+                            "nickname": "Fen",
+                            "nickname_visible_flag": None,
+                            "lore": "She's had this Ferngale since it was a Mossling — a long relationship, and the Crest battle companion she fields when challenged. She has a nickname but doesn't volunteer it. If asked its name directly, she pauses first: \"Fen. I've called it that since it was young.\" That's all she gives. Old, quiet, never used in official contexts."
+                        },
                         "dialogue": {
                             "default": "The Grand Master's vision echoes even here, young one. The Verdant Crest is not won, but earned through understanding of nature's delicate balance.",
                             "quest_whisperwoods_plea_active": "The Thicket grows darker by the day. Find the source of the corruption — the Heart of Decay. The forest is counting on you.",
@@ -293,6 +321,12 @@ TOWNS = {
                         "name": "Linden",
                         "role": "Guild Scribe",
                         "availability": "all",
+                        "pet": {
+                            "species": "Mossling",
+                            "nickname": "Frond",
+                            "nickname_visible_flag": None,
+                            "lore": "A Mossling wandered into the Verdant Spire once. Linden documented it. There is a filed report with an entry number. He named it Frond — botanically accurate, technically correct, and it ended up in the documentation verbatim: \"Subject designated 'Frond' continues to occupy the lower-left corner of the desk. No further action taken.\" Said with complete sincerity — bureaucratic naming that accidentally became affectionate."
+                        },
                         "dialogue": {
                             "default": "Welcome to the Verdant Spire Guild Hall! Please check the Quest Board for available tasks. Remember, proper documentation is key!",
                             "quest_complete": "Another quest completed? Excellent! Make sure you fill out the proper forms, Adventurer.",
@@ -312,6 +346,17 @@ TOWNS = {
                 "description_day": "A quirky, charming shop built into the sprawling root system of the Grove's oldest tree. Shelves are laden with vials of dewdrop potions, bundles of strong vines, and various unusual forest finds.",
                 "description_night": "The shutters are closed. Slithers keeps early hours — come back when the sun warms the canopy.",
                 "items_for_sale": ["capture_orb", "moss_balm", "simple_sleeping_bag", "potion", "greater_potion"],
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_root_branch_emporium",
+                        "once": True,
+                        "speaker": "Slithers",
+                        "icon": "🛒",
+                        "color": 0x6F4E37,
+                        "text": "A small, glimmering shape darts between the shelves, hovers over a rack of capture orbs, then flits away. \"That's Glim,\" Slithers says without looking up. \"Good eye, that one. Always knows the good stock.\""
+                    },
+                ],
                 "services": {
                     "shop": True
                 },
@@ -320,6 +365,12 @@ TOWNS = {
                         "name": "Slithers",
                         "role": "Shopkeeper",
                         "availability": "day",
+                        "pet": {
+                            "species": "Moonwisp",
+                            "nickname": "Glim",
+                            "nickname_visible_flag": None,
+                            "lore": "Flits between the shop displays. Slithers thinks it helps attract customers — the way it drifts and draws the eye. \"Glim knows the good merchandise. Always hovers near the best stock.\" Completely unverified. Slithers has never questioned it. Short for \"glimmer.\""
+                        },
                         "dialogue": {
                             "default": "Welcome, welcome, Adventurer! Need anything for the road? My wares are as fresh as the morning dew!",
                             "capture_orb_hint": "Ah, a Capture Orb! Essential for befriending new forest friends!",
@@ -338,6 +389,26 @@ TOWNS = {
                 "availability": "all",
                 "description_day": "A cozy inn constructed from large, glowing moonpetal flowers and sturdy tree trunks. The air inside is filled with soothing, herbal scents.",
                 "description_night": "The inn glows warmly against the dark forest. A perfect place to rest weary bones and restore your companions.",
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_moonpetal_inn",
+                        "once": True,
+                        "speaker": "Mira",
+                        "icon": "🌙",
+                        "color": 0xF4C430,
+                        "text": "A small, soft-bodied moth-creature drifts lazily near the window, glowing faintly even in daylight. \"That's Petal,\" Mira says warmly, not looking up from the ledger. \"Mind the linens, Petal.\""
+                    },
+                    {
+                        "condition": "time:night",
+                        "flag": "visited_moonpetal_inn_night",
+                        "once": True,
+                        "speaker": "Luna",
+                        "icon": "🌙",
+                        "color": 0x6A5ACD,
+                        "text": "Something pale drifts near the ceiling, leaving faint glowing petals in its wake before settling onto a high shelf. \"They exist in the same space,\" Luna says, not looking up from the ledger."
+                    },
+                ],
                 "services": {
                     "rest": {
                         "type": "inn",
@@ -350,11 +421,33 @@ TOWNS = {
                     "mira": {
                         "name": "Mira",
                         "role": "Innkeeper",
-                        "availability": "all",
+                        "availability": "day",
+                        "pet": {
+                            "species": "Glimmerva",
+                            "nickname": "Petal",
+                            "nickname_visible_flag": None,
+                            "lore": "A creature drawn to light fits Mira's energy completely. The nickname \"Petal\" is a holdover from long before the species was last renamed — she called it Petal back then, the species name has changed twice since, and she's never noticed. Uses the nickname constantly, without thinking — \"Petal, not on the linens.\""
+                        },
                         "dialogue": {
                             "default": "Welcome to the Moonpetal Inn. Dust off your boots and rest a while — the forest will still be there in the morning.",
                             "night": "You've come at the right hour. The inn is quietest now. The Lumina-moths are out, and the moonpetals are in full bloom. Quite a sight, if you're not too tired to look.",
                             "after_rest": "Sleep well? The grove has a way of making even the most restless adventurers feel at home.",
+                        }
+                    },
+                    "luna": {
+                        "name": "Luna",
+                        "role": "Innkeeper (Night)",
+                        "availability": "night",
+                        "pet": {
+                            "species": "Lunarblossom",
+                            "nickname": None,
+                            "nickname_visible_flag": None,
+                            "lore": "Lunarblossom drifts through the inn at night, leaving faint glowing petals. Guests assume it's decoration. It isn't. It \"grew up\" alongside Luna more than Mira — she's the one who's been awake when the forest is at its worst. She doesn't name what she doesn't need to name. \"They exist in the same space.\" If asked why it has no name: \"It knows what it is.\""
+                        },
+                        "dialogue": {
+                            "default": "You're up late. Most guests don't make it past the second hour.",
+                            "night": "Mira's warmth handles the day. Luna handles the quiet, and everything the quiet carries.",
+                            "after_rest": "Sleep well, while you can. The forest doesn't, not really.",
                         }
                     }
                 }
@@ -370,6 +463,17 @@ TOWNS = {
                 "availability": "all",
                 "description_day": "A deeper, more overgrown section of the Whisperwood. The paths are less clear and the shadows are heavier. Strange calls echo from within.",
                 "description_night": "Under the moonlight, the Thicket feels genuinely threatening. The Gloom is stronger here, and the rustle of unseen creatures follows your every step.",
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_whispering_thicket",
+                        "once": True,
+                        "speaker": "Fae Whisper",
+                        "icon": "✨",
+                        "color": 0x9B59B6,
+                        "text": "*A tiny sprite circles you twice, then settles on a low branch, watching.* \"You feel it too, don't you? The quiet that isn't empty.\""
+                    },
+                ],
                 "services": {
                     "explore_zone": "whisperwoodGrove",
                     "gloom_level": 15,
@@ -397,7 +501,7 @@ TOWNS = {
         "connections": {
             "whisperwoodGrove": "Whisperwood Grove"
         },
-        "explore_zone": "whisperwoodGrove"
+        "explore_zone": "whisperwoodWilds"
     },
 
     # ---------------------------------------------------------------------------

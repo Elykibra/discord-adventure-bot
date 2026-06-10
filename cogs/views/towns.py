@@ -20,6 +20,31 @@ from utils.helpers import (
 )
 
 
+def build_on_enter_embed(location_info: dict, entry: dict, text: str) -> discord.Embed:
+    """Build a small ephemeral 'ambient dialogue' embed for an on_enter entry.
+
+    Entries can optionally personalize the box with:
+      - "speaker": overrides the title name (e.g. "Fae Whisper")
+      - "icon":    overrides the title emoji (defaults to the location's emoji)
+      - "color":   a hex int (e.g. 0x4B0082) for the embed accent color
+      - "footer":  optional small caption shown under the text
+    """
+    icon = entry.get('icon') or location_info.get('emoji', '👁️')
+    speaker = entry.get('speaker') or location_info.get('name', 'Something')
+    color_value = entry.get('color')
+    color = discord.Color(color_value) if isinstance(color_value, int) else discord.Color.dark_grey()
+
+    embed = discord.Embed(
+        title=f"{icon} {speaker}",
+        description=f"*{text}*",
+        color=color
+    )
+    footer = entry.get('footer')
+    if footer:
+        embed.set_footer(text=footer)
+    return embed
+
+
 class WildsView(discord.ui.View):
     def __init__(self, bot, original_interaction, location_id, activity_log: str = None):
         super().__init__(timeout=None)
@@ -460,14 +485,16 @@ class RemnantView(discord.ui.View):
         await interaction.edit_original_response(embed=new_embed, view=self)
 
         # on_enter — fire matching auto-dialogue as a separate ephemeral pop
-        on_enter_text = await self._resolve_on_enter(
+        on_enter_match = await self._resolve_on_enter(
             location_info, player_data, player_flags, time_of_day, db_cog
         )
-        if on_enter_text:
-            await interaction.followup.send(on_enter_text, ephemeral=True)
+        if on_enter_match:
+            entry, text = on_enter_match
+            on_enter_embed = build_on_enter_embed(location_info, entry, text)
+            await interaction.followup.send(embed=on_enter_embed, ephemeral=True)
 
     async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog):
-        """Check on_enter conditions and return the first matching text, or None."""
+        """Check on_enter conditions and return (entry, text) for the first match, or None."""
         on_enter = location_info.get('on_enter', [])
         if not on_enter:
             return None
@@ -511,7 +538,7 @@ class RemnantView(discord.ui.View):
                 # Set flag if required (first_visit or once=True entries)
                 if flag and (condition == 'first_visit' or once):
                     await db_cog.set_flag(self.user_id, flag)
-                return text
+                return entry, text
 
         return None
 
@@ -1074,14 +1101,16 @@ class TownView(discord.ui.View):
 
         # on_enter — fire matching auto-dialogue as a separate ephemeral pop
         player_flags = player_data.get('flags', set()) if player_data else set()
-        on_enter_text = await self._resolve_on_enter(
+        on_enter_match = await self._resolve_on_enter(
             location_info, player_data, player_flags, time_of_day, db_cog
         )
-        if on_enter_text:
-            await interaction.followup.send(on_enter_text, ephemeral=True)
+        if on_enter_match:
+            entry, text = on_enter_match
+            on_enter_embed = build_on_enter_embed(location_info, entry, text)
+            await interaction.followup.send(embed=on_enter_embed, ephemeral=True)
 
     async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog):
-        """Check on_enter conditions and return the first matching text, or None."""
+        """Check on_enter conditions and return (entry, text) for the first match, or None."""
         on_enter = location_info.get('on_enter', [])
         if not on_enter:
             return None
@@ -1123,7 +1152,7 @@ class TownView(discord.ui.View):
             if matched and text:
                 if flag and (condition == 'first_visit' or once):
                     await db_cog.set_flag(self.user_id, flag)
-                return text
+                return entry, text
 
         return None
 
