@@ -11,7 +11,7 @@
 PET_DATABASE = {
     # --- Starter Pets ---
     "Pyrelisk": {
-        "species": "Pyrelisk", "pet_type": "Fire", "rarity": "Starter", "personality": "Aggressive",
+        "species": "Pyrelisk", "pet_type": "Fire", "rarity": "Starter", "classification_tier": "Ordinary", "personality": "Aggressive",
         "description": "A small, lizard-like creature with ember-red scales and a tail that flickers with a perpetual flame. Its eyes glow like hot coals, and it leaves tiny scorch marks wherever it steps.",
         "base_capture_rate": 35,
         "passive_ability": {
@@ -30,7 +30,7 @@ PET_DATABASE = {
         "evolutions": {
             "Blazewyrm": {
                 "evolves_at": 16,
-                "species": "Blazewyrm", "pet_type": ["Fire", "Dragon"], "rarity": "Starter",
+                "species": "Blazewyrm", "pet_type": ["Fire", "Dragon"], "rarity": "Starter", "classification_tier": "Prime",
                 "description": "A more imposing reptilian form, the Blazewyrm is covered in thick, heat-resistant scales and a ridge of sharp, volcanic rock that runs down its back. Its eyes burn with a low, menacing glow.",
                 "base_stat_ranges": {"hp": [60, 65], "attack": [70, 75], "defense": [45, 50], "special_attack": [65, 70],
                                      "special_defense": [45, 50], "speed": [50, 55]},
@@ -45,7 +45,7 @@ PET_DATABASE = {
                 "evolutions": {
                     "Ignisyrn": {
                         "evolves_at": 30,
-                        "species": "Ignisyrn", "pet_type": ["Fire", "Dragon"], "rarity": "Starter",
+                        "species": "Ignisyrn", "pet_type": ["Fire", "Dragon"], "rarity": "Starter", "classification_tier": "Apex",
                         "description": "A fearsome draconic creature with scales that glow like magma and massive wings that beat with a volcanic force. It is the undisputed predator of fiery lands.",
                         "base_stat_ranges": {"hp": [80, 85], "attack": [110, 115], "defense": [60, 65], "special_attack": [100, 105],
                                              "special_defense": [60, 65], "speed": [70, 75]},
@@ -65,7 +65,7 @@ PET_DATABASE = {
     },
 
     "Dewdrop": {
-        "species": "Dewdrop", "pet_type": "Water", "rarity": "Starter", "personality": "Tactical",
+        "species": "Dewdrop", "pet_type": "Water", "rarity": "Starter", "classification_tier": "Ordinary", "personality": "Tactical",
         "description": "A small, teardrop-shaped creature with translucent, water-blue skin that shimmers in the light. Tiny ripples flow across its body when it moves, and a soft gurgling sound follows it everywhere.",
         "base_capture_rate": 35,
         "passive_ability": {
@@ -84,7 +84,7 @@ PET_DATABASE = {
         "evolutions": {
             "Aquarius": {
                 "evolves_at": 16,
-                "species": "Aquarius", "pet_type": ["Water", "Fairy"], "rarity": "Starter",
+                "species": "Aquarius", "pet_type": ["Water", "Fairy"], "rarity": "Starter", "classification_tier": "Prime",
                 "description": "A bipedal, aquatic being with fins that resemble delicate feathers and a body that flows like a river. It moves with a hypnotic, liquid grace.",
                 "base_stat_ranges": {"hp": [60, 65], "attack": [45, 50], "defense": [50, 55], "special_attack": [70, 75],
                                      "special_defense": [65, 70], "speed": [55, 60]},
@@ -99,7 +99,7 @@ PET_DATABASE = {
                 "evolutions": {
                     "Aethelgale": {
                         "evolves_at": 30,
-                        "species": "Aethelgale", "pet_type": ["Water", "Fairy"], "rarity": "Starter",
+                        "species": "Aethelgale", "pet_type": ["Water", "Fairy"], "rarity": "Starter", "classification_tier": "Apex",
                         "description": "A guardian forged from pure, translucent water, its form constantly shifting like a flowing river. It possesses a serene, ancient wisdom in its eyes.",
                         "base_stat_ranges": {"hp": [80, 85], "attack": [60, 65], "defense": [70, 75], "special_attack": [110, 115],
                                              "special_defense": [100, 105], "speed": [75, 80]},
@@ -118,7 +118,7 @@ PET_DATABASE = {
         }
     },
     "Terran": {
-        "species": "Terran", "pet_type": "Ground", "rarity": "Starter", "personality": "Defensive",
+        "species": "Terran", "pet_type": "Ground", "rarity": "Starter", "classification_tier": "Ordinary", "personality": "Defensive",
         "description": "A squat, boulder-shaped creature covered in rough, earthy hide the color of dried clay. Despite its slow movements, it carries an unshakeable solidity, as if it were a small fragment of the earth given life.",
         "base_capture_rate": 35,
         "passive_ability": {
@@ -138,7 +138,7 @@ PET_DATABASE = {
         "evolutions": {
             "Stonehide": {
                 "evolves_at": 16,
-                "species": "Stonehide", "pet_type": ["Ground", "Rock"], "rarity": "Starter",
+                "species": "Stonehide", "pet_type": ["Ground", "Rock"], "rarity": "Starter", "classification_tier": "Prime",
                 "description": "A quadrupedal golem whose body is comprised of dense, layered rock. It has a single, large gem in its chest that glows with the light of the earth.",
                 "base_stat_ranges": {"hp": [65, 70], "attack": [55, 60], "defense": [75, 80], "special_attack": [40, 45],
                                      "special_defense": [50, 55], "speed": [35, 40]},
@@ -152,7 +152,7 @@ PET_DATABASE = {
                 "evolutions": {
                     "Bouldyrn": {
                         "evolves_at": 30,
-                        "species": "Bouldyrn", "pet_type": ["Ground", "Rock"], "rarity": "Starter",
+                        "species": "Bouldyrn", "pet_type": ["Ground", "Rock"], "rarity": "Starter", "classification_tier": "Apex",
                         "description": "A colossal golem with a fortress-like body of polished obsidian and glowing green crystals embedded within its chest. It moves slowly but with immense, unyielding power.",
                         "base_stat_ranges": {"hp": [90, 95], "attack": [75, 80], "defense": [120, 125], "special_attack": [55, 60],
                                              "special_defense": [70, 75], "speed": [45, 50]},
@@ -176,6 +176,7 @@ PET_DATABASE = {
         "species": "Bristlecone",
         "pet_type": "Normal",
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Defensive",
         "description": "A small, pine cone-shaped creature with a tough, bark-like exterior and stubby limbs. Its body is studded with short, sharp needles that bristle outward whenever it senses danger.",
         "base_capture_rate": 45,
@@ -199,6 +200,7 @@ PET_DATABASE = {
                 "species": "Burlback",
                 "pet_type": ["Normal", "Grass"],
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": "A sturdy, tree-stump-like creature whose bark has hardened into thick natural armor. Gnarled branches sprout from its back, and its slow, deliberate movements carry the weight of something ancient and unyielding.",
                 "passive_ability": {
                     "name": "Thorny Hide",
@@ -218,7 +220,7 @@ PET_DATABASE = {
         }
     },
     "Corroder": {
-        "species": "Corroder", "pet_type": ["Rock", "Poison"], "rarity": "Common", "personality": "Defensive",
+        "species": "Corroder", "pet_type": ["Rock", "Poison"], "rarity": "Common", "classification_tier": "Ordinary", "personality": "Defensive",
         "description": "A hunched, crab-like creature whose shell is a patchwork of calcified rock and oozing dark sludge. Its claws drip with a corrosive substance that slowly eats through anything they touch.",
         "is_gloom_touched": True,
         "gloom": {"state": "Touched", "type": "Rotting", "mark": "oozing dark sludge and a corrosive drip from the claws"},
@@ -239,7 +241,7 @@ PET_DATABASE = {
         "evolutions": {
             "Grimplate": {
                 "evolves_at": 15,
-                "species": "Grimplate", "pet_type": ["Rock", "Poison"], "rarity": "Uncommon",
+                "species": "Grimplate", "pet_type": ["Rock", "Poison"], "rarity": "Uncommon", "classification_tier": "Prime",
                 "description": "A larger, more heavily armored successor to the Corroder. Its shell has fused into dense, layered rock, and the toxic sludge it secretes has thickened into a viscous, slow-dripping poison.",
                 "base_stat_ranges": {"hp": [60, 65], "attack": [45, 50], "defense": [70, 75],
                                      "special_attack": [35, 40],
@@ -255,7 +257,7 @@ PET_DATABASE = {
                 "evolutions": {
                     "Blightcrust": {
                         "evolves_at": 30,
-                        "species": "Blightcrust", "pet_type": ["Rock", "Poison"], "rarity": "Rare",
+                        "species": "Blightcrust", "pet_type": ["Rock", "Poison"], "rarity": "Rare", "classification_tier": "Apex",
                         "is_gloom_touched": True,
                         "gloom": {"state": "Shorn", "type": "Rotting", "mark": "fused bones and hardened sludge radiating an aura of decay"},
                         "description": "A towering construct of fused bones and hardened sludge, shaped by years of Gloom exposure into something ancient and terrifying. It moves slowly but radiates an aura of decay that withers anything that lingers too close.",
@@ -282,6 +284,7 @@ PET_DATABASE = {
         "species": "Mossling",
         "pet_type": "Grass",
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Timid",
         "description": "A small, moss-covered creature that blends seamlessly into the forest floor. Its timid nature means it will flee at the first sign of danger, but it becomes surprisingly resilient when cornered.",
         "base_capture_rate": 45,
@@ -305,6 +308,7 @@ PET_DATABASE = {
                 "species": "Thornmoss",
                 "pet_type": ["Grass", "Rock"],
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": "As Mossling matures, its soft coat hardens into a dense layer of moss-covered rock. Sharp thorns protrude from its back, and it carries itself with a quiet, unmovable confidence.",
                 "passive_ability": {
                     "name": "Thorn Guard",
@@ -326,6 +330,7 @@ PET_DATABASE = {
                         "species": "Ferngale",
                         "pet_type": ["Grass", "Rock"],
                         "rarity": "Rare",
+                        "classification_tier": "Apex",
                         "description": "An ancient, towering form wrapped in layers of living stone and cascading fern. Ferngale moves slowly but commands the battlefield with a primal authority — the forest itself seems to bend around it.",
                         "passive_ability": {
                             "name": "Ancient Growth",
@@ -352,6 +357,7 @@ PET_DATABASE = {
         "species": "Glimmerva",
         "pet_type": "Bug",
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Timid",
         "description": "A soft-bodied, wingless larva covered in fine, glowing scales. It clings to sun-warmed leaves and bark, pulsing faintly with light when disturbed. Slow and harmless-looking, but the dust it sheds when threatened can be surprisingly disorienting.",
         "base_capture_rate": 50,
@@ -375,6 +381,7 @@ PET_DATABASE = {
                 "species": "Luminara",
                 "pet_type": ["Bug"],
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": "Freshly emerged from its cocoon, Luminara's wings are still soft and unfolding, glimmering faintly even in shade. It moves in short, fluttering bursts, not yet trusting its new wings, but already drawn toward warmth and light.",
                 "passive_ability": {
                     "name": "Gilded Wings",
@@ -396,6 +403,7 @@ PET_DATABASE = {
                         "species": "Solarmoth",
                         "pet_type": ["Bug", "Fire"],
                         "rarity": "Rare",
+                        "classification_tier": "Apex",
                         "description": "Its metamorphosis complete, Solarmoth's wings have unfurled into great radiant fans that seem to burn with trapped sunlight. It glides rather than flutters now, leaving faint trails of warmth in the air, and even at night its wings continue to glow like embers.",
                         "passive_ability": {
                             "name": "Radiant Core",
@@ -420,6 +428,7 @@ PET_DATABASE = {
         "species": "Grimweave",
         "pet_type": ["Ghost", "Poison"],
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Aggressive",
         "description": "A shadowy, arachnid-like creature that weaves webs of Gloom-infused silk between the trees at night. Its presence makes the air feel cold and heavy, and the faint glow of its eyes is often the only warning before it strikes.",
         "base_capture_rate": 35,
@@ -445,6 +454,7 @@ PET_DATABASE = {
                 "species": "Duskspinner",
                 "pet_type": ["Ghost", "Poison"],
                 "rarity": "Rare",
+                "classification_tier": "Apex",
                 "description": "A larger, more terrifying form that wraps itself in a shroud of writhing Gloom-silk. Its eight limbs move with unsettling precision, and the webs it spins can trap both body and spirit.",
                 "passive_ability": {
                     "name": "Soul Snare",
@@ -466,6 +476,7 @@ PET_DATABASE = {
                         "species": "Veilmother",
                         "pet_type": ["Ghost", "Poison"],
                         "rarity": "Ancient",
+                        "classification_tier": "Elder",
                         "is_gloom_touched": True,
                         "gloom": {"state": "Hollow", "type": "Shrouded", "mark": "a vast, passive web-shroud — what's left of the self has emptied into something that only waits"},
                         "description": (
@@ -499,6 +510,7 @@ PET_DATABASE = {
         "species": "Moonwisp",
         "pet_type": ["Fairy", "Grass"],
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Tactical",
         "description": "A tiny, luminescent creature that dances among moonlit flowers in the depths of Whisperwood. Gentle by nature, it uses its fae magic to confound and disorient those who threaten its home rather than fighting directly.",
         "base_capture_rate": 35,
@@ -522,6 +534,7 @@ PET_DATABASE = {
                 "species": "Lunarblossom",
                 "pet_type": ["Fairy", "Grass"],
                 "rarity": "Rare",
+                "classification_tier": "Apex",
                 "description": "A graceful, flower-crowned being that radiates a soft silver light. It moves as if weightless, leaving a faint trail of glowing petals wherever it steps. Its fae magic has deepened into something ancient and difficult to resist.",
                 "passive_ability": {
                     "name": "Moonlit Grace",
@@ -545,6 +558,7 @@ PET_DATABASE = {
         "species": "Serpentine",
         "pet_type": ["Grass", "Dark"],
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Tactical",
         "description": "A slender, vine-like serpent that moves silently through the underbrush, its scales shifting between deep green and shadow depending on the light. It prefers to watch from cover for long stretches before ever striking.",
         "base_capture_rate": 35,
@@ -568,6 +582,7 @@ PET_DATABASE = {
                 "species": "Serpumbra",
                 "pet_type": ["Grass", "Dark"],
                 "rarity": "Rare",
+                "classification_tier": "Apex",
                 "description": "Serpentine's final form — a long, shadow-wreathed serpent whose scales seem to drink in the light around it. In dappled forest shade it can vanish almost entirely, becoming little more than a rustle in the leaves and a pair of watching eyes.",
                 "passive_ability": {
                     "name": "Living Camouflage",
@@ -591,6 +606,7 @@ PET_DATABASE = {
         "species": "Glamorose",
         "pet_type": ["Grass", "Poison"],
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Tactical",
         "description": "A small, flower-headed creature with petals of an almost unnaturally vivid pink. Its sweet fragrance draws other creatures close — a little too close, and a little too often for it to be entirely accidental.",
         "base_capture_rate": 45,
@@ -614,6 +630,7 @@ PET_DATABASE = {
                 "species": "Malicea",
                 "pet_type": ["Grass", "Poison"],
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": "Malicea's petals have unfurled wider and its fragrance grown richer — sweeter, even, the closer one gets to the soft rot at its core. Things that wander too near tend to linger longer than they mean to.",
                 "passive_ability": {
                     "name": "Sweet Decay",
@@ -635,6 +652,7 @@ PET_DATABASE = {
                         "species": "Aberraflora",
                         "pet_type": ["Grass", "Poison"],
                         "rarity": "Ancient",
+                        "classification_tier": "Elder",
                         "description": (
                             "The final form of the Glamorose line. A sprawling mass of bloom and "
                             "rot, half-buried in the deep Thicket where the canopy never quite "
@@ -666,6 +684,7 @@ PET_DATABASE = {
         "species": "Verdanthorn",
         "pet_type": ["Grass", "Normal"],
         "rarity": "Ancient",
+        "classification_tier": "Elder",
         "personality": "Defensive",
         "description": (
             "An ancient, towering presence at the heart of the Thicket — easy to mistake "
@@ -699,6 +718,7 @@ PET_DATABASE = {
         "species": "Cinderkit",
         "pet_type": "Fire",
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Timid",
         "description": (
             "A small fox-kit-like creature with ash-gray fur and faint ember-orange "
@@ -726,6 +746,7 @@ PET_DATABASE = {
                 "species": "Ashveil",
                 "pet_type": "Fire",
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": (
                     "Bigger and leaner than Cinderkit. The ember streaks have become "
                     "trailing wisps of smoke and ash that drift behind it as it moves, "
@@ -753,6 +774,7 @@ PET_DATABASE = {
         "species": "Tindertail",
         "pet_type": "Fire",
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Tactical",
         "description": (
             "A small, quick, alert creature — more scout than fighter. Slim, "
@@ -781,6 +803,7 @@ PET_DATABASE = {
         "species": "Smolderoot",
         "pet_type": ["Grass", "Fire"],
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Defensive",
         "description": (
             "Looks like a charred sapling that somehow kept growing — blackened "
@@ -808,6 +831,7 @@ PET_DATABASE = {
                 "species": "Pyrethorn",
                 "pet_type": ["Grass", "Fire"],
                 "rarity": "Rare",
+                "classification_tier": "Apex",
                 "description": (
                     "Smolderoot's larger form — gnarled, root-legged, hunched, walking "
                     "on four thorned root-limbs with low flame constantly licking along "
@@ -835,6 +859,7 @@ PET_DATABASE = {
         "species": "Cindermaw",
         "pet_type": ["Grass", "Fire"],
         "rarity": "Ancient",
+        "classification_tier": "Elder",
         "personality": "Defensive",
         "description": (
             "A massive, mostly inert charred root-mass, half-buried in deep ash at "
@@ -864,6 +889,7 @@ PET_DATABASE = {
         "species": "Pyrehart",
         "pet_type": "Fire",
         "rarity": "Ancient",
+        "classification_tier": "Elder",
         "personality": "Aggressive",
         "description": (
             "A large, lion-or-wolf-shaped guardian, its 'fur' made of slow-moving "
@@ -895,7 +921,7 @@ PET_DATABASE = {
     # -------------------------------------------------------------------------
 
     "Stillroot": {
-        "species": "Stillroot", "pet_type": ["Rock", "Grass"], "rarity": "Common",
+        "species": "Stillroot", "pet_type": ["Rock", "Grass"], "rarity": "Common", "classification_tier": "Apex",  # bumped from Ordinary so its unique Stonecrust passive isn't overridden by the shared pool — fits its Gloom-marked, Rare-sighting status at the Weeping Root
         "personality": "Steadfast",
         "is_gloom_touched": True,
         "gloom": {"state": "Touched", "type": "Calcifying", "mark": "patches of genuine stone-like growth across the body, stalled in place"},
@@ -928,7 +954,7 @@ PET_DATABASE = {
     },
 
     "Veinglow": {
-        "species": "Veinglow", "pet_type": ["Poison", "Grass"], "rarity": "Uncommon",
+        "species": "Veinglow", "pet_type": ["Poison", "Grass"], "rarity": "Uncommon", "classification_tier": "Prime",
         "personality": "Cautious",
         "is_gloom_touched": False,
         "description": (
@@ -966,7 +992,7 @@ PET_DATABASE = {
     # -------------------------------------------------------------------------
 
     "Gauntling": {
-        "species": "Gauntling", "pet_type": ["Ghost", "Normal"], "rarity": "Common",
+        "species": "Gauntling", "pet_type": ["Ghost", "Normal"], "rarity": "Common", "classification_tier": "Ordinary",
         "personality": "Timid",
         "is_gloom_touched": True,
         "gloom": {"state": "Touched", "type": "Fading", "mark": "partially translucent body, slowly losing physical definition"},
@@ -997,7 +1023,7 @@ PET_DATABASE = {
         "evolutions": {
             "Waneling": {
                 "evolves_at": 15,
-                "species": "Waneling", "pet_type": ["Ghost", "Normal"], "rarity": "Uncommon",
+                "species": "Waneling", "pet_type": ["Ghost", "Normal"], "rarity": "Uncommon", "classification_tier": "Prime",
                 "is_gloom_touched": True,
                 "gloom": {"state": "Shorn", "type": "Fading", "mark": "more ghost than creature, barely visible — sensed more than seen"},
                 "description": (
@@ -1023,7 +1049,7 @@ PET_DATABASE = {
     },
 
     "Rimecrawl": {
-        "species": "Rimecrawl", "pet_type": ["Ice", "Poison"], "rarity": "Uncommon",
+        "species": "Rimecrawl", "pet_type": ["Ice", "Poison"], "rarity": "Uncommon", "classification_tier": "Prime",
         "personality": "Defensive",
         "is_gloom_touched": True,
         "gloom": {"state": "Touched", "type": "Frostbound", "mark": "trails of frost-laced Gloom residue, cold to the touch"},
@@ -1054,7 +1080,7 @@ PET_DATABASE = {
         "evolutions": {
             "Frostbile": {
                 "evolves_at": 16,
-                "species": "Frostbile", "pet_type": ["Ice", "Poison"], "rarity": "Rare",
+                "species": "Frostbile", "pet_type": ["Ice", "Poison"], "rarity": "Rare", "classification_tier": "Apex",
                 "is_gloom_touched": True,
                 "gloom": {"state": "Shorn", "type": "Frostbound", "mark": "crystallized frost trails that turn the terrain itself into a weapon"},
                 "description": (
@@ -1080,7 +1106,7 @@ PET_DATABASE = {
     },
 
     "Threshling": {
-        "species": "Threshling", "pet_type": ["Dark", "Ghost"], "rarity": "Rare",
+        "species": "Threshling", "pet_type": ["Dark", "Ghost"], "rarity": "Rare", "classification_tier": "Apex",
         "personality": "Aggressive",
         "is_gloom_touched": True,
         "gloom": {"state": "Shorn", "type": "Thresholdbound", "mark": "half-solid, half-mist body; one eye clear, one eye dark"},
@@ -1111,7 +1137,7 @@ PET_DATABASE = {
         "evolutions": {
             "Threshbound": {
                 "evolves_at": 20,
-                "species": "Threshbound", "pet_type": ["Dark", "Ghost"], "rarity": "Ancient",
+                "species": "Threshbound", "pet_type": ["Dark", "Ghost"], "rarity": "Ancient", "classification_tier": "Elder",
                 "is_gloom_touched": True,
                 "gloom": {"state": "Hollow", "type": "Thresholdbound", "mark": "no longer at the threshold — it IS the threshold, defying classification"},
                 "description": (
@@ -1148,7 +1174,7 @@ PET_DATABASE = {
     # -------------------------------------------------------------------------
 
     "Murkback": {
-        "species": "Murkback", "pet_type": ["Water", "Ground"], "rarity": "Common",
+        "species": "Murkback", "pet_type": ["Water", "Ground"], "rarity": "Common", "classification_tier": "Ordinary",
         "personality": "Defensive",
         "description": (
             "A squat, wide-bodied amphibian armored with a crust of dried mud and silt. "
@@ -1176,7 +1202,7 @@ PET_DATABASE = {
         "evolutions": {
             "Murkwall": {
                 "evolves_at": 15,
-                "species": "Murkwall", "pet_type": ["Water", "Ground"], "rarity": "Uncommon",
+                "species": "Murkwall", "pet_type": ["Water", "Ground"], "rarity": "Uncommon", "classification_tier": "Prime",
                 "description": (
                     "Larger, slower, and nearly immovable. The hide has thickened into "
                     "layered mud-rock plating. Murkback's territorial instinct has become "
@@ -1202,7 +1228,7 @@ PET_DATABASE = {
     },
 
     "Pallefin": {
-        "species": "Pallefin", "pet_type": "Water", "rarity": "Uncommon",
+        "species": "Pallefin", "pet_type": "Water", "rarity": "Uncommon", "classification_tier": "Prime",
         "personality": "Timid",
         "description": (
             "A small, almost translucent creature that skims the water surface without "
@@ -1231,7 +1257,7 @@ PET_DATABASE = {
         "evolutions": {
             "Shimmerdeep": {
                 "evolves_at": 16,
-                "species": "Shimmerdeep", "pet_type": "Water", "rarity": "Rare",
+                "species": "Shimmerdeep", "pet_type": "Water", "rarity": "Rare", "classification_tier": "Apex",
                 "description": (
                     "No longer skims the surface — descends. The translucency becomes "
                     "a faint bioluminescence, generating soft light in dark water. "
@@ -1257,7 +1283,7 @@ PET_DATABASE = {
     },
 
     "Siltborn": {
-        "species": "Siltborn", "pet_type": ["Poison", "Grass"], "rarity": "Rare",
+        "species": "Siltborn", "pet_type": ["Poison", "Grass"], "rarity": "Rare", "classification_tier": "Apex",
         "personality": "Aggressive",
         "is_gloom_touched": False,
         "description": (
@@ -1287,7 +1313,7 @@ PET_DATABASE = {
         "evolutions": {
             "Mirewarden": {
                 "evolves_at": 18,
-                "species": "Mirewarden", "pet_type": ["Poison", "Grass"], "rarity": "Very Rare",
+                "species": "Mirewarden", "pet_type": ["Poison", "Grass"], "rarity": "Very Rare", "classification_tier": "Elder",
                 "is_gloom_touched": False,
                 "description": (
                     "Larger, denser. Reeds and roots have grown through it, not just "
@@ -1348,42 +1374,125 @@ def get_pet_data(species: str) -> dict:
 
 ENCOUNTER_TABLES = {
 
+    # Encounter Rarity is relative to THIS location, not an intrinsic property
+    # of the species (see data/classifications.py — ENCOUNTER_RARITIES /
+    # ENCOUNTER_RARITY_WEIGHTS). Same species can read differently at
+    # different locations; Gloom-touched species are "Normal" in their own
+    # heavily Gloom-affected home turf, but "Odd" (or further) where they're
+    # an out-of-place anomaly — that's the signal for Gloom-spread later.
     "outpostWilds": {
-        "day": ["Bristlecone", "Bristlecone", "Bristlecone", "Mossling"],   # Mossling ~25% — forest edge glimpse
-        "night": ["Bristlecone", "Bristlecone", "Bristlecone", "Mossling"]  # Mossling ~25% — lost
+        "day": [
+            {"species": "Bristlecone", "encounter_rarity": "Normal"},
+            {"species": "Mossling", "encounter_rarity": "Odd"},  # forest edge glimpse
+        ],
+        "night": [
+            {"species": "Bristlecone", "encounter_rarity": "Normal"},
+            {"species": "Mossling", "encounter_rarity": "Odd"},  # lost
+        ],
     },
     "oakhavenOutpost_rottingPits": {
-        "day": ["Corroder"],
-        "night": ["Corroder", "Corroder", "Corroder", "Grimplate"]  # Grimplate ~25% — surfaces after dark
+        "day": [
+            {"species": "Corroder", "encounter_rarity": "Normal"},  # Gloom-touched, this is its home
+        ],
+        "night": [
+            {"species": "Corroder", "encounter_rarity": "Normal"},
+            {"species": "Grimplate", "encounter_rarity": "Odd"},  # surfaces after dark
+        ],
     },
     "whisperwoodGrove": {
-        "day": ["Mossling", "Mossling", "Glimmerva", "Glimmerva", "Verdanthorn"],   # Verdanthorn ~20% — ancient, rare sighting
-        "night": ["Mossling", "Mossling", "Grimweave", "Moonwisp", "Glamorose", "Glamorose", "Malicea"]  # Malicea ~14% — low-chance evolution
+        "day": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Glimmerva", "encounter_rarity": "Normal"},
+            {"species": "Verdanthorn", "encounter_rarity": "Rare"},  # Elder tier, ancient/rare sighting
+        ],
+        "night": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Glamorose", "encounter_rarity": "Normal"},
+            {"species": "Grimweave", "encounter_rarity": "Odd"},  # Gloom-touched
+            {"species": "Moonwisp", "encounter_rarity": "Odd"},
+            {"species": "Malicea", "encounter_rarity": "Odd"},
+        ],
     },
     "whisperwoodWilds": {
-        "day": ["Mossling", "Mossling", "Serpentine"],
-        "night": ["Mossling", "Serpentine", "Serpentine", "Grimweave", "Serpumbra"]  # Serpumbra ~20% — low-chance evolution
+        "day": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Serpentine", "encounter_rarity": "Odd"},
+        ],
+        "night": [
+            {"species": "Serpentine", "encounter_rarity": "Normal"},
+            {"species": "Mossling", "encounter_rarity": "Odd"},
+            {"species": "Grimweave", "encounter_rarity": "Odd"},  # Gloom-touched
+            {"species": "Serpumbra", "encounter_rarity": "Odd"},  # Apex-tier evolution, uncommon at night
+        ],
     },
     "ashenVerge": {
         # The Ash Circle — Tindertail intentionally absent (Bram & Pip's shared
         # companion, not a wild population). The First Ring is folded into this
         # table as rare/very-rare sightings rather than its own zone for now.
-        "day": ["Mossling", "Mossling", "Cinderkit", "Cinderkit", "Pyrethorn"],  # Pyrethorn ~20% — First Ring, rare daytime sighting
-        "night": ["Mossling", "Mossling", "Cinderkit", "Cinderkit", "Cinderkit", "Grimweave", "Smolderoot", "Smolderoot", "Cindermaw", "Pyrehart"]  # Cindermaw/Pyrehart ~10% each — ancient, very rare
+        "day": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Cinderkit", "encounter_rarity": "Normal"},
+            {"species": "Pyrethorn", "encounter_rarity": "Rare"},  # First Ring, rare daytime sighting
+        ],
+        "night": [
+            {"species": "Cinderkit", "encounter_rarity": "Normal"},
+            {"species": "Mossling", "encounter_rarity": "Odd"},
+            {"species": "Grimweave", "encounter_rarity": "Odd"},  # Gloom-touched
+            {"species": "Smolderoot", "encounter_rarity": "Odd"},
+            {"species": "Cindermaw", "encounter_rarity": "Strange"},  # Elder tier, ancient/very-rare sighting
+            {"species": "Pyrehart", "encounter_rarity": "Strange"},  # Elder tier, ancient/very-rare sighting
+        ],
     },
     "mirefields": {
-        "day": ["Murkback", "Pallefin", "Mossling", "Corroder"],
-        "night": ["Murkback", "Grimweave", "Siltborn", "Corroder"],
+        "day": [
+            {"species": "Murkback", "encounter_rarity": "Normal"},
+            {"species": "Pallefin", "encounter_rarity": "Normal"},
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Corroder", "encounter_rarity": "Normal"},  # Gloom-touched, at home in the mire
+        ],
+        "night": [
+            {"species": "Murkback", "encounter_rarity": "Normal"},
+            {"species": "Corroder", "encounter_rarity": "Normal"},  # Gloom-touched, at home in the mire
+            {"species": "Grimweave", "encounter_rarity": "Odd"},  # Gloom-touched, away from its Whisperwood home
+            {"species": "Siltborn", "encounter_rarity": "Odd"},  # night-only resident, not Gloom-touched
+        ],
     },
     "weeping_chasm": {
-        "day": ["Gauntling", "Rimecrawl", "Corroder"],
-        "night": ["Gauntling", "Rimecrawl", "Grimweave", "Corroder", "Waneling", "Frostbile", "Grimplate", "Threshling"],
+        # Heavily Gloom-affected zone — the Touched/Shorn residents listed here
+        # are "Normal" sightings in their own home territory.
+        "day": [
+            {"species": "Gauntling", "encounter_rarity": "Normal"},  # Gloom-touched, at home
+            {"species": "Rimecrawl", "encounter_rarity": "Normal"},  # Gloom-touched, at home
+            {"species": "Corroder", "encounter_rarity": "Normal"},  # Gloom-touched, at home
+        ],
+        "night": [
+            {"species": "Gauntling", "encounter_rarity": "Normal"},
+            {"species": "Rimecrawl", "encounter_rarity": "Normal"},
+            {"species": "Corroder", "encounter_rarity": "Normal"},
+            {"species": "Grimweave", "encounter_rarity": "Odd"},  # Gloom-touched, away from its Whisperwood home
+            {"species": "Waneling", "encounter_rarity": "Odd"},  # Shorn evolution, less common than Gauntling
+            {"species": "Frostbile", "encounter_rarity": "Odd"},  # Shorn evolution, less common than Rimecrawl
+            {"species": "Grimplate", "encounter_rarity": "Odd"},  # evolution, less common than Corroder
+            {"species": "Threshling", "encounter_rarity": "Rare"},  # Gretta's threshold-bound capture, very low base capture rate
+        ],
     },
     "weepingRoot": {
         # Underground, no real day/night cycle — both keys use the same table.
         # Mossling/Serpentine/Glamorose here are Withering-Marked (flavor-only
         # for now; see EXPLORE_EVENTS["weepingRoot"] and on_enter text).
-        "day": ["Mossling", "Mossling", "Mossling", "Serpentine", "Glamorose", "Veinglow", "Veinglow", "Stillroot"],  # Stillroot ~12.5% — rare, Calcifying alongside Withering
-        "night": ["Mossling", "Mossling", "Mossling", "Serpentine", "Glamorose", "Veinglow", "Veinglow", "Stillroot"],
+        "day": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Veinglow", "encounter_rarity": "Normal"},  # native to the Root, adapted to the sap-veins
+            {"species": "Serpentine", "encounter_rarity": "Odd"},
+            {"species": "Glamorose", "encounter_rarity": "Odd"},
+            {"species": "Stillroot", "encounter_rarity": "Rare"},  # rare, Calcifying alongside Withering
+        ],
+        "night": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Veinglow", "encounter_rarity": "Normal"},
+            {"species": "Serpentine", "encounter_rarity": "Odd"},
+            {"species": "Glamorose", "encounter_rarity": "Odd"},
+            {"species": "Stillroot", "encounter_rarity": "Rare"},
+        ],
     },
 }
