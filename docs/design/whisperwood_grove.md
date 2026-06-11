@@ -1242,6 +1242,60 @@ Still TBD: exact dropdown structure/zone keys, encounter tables for the other 4 
 mechanics and dialogue branches (including whether her "vine-manifestations" boss mechanic
 uses Withering/Hollowing-Marked creatures as the fight's building blocks).
 
+### Implementation status — Pass A (groundwork) complete
+
+Mirrors the Ashen Verge groundwork-first approach, but more conservative given how much of
+this remnant is still TBD (NPC dialogue, Anora's purify/defeat mechanic, the
+`whisperwoods_plea` quest-gating mechanism). Pass A covers only the data/zone shell, **left
+disconnected by design**:
+
+- **2 new pets** (`data/pets.py`): Stillroot (Common, Rock/Grass, standalone — `Stonecrust`
+  passive, `is_gloom_touched: True`, Touched/Calcifying) and Veinglow (Uncommon, Poison/Grass,
+  standalone — `Neutralize` passive, `is_gloom_touched: False`, same "adapted, not afflicted"
+  precedent as Siltborn). The Withering-Marked Mossling/Serpentine/Glamorose variants from the
+  pets table were **not** given separate species entries or an `is_gloom_touched` flag —
+  doing so would mark *all* Mossling/Serpentine/Glamorose everywhere as Gloom-touched, which
+  is wrong (only the Weeping Root's population is Marked). Per the doc's own framing
+  ("primarily visual/narrative at this stage" for Touched), the Withering Mark for these three
+  is represented as flavor text only (on_enter text, `EXPLORE_EVENTS["weepingRoot"]`,
+  `ENCOUNTER_TABLES["weepingRoot"]` comment) — no mechanical change, no new data entries. This
+  sidesteps the deferred "Gloom Mark code representation" question entirely for Pass A.
+- **`ENCOUNTER_TABLES["weepingRoot"]`** (`data/pets.py`): Mossling/Serpentine/Glamorose
+  (Withering, flavor-only) + Veinglow (unmarked) + rare Stillroot (Calcifying), single table
+  reused for day/night since the zone is permanently underground.
+- **3 new items** (`data/items.py`): `weeping_sap`, `stoneplate_shard` (Crafting Materials,
+  parallel to `ash_ember`), `veinglow_essence` (Quest Items, research-thread seed for Elowen).
+- **`EXPLORE_EVENTS["weepingRoot"]`** (`data/explore_events.py`, 13 events) +
+  `ZONE_LOOT_TABLES["weepingRoot"]`: flavor/pet_sighting/hazard/loot_bonus/choice events per
+  the doc's sketches, including the Veinglow "approach slowly" choice
+  (→ `veinglow_essence`) and the Deep Vein "brightest vein" choice (Hollowthorn glimpse,
+  → `lore_fragment`, kept unsettling per the classification framework's note on Elder
+  sightings).
+- **`data/remnants.py`**: new `weepingRoot` remnant entry, 5 locations (Elowen's Camp,
+  Corvin's Hollow, The Weeping Root, The Deep Vein, Anora's Hollow) with on_enter flavor text
+  for each. `the_weeping_root` location has `services.explore_zone: "weepingRoot"`.
+  - **Elowen** (Elowen's Camp) and **Corvin** (Corvin's Hollow) are added as NPC stubs —
+    `name`/`role`/`availability`/`pet` only, no `dialogue` key (mirrors the pre-dialogue
+    Ashen Verge pattern). Their pets follow the doc's pets table directly: Corvin →
+    Stillroot (Touched/Calcifying — matches Corvin's own Mark exactly), Elowen → Glamorose
+    with the Withering Mark (one wilted petal — her "control subject"). Both pet
+    `nickname`s are `None`/TBD pending Pass B. The Talk button works but just returns "..."
+    until dialogue trees are added.
+  - **Anora's Hollow** stays `npcs: {}` — she's the quest climax, not a stub-able NPC; her
+    full presence, dialogue, and purify/defeat mechanic are Pass B/C together.
+  - The Deep Vein also stays `npcs: {}` (lore zone, Hollowthorn lore-seeded only).
+- **Quest gate (placeholder, not wired)**: `weepingRoot` has
+  `connection_requirements: {"whisperwoodGrove": "whisperwoods_plea_weeping_root_unlocked"}`,
+  and `data/towns.py`'s `whisperwoodGrove` entry adds the reverse connection gated by the same
+  flag. **No quest step sets this flag yet** — per `whisperwoods_plea_quest.md`, the Fae
+  Whisper Choice Event that's supposed to set it (Beat 3) is a separate wiring pass. Until
+  then, this remnant is correctly hidden from both directions' travel dropdowns — confirmed
+  via the same `connection_requirements` check `weeping_chasm`/`mirefields` already use.
+
+**Deferred to Pass B/C** (per `whisperwoods_plea_quest.md`): Elowen/Corvin/Anora NPCs, pets,
+and dialogue trees; the Fae Whisper quest-gate wiring; Anora's purify/defeat mechanic;
+Hollowthorn/Verdanthorn's Reflection (lore-seeded only, same as Veilmother/Chasmbane).
+
 ---
 
 ## Implementation Notes for Coding Session
@@ -1336,8 +1390,16 @@ uses Withering/Hollowing-Marked creatures as the fight's building blocks).
   can't currently be picked up again (same pre-existing limitation as
   `forest_cleanup`; not specific to this remnant).
 
+**The Weeping Root — Pass A (groundwork) done:** see "Implementation status — Pass A
+(groundwork) complete" under "The Weeping Root (quest-gated remnant)" above for the full
+breakdown (2 new pets, 3 new items, encounter table, 13 explore events + loot table, 5-location
+remnant shell with Elowen/Corvin NPC stubs + pets, gated-but-unwired travel connection).
+Remnant is correctly unreachable in-game until Pass B/C.
+
 **Remaining, separate design passes (not started, not blocking the above):**
-- The Weeping Root (quest-gated remnant) — rough sketch only, includes Gloom Sickness tie-in.
+- The Weeping Root — Pass B/C: Elowen/Corvin/Anora dialogue trees, Anora's purify/defeat
+  mechanic, the `whisperwoods_plea` Fae Whisper quest-gate wiring, Hollowthorn/Verdanthorn's
+  Reflection. Depends on `whisperwoods_plea_quest.md` (still WIP) being finalized.
 - Gloom Sickness — State/Type/Mark framework (see section above) — marked NOT FINAL,
   Town 2 era; needs its own design pass before any code (status/mark application, gloom_tick
   wiring in `cogs/adventure.py`, etc.).

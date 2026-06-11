@@ -931,6 +931,286 @@ REMNANTS = {
     },
 
     # =========================================================================
+    # The Weeping Root (quest-gated remnant — see docs/design/whisperwood_grove.md)
+    #
+    # GROUNDWORK PASS ONLY. Locked behind "whisperwoods_plea_weeping_root_unlocked",
+    # a flag that no quest step sets yet — the Fae Whisper quest-only Choice Event
+    # in the Whispering Thicket that's supposed to set it (per
+    # docs/design/whisperwoods_plea_quest.md, Beat 3) is a separate wiring pass.
+    # Until then this remnant is unreachable, by design.
+    #
+    # NPCs (Elowen, Corvin, Anora) are intentionally NOT included yet — their
+    # dialogue trees, pets, and (for Anora) the purify/defeat mechanic are all
+    # marked TBD in the design doc. That's the planned Pass B/C for this remnant.
+    # =========================================================================
+
+    "weepingRoot": {
+        "id": "weepingRoot",
+        "name": "The Weeping Root",
+        "emoji": "🟣",
+        "between": ["whisperwoodGrove"],
+        "connections": {
+            "whisperwoodGrove": "Whisperwood Grove",
+        },
+        "connection_costs": {
+            "whisperwoodGrove": 10,
+        },
+        "connection_requirements": {
+            "whisperwoodGrove": "whisperwoods_plea_weeping_root_unlocked",
+        },
+        "availability": "all",
+        "gloom_level": 60,
+        "description_day": (
+            "A pitch-black descent beneath the oldest roots of Sylven the Treant. "
+            "The air is thick with a sweet, sickening smell of decay. The only "
+            "light comes from giant, pulsating root-veins, oozing a bruised-purple "
+            "bioluminescent sap."
+        ),
+        "description_night": (
+            "Down here, day and night don't mean anything. The bruised-purple glow "
+            "of the root-veins is the only light there ever is, and it never "
+            "changes."
+        ),
+        "lore": (
+            "Ashen Verge was a fragment of this same wound that broke off long ago "
+            "and was sealed with fire — a scar on the surface, contained. This is "
+            "the source fire could never reach, because it isn't a separate thing "
+            "sitting on the land. It's grown directly into Sylven's own root "
+            "system. You can't burn it out without burning Sylven himself."
+        ),
+        "locations": {
+            "elowens_camp": {
+                "name": "Elowen's Camp",
+                "emoji": "🏕️",
+                "menu_description": "A small camp just outside the town's jurisdiction — the last stop before the descent.",
+                "availability": "all",
+                "description_day": (
+                    "A modest camp of tarps and crates, pitched right at the edge "
+                    "where the forest floor opens into the descent. Jars of "
+                    "something faintly luminous are lined up neatly on a folding "
+                    "table."
+                ),
+                "description_night": (
+                    "A single lantern burns low. The jars on the table glow "
+                    "faintly on their own — they don't need the lantern at all."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_elowens_camp",
+                        "once": True,
+                        "speaker": "Elowen's Camp",
+                        "icon": "🏕️",
+                        "color": 0x6B3FA0,
+                        "text": (
+                            "A camp of tarps and crates sits at the threshold, "
+                            "facing the descent like it's been waiting for "
+                            "someone to use it. Jars of something faintly purple "
+                            "and luminous are arranged with careful precision on "
+                            "a folding table — the only orderly thing for miles."
+                        ),
+                    },
+                ],
+                "services": {},
+                "npcs": {
+                    "elowen": {
+                        "name": "Elowen",
+                        "role": "Herbalist",
+                        "availability": "all",
+                        "pet": {
+                            "species": "Glamorose",
+                            "nickname": None,  # TBD — Pass B
+                            "nickname_visible_flag": None,
+                            "lore": (
+                                "Identical to a normal Glamorose at a glance — soft, "
+                                "floating, delicate petals — except for one petal "
+                                "that's wilted, discolored, and faintly leaking the "
+                                "same bruised-purple bioluminescence as the Weeping "
+                                "Root's sap veins. Touched, Withering. Elowen's "
+                                "control subject — she monitors its condition "
+                                "alongside her own."
+                            ),
+                        },
+                        # Full dialogue tree, shop inventory, and bounties are TBD —
+                        # see docs/design/whisperwood_grove.md NPC 3 (Elowen).
+                    },
+                },
+            },
+            "corvins_hollow": {
+                "name": "Corvin's Hollow",
+                "emoji": "📜",
+                "menu_description": "A cavern pocket lined with petrified journals.",
+                "availability": "all",
+                "description_day": (
+                    "A small cavern pocket just off the main descent, lined with "
+                    "shelves of journals — most of them calcified solid, pages "
+                    "fused into stone. A few near the entrance still look like "
+                    "paper."
+                ),
+                "description_night": (
+                    "The same as it always is down here — the petrified journals "
+                    "don't notice the difference, and neither does whoever reads "
+                    "them."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_corvins_hollow",
+                        "once": True,
+                        "speaker": "Corvin's Hollow",
+                        "icon": "📜",
+                        "color": 0x7A7A6E,
+                        "text": (
+                            "Shelves of journals line the walls of this small "
+                            "hollow, most of them calcified solid — pages fused "
+                            "into stone, decades of handwriting frozen mid-sentence. "
+                            "A few, closer to the entrance, still look like paper. "
+                            "Someone has been adding to them recently."
+                        ),
+                    },
+                ],
+                "services": {},
+                "npcs": {
+                    "corvin": {
+                        "name": "Corvin",
+                        "role": "Root-Eaten Scribe",
+                        "availability": "all",
+                        "pet": {
+                            "species": "Stillroot",
+                            "nickname": None,  # TBD — Pass B
+                            "nickname_visible_flag": None,
+                            "lore": (
+                                "Found among Corvin's petrified journals — a small "
+                                "root-and-moss creature with the same calcified "
+                                "patches as the journals around it, and as Corvin "
+                                "himself. Touched, Calcifying, stalled decades ago. "
+                                "Stillroot also appears as a rare wild encounter in "
+                                "The Weeping Root proper — Corvin's case isn't "
+                                "unique, just rare."
+                            ),
+                        },
+                        # Full dialogue tree (Verdanthorn's Reflection lore-seed,
+                        # the unified-origin connection to Ashen Verge) is TBD —
+                        # see docs/design/whisperwood_grove.md NPC 2 (Corvin).
+                    },
+                },
+            },
+            "the_weeping_root": {
+                "name": "The Weeping Root",
+                "emoji": "🟣",
+                "menu_description": "The main cavern — pulsing root-veins, bruised-purple light, and the source of the wound.",
+                "availability": "all",
+                "description_day": (
+                    "A vast cavern of giant, pulsating root-veins, oozing "
+                    "bruised-purple bioluminescent sap. The light never changes "
+                    "and never goes out."
+                ),
+                "description_night": (
+                    "The same vast cavern, the same pulsing light. Nothing here "
+                    "answers to the surface world's clock."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_the_weeping_root",
+                        "once": True,
+                        "speaker": "The Weeping Root",
+                        "icon": "🟣",
+                        "color": 0x6B3FA0,
+                        "text": (
+                            "The cavern opens up around you, vast and dim, lit "
+                            "only by the slow pulse of root-veins running with "
+                            "bruised-purple sap. Somewhere in here, the wound that "
+                            "Ashen Verge's fire could never reach has been growing "
+                            "for longer than anyone alive has been alive."
+                        ),
+                    },
+                ],
+                "services": {
+                    "explore_zone": "weepingRoot",
+                },
+                "npcs": {},
+            },
+            "the_deep_vein": {
+                "name": "The Deep Vein",
+                "emoji": "✨",
+                "menu_description": "A narrow vein where the purple glow is brightest — almost too bright to look at directly.",
+                "availability": "all",
+                "description_day": (
+                    "A narrow offshoot from the main cavern, where the "
+                    "bioluminescent glow is brightest — almost too bright to look "
+                    "at directly. Something about this place feels watched, in "
+                    "reverse."
+                ),
+                "description_night": (
+                    "The brightest light in the Weeping Root, and somehow the "
+                    "least comforting."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_the_deep_vein",
+                        "once": True,
+                        "speaker": "The Deep Vein",
+                        "icon": "✨",
+                        "color": 0x9B59B6,
+                        "text": (
+                            "The glow here is almost blinding compared to the rest "
+                            "of the cavern. For a moment, something large moves at "
+                            "the very edge of it — jagged, thorn-shaped, deliberate "
+                            "— before the light swallows it again. You don't move "
+                            "for a long moment after it's gone."
+                        ),
+                    },
+                ],
+                # Lore zone — Verdanthorn's Reflection (Hollowthorn) seeded here,
+                # mechanically deferred (Veilmother/Chasmbane pattern). No
+                # explore_zone yet; "may still change" flag, same as The First
+                # Ring in Ashen Verge.
+                "services": {},
+                "npcs": {},
+            },
+            "anoras_hollow": {
+                "name": "Anora's Hollow",
+                "emoji": "🥀",
+                "menu_description": "The central root wall. Something is fused into it.",
+                "availability": "all",
+                "description_day": (
+                    "The cavern narrows to a dead end — a wall of root-mass, "
+                    "thicker and denser than anywhere else, weeping the same "
+                    "bruised-purple sap as the rest of the cavern. Something is "
+                    "fused into it."
+                ),
+                "description_night": (
+                    "The wall doesn't change. It never does. Whatever is fused "
+                    "into it doesn't sleep, either."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_anoras_hollow",
+                        "once": True,
+                        "speaker": "Anora's Hollow",
+                        "icon": "🥀",
+                        "color": 0x4B2E5C,
+                        "text": (
+                            "The cavern ends here, in a wall of root-mass thicker "
+                            "than anywhere else, weeping sap into the earth below. "
+                            "Something is fused into the wall — and for a moment, "
+                            "you could swear it's watching you back."
+                        ),
+                    },
+                ],
+                # Quest climax / boss encounter — Anora's dialogue tree and the
+                # purify/defeat mechanic are TBD (separate pass, see
+                # docs/design/whisperwoods_plea_quest.md Beat 5).
+                "services": {},
+                "npcs": {},
+            },
+        },
+    },
+
+    # =========================================================================
     # ROAD: Whisperwood Grove ↔ Sunstone Oasis
     # =========================================================================
 

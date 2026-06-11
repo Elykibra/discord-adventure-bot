@@ -886,6 +886,76 @@ PET_DATABASE = {
 
     # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
+    # The Weeping Root
+    # -------------------------------------------------------------------------
+
+    "Stillroot": {
+        "species": "Stillroot", "pet_type": ["Rock", "Grass"], "rarity": "Common",
+        "personality": "Steadfast",
+        "is_gloom_touched": True,
+        "description": (
+            "A small root-and-moss creature with patches of genuine stone-like "
+            "growth spreading across its body — like lichen-covered rock fused "
+            "onto living moss. Fully mobile and alert; the calcified patches "
+            "haven't progressed in a long time, and likely never will. Touched, "
+            "Calcifying — frozen, not failing."
+        ),
+        "base_capture_rate": 42,
+        "passive_ability": {
+            "name": "Stonecrust",
+            "description": "Bonus passive Defense from calcified plating, with no Speed penalty.",
+        },
+        "base_stat_ranges": {
+            "hp": [42, 48], "attack": [22, 27], "defense": [50, 55],
+            "special_attack": [25, 30], "special_defense": [45, 50], "speed": [30, 35],
+        },
+        "growth_rates": {
+            "hp": 1.9, "attack": 1.2, "defense": 2.3, "special_attack": 1.3,
+            "special_defense": 2.0, "speed": 1.4,
+        },
+        "skill_tree": {
+            "1": ["pound", "harden"],
+            "6": ["rock_throw"],
+            "10": ["leech_seed"],
+            "14": {"choice": ["iron_defense", "rock_slide"]},
+        },
+    },
+
+    "Veinglow": {
+        "species": "Veinglow", "pet_type": ["Poison", "Grass"], "rarity": "Uncommon",
+        "personality": "Cautious",
+        "is_gloom_touched": False,
+        "description": (
+            "A small, eel-like creature that lives directly within the sap-veins, "
+            "bioluminescent in the same bruised-purple as its surroundings. Its "
+            "glow brightens briefly when it notices something approaching, then "
+            "gradually fades as it settles back into stillness. Not "
+            "Gloom-touched — its body chemistry has adapted to neutralize the "
+            "toxic sap rather than being afflicted by it."
+        ),
+        "base_capture_rate": 32,
+        "passive_ability": {
+            "name": "Neutralize",
+            "description": "Small chance to resist or shrug off Poison-type status effects inflicted on this pet.",
+        },
+        "base_stat_ranges": {
+            "hp": [38, 44], "attack": [30, 35], "defense": [28, 33],
+            "special_attack": [45, 50], "special_defense": [35, 40], "speed": [50, 55],
+        },
+        "growth_rates": {
+            "hp": 1.6, "attack": 1.4, "defense": 1.2, "special_attack": 2.1,
+            "special_defense": 1.6, "speed": 2.3,
+        },
+        "skill_tree": {
+            "1": ["pound", "poison_sting"],
+            "8": ["leech_seed"],
+            "14": {"choice": ["toxic", "venomous_haze"]},
+            "20": ["acid_armor"],
+        },
+    },
+
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Weeping Chasm
     # -------------------------------------------------------------------------
 
@@ -1296,5 +1366,12 @@ ENCOUNTER_TABLES = {
     "weeping_chasm": {
         "day": ["Gauntling", "Rimecrawl", "Corroder"],
         "night": ["Gauntling", "Rimecrawl", "Grimweave", "Corroder", "Waneling", "Frostbile", "Grimplate", "Threshling"],
+    },
+    "weepingRoot": {
+        # Underground, no real day/night cycle — both keys use the same table.
+        # Mossling/Serpentine/Glamorose here are Withering-Marked (flavor-only
+        # for now; see EXPLORE_EVENTS["weepingRoot"] and on_enter text).
+        "day": ["Mossling", "Mossling", "Mossling", "Serpentine", "Glamorose", "Veinglow", "Veinglow", "Stillroot"],  # Stillroot ~12.5% — rare, Calcifying alongside Withering
+        "night": ["Mossling", "Mossling", "Mossling", "Serpentine", "Glamorose", "Veinglow", "Veinglow", "Stillroot"],
     },
 }

@@ -231,10 +231,18 @@ TOWNS = {
             "mirefields": "Mirefields",
             "whisperwoodWilds": "Whisperwood Wilds",  # is_wilds=True → renders as Explore Wilds button
             "ashenVerge": "The Ashen Verge",  # free remnant, side branch off the Grove
+            "weepingRoot": "The Weeping Root",  # quest-gated remnant, see connection_requirements
         },
         "connection_costs": {
             "mirefields": 12,  # Leaving the Grove back into the bog costs more
             "ashenVerge": 10,
+            "weepingRoot": 10,
+        },
+        "connection_requirements": {
+            # Not set by any quest step yet — see docs/design/whisperwoods_plea_quest.md
+            # Beat 3 (Fae Whisper Choice Event). Wiring is a separate pass; until then
+            # this remnant stays hidden from the travel dropdown.
+            "weepingRoot": "whisperwoods_plea_weeping_root_unlocked",
         },
 
         "locations": {
