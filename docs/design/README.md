@@ -28,6 +28,9 @@ Currently:
 - `oakhaven_outpost/` — tutorial hub. Tagged `-done` (see Conventions).
 - `weeping_chasm/`, `mirefields/`, `whisperwood_grove/` — each has a core design doc +
   main quest doc, in active development.
+- **Ashen Verge and Weeping Root don't have their own folders** — they're covered as
+  sub-regions inside `whisperwood_grove/whisperwood_grove.md` (Bram & Pip, Corvin,
+  Elowen, etc. all live there). If you're looking for them, start there.
 
 ---
 
