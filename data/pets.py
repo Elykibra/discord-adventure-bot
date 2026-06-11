@@ -221,6 +221,7 @@ PET_DATABASE = {
         "species": "Corroder", "pet_type": ["Rock", "Poison"], "rarity": "Common", "personality": "Defensive",
         "description": "A hunched, crab-like creature whose shell is a patchwork of calcified rock and oozing dark sludge. Its claws drip with a corrosive substance that slowly eats through anything they touch.",
         "is_gloom_touched": True,
+        "gloom": {"state": "Touched", "type": "Rotting", "mark": "oozing dark sludge and a corrosive drip from the claws"},
         "base_capture_rate": 40,
         "passive_ability": {"name": "Lingering Gloom",
                             "description": "Stat-lowering debuffs applied by this pet last for one extra turn."},
@@ -255,6 +256,8 @@ PET_DATABASE = {
                     "Blightcrust": {
                         "evolves_at": 30,
                         "species": "Blightcrust", "pet_type": ["Rock", "Poison"], "rarity": "Rare",
+                        "is_gloom_touched": True,
+                        "gloom": {"state": "Shorn", "type": "Rotting", "mark": "fused bones and hardened sludge radiating an aura of decay"},
                         "description": "A towering construct of fused bones and hardened sludge, shaped by years of Gloom exposure into something ancient and terrifying. It moves slowly but radiates an aura of decay that withers anything that lingers too close.",
                         "base_stat_ranges": {"hp": [80, 85], "attack": [70, 75], "defense": [110, 115],
                                              "special_attack": [50, 55],
@@ -421,6 +424,7 @@ PET_DATABASE = {
         "description": "A shadowy, arachnid-like creature that weaves webs of Gloom-infused silk between the trees at night. Its presence makes the air feel cold and heavy, and the faint glow of its eyes is often the only warning before it strikes.",
         "base_capture_rate": 35,
         "is_gloom_touched": True,
+        "gloom": {"state": "Touched", "type": "Shrouded", "mark": "webs of Gloom-infused silk and a faint, cold glow from the eyes"},
         "passive_ability": {
             "name": "Veil of Dread",
             "description": "At the start of battle, this pet's unsettling aura lowers the opponent's Special Defense by 5%."
@@ -463,6 +467,7 @@ PET_DATABASE = {
                         "pet_type": ["Ghost", "Poison"],
                         "rarity": "Ancient",
                         "is_gloom_touched": True,
+                        "gloom": {"state": "Hollow", "type": "Shrouded", "mark": "a vast, passive web-shroud — what's left of the self has emptied into something that only waits"},
                         "description": (
                             "The final form of the Grimweave line. Lives on the east wall face "
                             "of the Weeping Chasm, passive and vast. Doesn't hunt — waits. "
@@ -893,6 +898,7 @@ PET_DATABASE = {
         "species": "Stillroot", "pet_type": ["Rock", "Grass"], "rarity": "Common",
         "personality": "Steadfast",
         "is_gloom_touched": True,
+        "gloom": {"state": "Touched", "type": "Calcifying", "mark": "patches of genuine stone-like growth across the body, stalled in place"},
         "description": (
             "A small root-and-moss creature with patches of genuine stone-like "
             "growth spreading across its body — like lichen-covered rock fused "
@@ -963,6 +969,7 @@ PET_DATABASE = {
         "species": "Gauntling", "pet_type": ["Ghost", "Normal"], "rarity": "Common",
         "personality": "Timid",
         "is_gloom_touched": True,
+        "gloom": {"state": "Touched", "type": "Fading", "mark": "partially translucent body, slowly losing physical definition"},
         "description": (
             "A creature that has lived too close to the Gloom source for generations. "
             "Not violently corrupted — born already fading. Partially translucent, "
@@ -992,6 +999,7 @@ PET_DATABASE = {
                 "evolves_at": 15,
                 "species": "Waneling", "pet_type": ["Ghost", "Normal"], "rarity": "Uncommon",
                 "is_gloom_touched": True,
+                "gloom": {"state": "Shorn", "type": "Fading", "mark": "more ghost than creature, barely visible — sensed more than seen"},
                 "description": (
                     "Further faded. More ghost than creature now. Barely there. "
                     "Still moves. Still hunts. At this stage it barely registers on "
@@ -1018,6 +1026,7 @@ PET_DATABASE = {
         "species": "Rimecrawl", "pet_type": ["Ice", "Poison"], "rarity": "Uncommon",
         "personality": "Defensive",
         "is_gloom_touched": True,
+        "gloom": {"state": "Touched", "type": "Frostbound", "mark": "trails of frost-laced Gloom residue, cold to the touch"},
         "description": (
             "Moves along the chasm walls, slow and methodical. Leaves trails of "
             "frost-laced Gloom residue. Where it passes, the stone gets colder. "
@@ -1047,6 +1056,7 @@ PET_DATABASE = {
                 "evolves_at": 16,
                 "species": "Frostbile", "pet_type": ["Ice", "Poison"], "rarity": "Rare",
                 "is_gloom_touched": True,
+                "gloom": {"state": "Shorn", "type": "Frostbound", "mark": "crystallized frost trails that turn the terrain itself into a weapon"},
                 "description": (
                     "Larger, slower. The trail it leaves now crystallizes into something "
                     "that damages anything walking through it. Turns the terrain into a weapon."
@@ -1073,6 +1083,7 @@ PET_DATABASE = {
         "species": "Threshling", "pet_type": ["Dark", "Ghost"], "rarity": "Rare",
         "personality": "Aggressive",
         "is_gloom_touched": True,
+        "gloom": {"state": "Shorn", "type": "Thresholdbound", "mark": "half-solid, half-mist body; one eye clear, one eye dark"},
         "description": (
             "Caught at the threshold between existence and full Gloom consumption. "
             "Parts of it solid, parts of it mist. One eye clear, one eye dark. "
@@ -1102,6 +1113,7 @@ PET_DATABASE = {
                 "evolves_at": 20,
                 "species": "Threshbound", "pet_type": ["Dark", "Ghost"], "rarity": "Ancient",
                 "is_gloom_touched": True,
+                "gloom": {"state": "Hollow", "type": "Thresholdbound", "mark": "no longer at the threshold — it IS the threshold, defying classification"},
                 "description": (
                     "Has been held at the threshold so long it IS the threshold. "
                     "Not because it grew larger, but because it became something that "

@@ -239,7 +239,7 @@ TOWNS = {
             "weepingRoot": 10,
         },
         "connection_requirements": {
-            # Not set by any quest step yet — see docs/design/whisperwoods_plea_quest.md
+            # Not set by any quest step yet — see docs/design/whisperwood_grove/whisperwoods_plea_quest.md
             # Beat 3 (Fae Whisper Choice Event). Wiring is a separate pass; until then
             # this remnant stays hidden from the travel dropdown.
             "weepingRoot": "whisperwoods_plea_weeping_root_unlocked",
@@ -355,7 +355,7 @@ TOWNS = {
                 "availability": "day",
                 "description_day": "A quirky, charming shop built into the sprawling root system of the Grove's oldest tree. Shelves are laden with vials of dewdrop potions, bundles of strong vines, and various unusual forest finds.",
                 "description_night": "The shutters are closed. Slithers keeps early hours — come back when the sun warms the canopy.",
-                "items_for_sale": ["capture_orb", "moss_balm", "simple_sleeping_bag", "potion", "greater_potion"],
+                "items_for_sale": ["tether_orb", "pact_orb", "moss_balm", "simple_sleeping_bag"],
                 "on_enter": [
                     {
                         "condition": "first_visit",

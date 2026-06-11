@@ -931,12 +931,12 @@ REMNANTS = {
     },
 
     # =========================================================================
-    # The Weeping Root (quest-gated remnant — see docs/design/whisperwood_grove.md)
+    # The Weeping Root (quest-gated remnant — see docs/design/whisperwood_grove/whisperwood_grove.md)
     #
     # GROUNDWORK PASS ONLY. Locked behind "whisperwoods_plea_weeping_root_unlocked",
     # a flag that no quest step sets yet — the Fae Whisper quest-only Choice Event
     # in the Whispering Thicket that's supposed to set it (per
-    # docs/design/whisperwoods_plea_quest.md, Beat 3) is a separate wiring pass.
+    # docs/design/whisperwood_grove/whisperwoods_plea_quest.md, Beat 3) is a separate wiring pass.
     # Until then this remnant is unreachable, by design.
     #
     # NPCs (Elowen, Corvin, Anora) are intentionally NOT included yet — their
@@ -1021,6 +1021,8 @@ REMNANTS = {
                             "species": "Glamorose",
                             "nickname": None,  # TBD — Pass B
                             "nickname_visible_flag": None,
+                            "is_gloom_touched": True,
+                            "gloom": {"state": "Touched", "type": "Withering", "mark": "one wilted, discolored petal, faintly leaking bruised-purple bioluminescence"},
                             "lore": (
                                 "Identical to a normal Glamorose at a glance — soft, "
                                 "floating, delicate petals — except for one petal "
@@ -1032,7 +1034,7 @@ REMNANTS = {
                             ),
                         },
                         # Full dialogue tree, shop inventory, and bounties are TBD —
-                        # see docs/design/whisperwood_grove.md NPC 3 (Elowen).
+                        # see docs/design/whisperwood_grove/whisperwood_grove.md NPC 3 (Elowen).
                     },
                 },
             },
@@ -1079,6 +1081,8 @@ REMNANTS = {
                             "species": "Stillroot",
                             "nickname": None,  # TBD — Pass B
                             "nickname_visible_flag": None,
+                            "is_gloom_touched": True,
+                            "gloom": {"state": "Touched", "type": "Calcifying", "mark": "calcified patches matching the journals around it, stalled decades ago"},
                             "lore": (
                                 "Found among Corvin's petrified journals — a small "
                                 "root-and-moss creature with the same calcified "
@@ -1091,7 +1095,7 @@ REMNANTS = {
                         },
                         # Full dialogue tree (Verdanthorn's Reflection lore-seed,
                         # the unified-origin connection to Ashen Verge) is TBD —
-                        # see docs/design/whisperwood_grove.md NPC 2 (Corvin).
+                        # see docs/design/whisperwood_grove/whisperwood_grove.md NPC 2 (Corvin).
                     },
                 },
             },
@@ -1203,7 +1207,7 @@ REMNANTS = {
                 ],
                 # Quest climax / boss encounter — Anora's dialogue tree and the
                 # purify/defeat mechanic are TBD (separate pass, see
-                # docs/design/whisperwoods_plea_quest.md Beat 5).
+                # docs/design/whisperwood_grove/whisperwoods_plea_quest.md Beat 5).
                 "services": {},
                 "npcs": {},
             },

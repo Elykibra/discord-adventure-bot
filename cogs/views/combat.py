@@ -529,7 +529,6 @@ class CombatView(discord.ui.View):
         if preview_orb_id and 'orb' in preview_orb_id:
             orb_to_display = preview_orb_id
 
-        print("DEBUG orb_to_display:", orb_to_display)
         if orb_to_display:
             info = await self.battle.get_capture_info(orb_to_display)
             if not info or not isinstance(info, dict):

@@ -85,31 +85,102 @@ through the undergrowth... it is part of the ground").
 
 ---
 
-## Gloom Sickness — Framework: State / Type / Mark (NOT FINAL — Town 2 era)
+## Gloom Sickness — Framework: State / Type / Mark
 
 **Important framing:** This is presented as the *current* scholarly/in-world understanding of
-how Gloom affects living things — not a locked taxonomy. We're early (Town 2 is effectively
-still "early game" if Oakhaven Outpost is the tutorial zone). The Gloom should be able to
-**evolve, mutate, and reveal worse/stranger stages later** as the story progresses. Treat
-everything below as "what characters in-world currently believe," which may turn out to be
-incomplete or wrong. This gives future towns room to escalate or add nuance without
-contradicting anything locked here.
+how Gloom affects living things — not a locked taxonomy in the sense of "nothing can ever be
+added." The Gloom should be able to **evolve, mutate, and reveal worse/stranger stages later**
+as the story progresses. Treat everything below as "what characters in-world currently
+believe," which may turn out to be incomplete or wrong. This gives future towns room to
+escalate or add nuance without contradicting anything locked here.
 
 **This is not a new system — it's a name for something already in the code**, just never
 tied together into one framework before now. The framework has three independent layers:
+**State** (degree of progression), **Type** (manner of manifestation), **Mark** (the visible
+symptom).
 
-### 1. Gloom State — degree of progression (like a status condition)
+### 1. Gloom State — The Seven Gloom States
 
-How far along the affliction is. Deliberately kept simple/universal so it stays legible no
-matter how many Types get added later:
+Deliberately given the same number of rungs as Classification Tier (see
+`aethelgard_classification.md`) — not because the two scales are equivalent, but so they can
+be discussed in the same breath ("this creature's Gloom State reads as Elder-equivalent").
+**Classification asks "what is this being?" Gloom asks "what relationship does this being
+have with the Gloom?"** Two parallel frames over the same world, not one hierarchy.
 
-1. **Touched** — early. Subtle changes; the afflicted is still fully "themselves." Often
-   manageable/treatable.
-2. **Hollowing** — active, ongoing. Still present, still has agency, but visibly losing
-   pieces of themselves over time. Dangerous, not yet understood how to stop reliably.
-3. **Hollowed** — the worst State *documented so far*. Original self mostly gone. Explicitly
-   **not** labeled final/terminal — future content can reveal Hollowed creatures/people can
-   still change further, for better or worse.
+1. **Touched** — *The Invitation.* The Gloom has entered the being. Something has changed,
+   but the self is still largely intact. Some believe the Touched can be healed. Some believe
+   they have been chosen. *"The beast is Touched."*
+2. **Shorn** — *The Erosion.* Something essential has been cut away — memories, instincts,
+   identity, emotions, or connections begin to fray. The being still exists, but it is no
+   longer whole. *"The Shorn forget familiar paths."*
+3. **Hollow** — *The Shell.* The original self has been emptied. What once was remains only
+   as a vessel. Whether anything still lingers inside is a matter of belief. *"The Hollow
+   still walk."*
+4. **Wrought** — *The Remaking.* The empty shell is reshaped. The Gloom no longer merely
+   consumes — it creates. A Wrought being often embodies the wound of its territory.
+   *"The Wrought become the wound."*
+5. **Forsaken** — *The Separation.* The being no longer belongs to the ordinary order of the
+   world. Some pity them. Some fear them. Some envy them. *"The Forsaken have no place left."*
+6. **Unbound** — *The Release.* The Gloom is no longer fully restrained by host, body, or
+   place. Identity dissolves into something larger. Some see this as the ultimate tragedy.
+   Others see it as freedom. *"The Unbound answer to nothing."*
+7. **Oblivion** — *The Absolute.* The final horizon. The distinction between being, place,
+   memory, and force begins to disappear. An Oblivion may no longer be merely a creature — it
+   may become a phenomenon, a scar, or a forgotten law of the world itself. *"Of the Oblivion,
+   no trustworthy account survives."*
+
+**Narrative arc:** Touched (the Gloom enters) → Shorn (something is lost) → Hollow (the self
+is emptied) → Wrought (the emptiness is remade) → Forsaken (it no longer belongs) → Unbound
+(it escapes its restraints) → Oblivion (it passes beyond ordinary existence).
+
+**What's active right now vs. reserved for later:**
+- **States 1-3 (Touched / Shorn / Hollow)** are the active, in-use rungs. This is the old
+  "Touched / Hollowing / Hollowed" 3-state scale, renamed for precision —
+  Hollowing → Shorn, Hollowed → Hollow. The remap is a rename, not a redesign: anything
+  previously written as "Hollowing" is now "Shorn," anything "Hollowed" is now "Hollow."
+  These are the values `gloom.state` will actually hold on pets/NPCs for the foreseeable
+  future.
+- **State 4 (Wrought)** is lore-confirmed but not yet a usable pet-data value — Hollowthorn
+  and Cindermaw are Wrought ("the Wrought become the wound" = Elder tier's "embodies a quality
+  of its territory," near-verbatim). Both remain lore-seeded/mechanically deferred
+  (Veilmother/Chasmbane pattern), so no stat block needs `gloom.state: "Wrought"` yet — but
+  when one is built, this is the value to use.
+- **States 5-7 (Forsaken / Unbound / Oblivion)** are reserved/lore-only, same spirit as
+  Classification Tier's Primordial/Eternal — "don't force an example into existence just to
+  fill the table."
+
+### Anora — State determination
+
+Anora's title, "the Hollowed Weaver," reads as a **legacy/colloquial name** — given decades
+ago, before this framework existed, by someone using "Hollowed" the way people still use it
+casually (cf. "the Hollowed Weaver" vs. the precise term "Hollow"). Her actual State is
+**Shorn**, not Hollow: the quest's stakes (a person worth reaching, "kindness and
+understanding," the Sever choice "arresting an active progression") all depend on there being
+an undisputed *someone* still there to reach — which is Shorn's "still exists, but no longer
+whole," not Hollow's "whether anything still lingers is a matter of belief." This is also a
+non-change mechanically: she was already "Hollowing" under the old 3-state scale, and
+Hollowing → Shorn was already the agreed rename. Updated mapping:
+
+- **Elowen** — State: **Touched**. Type: **Withering**. Mark: the corrupted bark arm.
+- **Anora** — State: **Shorn**. Type: **Withering**. Mark: root-fusion + weeping, glowing sap
+  from the eyes. (Hollowthorn, separately, represents Wrought at this site — Anora doesn't
+  need to "be" Wrought herself for Hollowthorn to exist as the site's Wrought entity.)
+- **Corvin** — State: **Touched** (arguably never progressed further). Type: **Calcifying**.
+  Mark: the petrified/calcified body.
+
+### Frames as factions (future hook, not built yet)
+
+The Core Philosophy underlying this framework: **the Gloom is not inherently good or evil —
+it's a fundamental force, and different people construct different narratives around it.**
+The Guild studies it. Hunters fear it. Healers mourn it. Some seek to become it. Some believe
+the Unbound are finally free. Some believe Oblivion is the world's oldest truth. There may
+never be a single absolute answer — only different frames observing the same mystery.
+
+The seven-state vocabulary above (Touched/Shorn/Hollow/...) is presented as the **Guild's**
+frame — clinical, scholarly. Other factions (Hunters, Healers, whoever "seeks to become it")
+could use entirely different vocabulary for the *same* underlying states, without
+contradicting this framework — just adding a lens on top of it. Not designed yet, but flagged
+as a strong path for future faction/player-choice content layered over this same backbone.
 
 ### 2. Gloom Type — manner of manifestation (varies by exposure/region)
 
@@ -138,22 +209,27 @@ What you actually *see* on a specific creature/person — the physical "tell" of
 Two individuals in the same State can have completely different-looking Marks depending on
 species/Type. The Mark is how players (and NPCs) identify a State at a glance.
 
-### How the three Weeping Root NPCs map onto this
-
-- **Elowen** — State: **Touched**. Type: **Withering**. Mark: the corrupted bark arm.
-- **Anora** — State: **Hollowing**. Type: **Withering**. Mark: root-fusion + weeping,
-  glowing sap from the eyes.
-- **Corvin** — State: **Touched** (arguably never progressed further). Type: **Calcifying**.
-  Mark: the petrified/calcified body. Two Types coexist at this site because Corvin's
-  exposure (pre-Guild, long ago) predates the Withering Type that dominates here now.
+(See "Anora — State determination" above for how the three Weeping Root NPCs — Elowen,
+Anora, Corvin — map onto State/Type/Mark. Two Types coexist at that site because Corvin's
+exposure (pre-Guild, long ago) predates the Withering Type that dominates there now.)
 
 ### Existing-code anchors (for the coding session)
 
-- `is_gloom_touched` — existing boolean flag on pets (`data/pets.py`), used by
-  `battle_engine.py` for the Gloom meter and capture-rate logic. Currently a yes/no flag —
-  maps to "has *some* Gloom State" (i.e. not the baseline/unafflicted case). Whether it later
-  becomes a richer field (storing State/Type/Mark) instead of a boolean is an
-  implementation decision, not a design one — flagged for the coding session.
+- `is_gloom_touched` — boolean flag on pets (`data/pets.py`), used by `battle_engine.py` for
+  the Gloom meter and capture-rate logic. Maps to "has *some* Gloom State" (i.e. not the
+  baseline/unafflicted case). **Implemented this pass:** a parallel `gloom: {state, type,
+  mark}` dict has now been added alongside `is_gloom_touched: True` on the relevant pet
+  entries (Corroder/Blightcrust, Grimweave/Veilmother, Gauntling/Waneling,
+  Rimecrawl/Frostbile, Threshling/Threshbound, Stillroot), using the State/Type/Mark
+  vocabulary above. `is_gloom_touched` itself is unchanged and still drives existing battle
+  logic — `gloom` is additive, descriptive data for now (not yet read by any code).
+- **`data/classifications.py`** (NEW) — both frameworks (Classification Tier and the
+  7-state Gloom State scale, with titles/descriptions/example phrases, the
+  Classification↔Gloom parallel mapping, and `ACTIVE_*` lists marking which rungs are
+  currently in use vs. lore-reserved) now live here as plain data, so the rest of the
+  codebase has one place to reference them. Not wired into any game logic yet — reference
+  data for future flavor text/tooltips/lore commands. Names/descriptions/order can still be
+  adjusted; this is a structure to build on, not a final lock.
 - `data/remnants.py` (Mirefields/Chasm content) already has an NPC dialogue line
   (`lore_hollowed_vs_corrupted`) that draws the Touched-vs-Hollowed distinction in-world:
   *"Corrupted pets can still be reached — the Gloom has touched them but hasn't consumed
@@ -937,7 +1013,7 @@ already in `data/remnants.py`), but where Withering specifically originates. All
 here represent different points in the framework:
 
 - **Elowen** — State: Touched, Type: Withering, Mark: corrupted bark arm
-- **Anora** — State: Hollowing, Type: Withering, Mark: root-fusion + weeping sap eyes
+- **Anora** — State: Shorn, Type: Withering, Mark: root-fusion + weeping sap eyes
 - **Corvin** — State: Touched, Type: Calcifying, Mark: petrified/calcified body
 
 ### Lore Spine (locked)
@@ -954,9 +1030,9 @@ to it doesn't kill outright — it sets off the Gloom Sickness progression (see 
 — Working Theory of Stages" above), slowly replacing what a living thing was with something
 that serves the wound, while leaving fragments of the original self behind (memory,
 personality, mannerisms bleeding through). The Weeping Root is where this *originates* — the
-source spring of Gloom Sickness, not just another infected site. (Note: stage names like
-"Hollowing"/"Hollowed" are the *current* in-world understanding, not locked endpoints — see
-the Gloom Sickness section for why.)
+source spring of Gloom Sickness, not just another infected site. (Note: State names —
+Touched/Shorn/Hollow, etc. — are the *current* in-world understanding, not locked endpoints —
+see the Gloom Sickness section for the full seven-state framework.)
 
 **Three case studies, told through three NPCs — each at a different point in the
 State/Type/Mark framework:**
@@ -966,9 +1042,10 @@ State/Type/Mark framework:**
   stone-like patches across parts of his body and then stalled at "Touched," decades ago.
   Fully mobile and lucid — "Petrified" describes the patches, not the person — a living
   record of the "before."
-- **Anora** (decades ago, Guild scout) — Type: **Withering**, State: **Hollowing**. The
-  process ran its full course, unobstructed. She *is* the wound now, fused into the root
-  wall — the current active threat/quest climax.
+- **Anora** (decades ago, Guild scout) — Type: **Withering**, State: **Shorn**. The process
+  has run further than Elowen's or Corvin's, fusing her into the root wall — but "Shorn," not
+  "Hollow," because there's still an Anora *there*: someone whose tragedy and whose chance at
+  recovery still mean something. She is the current active threat/quest climax.
 - **Elowen** (present day) — Type: **Withering**, State: **Touched** (a corrupted bark arm).
   She sought out the Weeping Root deliberately — Corvin and Anora are her two case studies, and
   her forbidden magic is self-directed research into whether the process can be deliberately
@@ -1034,7 +1111,7 @@ Sickness section above.
   Offers dangerous, high-risk bounties.
 - Narrative: she'd recognize what Anora's becoming because she's a few steps behind on the
   same path — a "warning of what could happen to YOU" beat for the player too. Her research
-  uses Corvin (frozen/Petrified) and Anora (fully Hollowing) as her two reference points —
+  uses Corvin (frozen/Petrified, Touched) and Anora (Shorn, furthest along) as her two reference points —
   she didn't stumble into the Weeping Root, she sought it out *because* they're here.
 
 **Pet — TBD name, species TBD, State: Touched / Type: Withering** (same Mark framework as
@@ -1085,8 +1162,8 @@ as "added" yet. Everything else reuses existing species with a Gloom Mark applie
 | Veinglow (NEW) | Poison/Grass | Uncommon (standalone) | Not Gloom-Marked — adapted/immune | Ambient — The Weeping Root, sap-veins |
 | Glamorose (Withering variant) | Grass/Poison | Common | Touched / Withering / one wilted petal | Elowen's pet |
 | Mossling (Withering variant) | (existing type) | Common | Touched / Withering | Ambient — Weeping Root |
-| Serpentine (Withering variant) | (existing type) | Uncommon | Hollowing / Withering | Ambient — Weeping Root |
-| Hollowthorn (Verdanthorn's Reflection) | Grass/Ghost | Ancient (standalone, deferred) | Hollowed / Withering (extreme) | Lore-seeded only — The Deep Vein |
+| Serpentine (Withering variant) | (existing type) | Uncommon | Shorn / Withering | Ambient — Weeping Root |
+| Hollowthorn (Verdanthorn's Reflection) | Grass/Ghost | Elder (standalone, deferred) | Wrought / Withering (extreme) | Lore-seeded only — The Deep Vein |
 
 ### Pet Appearances & Passives (rough — locked as foundation, numbers TBD)
 
@@ -1129,13 +1206,13 @@ as "added" yet. Everything else reuses existing species with a Gloom Mark applie
   purple-ish veining visible just under the surface in patches.
 - Passive: as base Mossling — same "barely different" framing as Elowen's Glamorose.
 
-**Serpentine (Withering Mark)** — ambient, ~Hollowing
+**Serpentine (Withering Mark)** — ambient, ~Shorn
 - Appearance: a more visibly disturbing step up — the vine-body looks like it's *unraveling*
   in places, with the bruised-purple sap visibly seeping from the unraveled ends. Less
   "indistinguishable from a vine" (its normal trait) and more "a vine that's coming apart
   from the inside."
 - Passive: existing Serpentine kit, possibly with a minor downside/quirk reflecting
-  instability (exact mechanic TBD) — first taste of "Hollowing doesn't just look different,
+  instability (exact mechanic TBD) — first taste of "Shorn doesn't just look different,
   it behaves differently."
 
 **Hollowthorn (Verdanthorn's Reflection)** — lore-seeded, deferred
@@ -1148,14 +1225,14 @@ as "added" yet. Everything else reuses existing species with a Gloom Mark applie
 | Tier | Pet (Mark) |
 |---|---|
 | Common | Mossling (Withering Mark, Touched) |
-| Uncommon | Serpentine (Withering Mark, Hollowing), Glamorose (Withering Mark, Touched), Veinglow (unmarked, adapted) |
+| Uncommon | Serpentine (Withering Mark, Shorn), Glamorose (Withering Mark, Touched), Veinglow (unmarked, adapted) |
 | Rare | Stillroot (Calcifying Mark, Touched) |
 | Lore zone (The Deep Vein) only | Hollowthorn (very rare sighting) |
 
 This table is the "tour" structure: common encounters show **Withering at Touched**, rarer
-ones show **Withering progressing toward Hollowing**, a special rare shows the **other Type
-(Calcifying)** existing alongside it, and the lore zone teases the framework's extreme
-endpoint via Hollowthorn.
+ones show **Withering progressing toward Shorn**, a special rare shows the **other Type
+(Calcifying)** existing alongside it, and the lore zone teases the framework's far end via
+Hollowthorn, sitting at **Wrought**.
 
 ### Items (The Weeping Root)
 
@@ -1240,7 +1317,7 @@ stays the working term throughout this doc and in code.
 Still TBD: exact dropdown structure/zone keys, encounter tables for the other 4 locations
 (if any need their own beyond the main zone), full dialogue trees, Anora's purify/defeat
 mechanics and dialogue branches (including whether her "vine-manifestations" boss mechanic
-uses Withering/Hollowing-Marked creatures as the fight's building blocks).
+uses Withering/Shorn-Marked creatures as the fight's building blocks).
 
 ### Implementation status — Pass A (groundwork) complete
 
