@@ -249,7 +249,7 @@ added later without needing to retcon anything here.
 
 **Connection to Oakhaven Outpost (Town 1):** Oakhaven already planted hints of this without
 naming it — Galen's unspoken suspicion that the Rotting Pits and the Weeping Chasm "share a
-Gloom source — same breach, different surface points" (`docs/design/done/oakhaven_outpost.md`)
+Gloom source — same breach, different surface points" (`docs/design/oakhaven_outpost/oakhaven_outpost-done.md`)
 is the same underlying phenomenon, just not yet given a framework. Whisperwood Grove —
 specifically the Weeping Root — is where the player first gets the *vocabulary* (State / Type
 / Mark) to understand what Oakhaven was hinting at. Nothing in Oakhaven needs to change; this
