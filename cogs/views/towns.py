@@ -45,6 +45,35 @@ def build_on_enter_embed(location_info: dict, entry: dict, text: str) -> discord
     return embed
 
 
+class OnEnterContinueView(discord.ui.View):
+    """A single 'Continue' button attached to an on_enter ambient popup.
+
+    Lets an NPC named via an on_enter entry's `continue_npc` field speak
+    first — the player doesn't have to find and click a separate
+    "Talk to X" button. Reuses the same dialogue-resolution + action +
+    quest-progress pipeline as a normal talk button via
+    `parent_view._resolve_npc_dialogue`.
+    """
+    def __init__(self, parent_view, npc_id, npc_data):
+        super().__init__(timeout=180)
+        self.parent_view = parent_view
+        self.npc_id = npc_id
+        self.npc_data = npc_data
+
+    @discord.ui.button(label="Continue", style=discord.ButtonStyle.primary, emoji="➡️")
+    async def continue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        log_list = await self.parent_view._resolve_npc_dialogue(self.npc_id, self.npc_data)
+        await self.parent_view._update_with_dialogue_log(log_list)
+        # Used up — disable the button on the ambient popup itself
+        for item in self.children:
+            item.disabled = True
+        try:
+            await interaction.edit_original_response(view=self)
+        except (discord.NotFound, discord.HTTPException):
+            pass
+
+
 class WildsView(discord.ui.View):
     def __init__(self, bot, original_interaction, location_id, activity_log: str = None):
         super().__init__(timeout=None)
@@ -484,16 +513,27 @@ class RemnantView(discord.ui.View):
         self.build_ui(time_of_day, player_flags, active_quest_ids, remnant)
         await interaction.edit_original_response(embed=new_embed, view=self)
 
+        # Track how many times this player has visited this sub-location —
+        # powers "visit_count" on_enter triggers (e.g. dwell-based escalation).
+        visit_counter_key = f"visits_{self.remnant_id}_{self.current_sub_location_id}"
+        visit_count = await db_cog.increment_counter(self.user_id, visit_counter_key)
+
         # on_enter — fire matching auto-dialogue as a separate ephemeral pop
         on_enter_match = await self._resolve_on_enter(
-            location_info, player_data, player_flags, time_of_day, db_cog
+            location_info, player_data, player_flags, time_of_day, db_cog, visit_count=visit_count
         )
         if on_enter_match:
             entry, text = on_enter_match
             on_enter_embed = build_on_enter_embed(location_info, entry, text)
-            await interaction.followup.send(embed=on_enter_embed, ephemeral=True)
+            continue_npc = entry.get('continue_npc')
+            if continue_npc:
+                npc_data = location_info.get('npcs', {}).get(continue_npc, {})
+                continue_view = OnEnterContinueView(self, continue_npc, npc_data)
+                await interaction.followup.send(embed=on_enter_embed, view=continue_view, ephemeral=True)
+            else:
+                await interaction.followup.send(embed=on_enter_embed, ephemeral=True)
 
-    async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog):
+    async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog, visit_count=None):
         """Check on_enter conditions and return (entry, text) for the first match, or None."""
         on_enter = location_info.get('on_enter', [])
         if not on_enter:
@@ -533,11 +573,37 @@ class RemnantView(discord.ui.View):
                 matched = time_of_day in self._DAY_PHASES
             elif condition == 'time:night':
                 matched = time_of_day in self._NIGHT_PHASES
+            elif condition == 'visit_count':
+                # Dwell/escalation trigger — fires once the player has
+                # visited this sub-location at least `min_count` times.
+                min_count = entry.get('min_count', 1)
+                if visit_count is not None:
+                    if once and flag:
+                        matched = visit_count >= min_count and flag not in player_flags
+                    else:
+                        matched = visit_count >= min_count
 
             if matched and text:
+                # Optional "chance": <0-1> — entry only fires probabilistically.
+                # On a miss, fall through to the next entry instead of going
+                # quiet entirely (and don't set flags / grant anything).
+                chance = entry.get('chance')
+                if chance is not None and random.random() > chance:
+                    continue
                 # Set flag if required (first_visit or once=True entries)
                 if flag and (condition == 'first_visit' or once):
                     await db_cog.set_flag(self.user_id, flag)
+                if entry.get('action') == 'grant_quest':
+                    quest_id = entry.get('quest_id')
+                    if quest_id:
+                        from data.quests import QUESTS
+                        quest_data = next(
+                            (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
+                        )
+                        initial_progress = {"status": "in_progress", "count": 0}
+                        if quest_data.get("time_sensitive"):
+                            initial_progress["ticks_remaining"] = quest_data.get("time_limit_ticks", 2)
+                        await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
                 return entry, text
 
         return None
@@ -613,78 +679,91 @@ class RemnantView(discord.ui.View):
             await interaction.followup.send(embed=embed, ephemeral=True)
         return callback
 
+    async def _resolve_npc_dialogue(self, npc_id, fallback_npc_data=None):
+        """Resolves the NPC's current dialogue node, applies any
+        grant_item/grant_quest/complete_quest action, checks talk_npc quest
+        progress, and returns a log_list ready for _update_with_dialogue_log.
+
+        Shared by the "Talk to X" button (create_talk_callback) and the
+        on_enter "Continue" button (OnEnterContinueView), so an NPC can
+        deliver the same dialogue whether the player seeks them out or the
+        NPC speaks first on arrival."""
+        db_cog = self.bot.get_cog('Database')
+        node, dialogue_npc_data = await self._get_dialogue_node(npc_id)
+        npc_name = dialogue_npc_data.get('name', npc_id) if dialogue_npc_data else (fallback_npc_data or {}).get('name', npc_id)
+        log_list = []
+
+        if not node:
+            log_list.append(f"🗣️ **{npc_name}**\n*They have nothing to say to you right now.*")
+            return log_list
+
+        raw = node.get("text") or node.get("default", "...")
+        dialogue_text = random.choice(raw) if isinstance(raw, list) else raw
+        log_list.append(f"🗣️ **{npc_name}**\n*\"{dialogue_text}\"*")
+
+        if node.get("action") == "grant_item":
+            item_id = node.get("item_id")
+            quantity = node.get("quantity", 1)
+            if item_id:
+                await db_cog.add_item_to_inventory(self.user_id, item_id, quantity)
+                item_name = ITEMS.get(item_id, {}).get('name', 'an item')
+                log_list.append(f"🎁 **Received**\n*{quantity}× {item_name}*")
+
+        if node.get("action") == "grant_quest":
+            quest_id = node.get("quest_id")
+            from data.quests import QUESTS
+            quest_data = next(
+                (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
+            )
+            initial_progress = {"status": "in_progress", "count": 0}
+            if quest_data.get("time_sensitive"):
+                initial_progress["ticks_remaining"] = quest_data.get("time_limit_ticks", 2)
+            await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
+            quest_title = quest_data.get('title', quest_id)
+            quest_desc  = quest_data.get('description', '')
+            quest_type  = quest_data.get('type', 'side')
+            grant_emoji = {'main': '⭐', 'assignment': '📋', 'side': '🔵', 'repeatable_bounty': '🔄'}.get(quest_type, '📜')
+            log_list.append(f"{grant_emoji} **New Quest: {quest_title}**\n*{quest_desc}*" if quest_desc
+                            else f"{grant_emoji} **New Quest: {quest_title}**")
+
+        if node.get("action") == "complete_quest":
+            quest_id = node.get("quest_id")
+            from data.quests import QUESTS
+            quest_data = next(
+                (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
+            )
+            required_item = node.get("required_item")
+            if required_item:
+                await db_cog.remove_item_from_inventory(self.user_id, required_item, 1)
+            await db_cog.complete_quest(self.user_id, quest_id)
+            await db_cog.set_flag(self.user_id, f"quest_{quest_id}_completed")
+            reward_item   = quest_data.get("reward_item")
+            reward_qty    = quest_data.get("reward_item_quantity", 1)
+            reward_coins  = quest_data.get("reward_coins", 0)
+            quest_title   = quest_data.get('title', quest_id)
+            if reward_item:
+                await db_cog.add_item_to_inventory(self.user_id, reward_item, reward_qty)
+                item_name = ITEMS.get(reward_item, {}).get('name', reward_item)
+                log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_qty}× {item_name}*")
+            elif reward_coins:
+                await db_cog.update_player(self.user_id, coins=reward_coins)
+                log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_coins} coins*")
+            else:
+                log_list.append(f"🎉 **Quest Complete: {quest_title}**")
+
+        quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id},
+                                                   channel=self.parent_interaction.channel)
+        if quest_updates:
+            log_list.extend(quest_updates)
+
+        return log_list
+
     def create_talk_callback(self, npc_id, npc_data):
         """Full dialogue-tree talk handler — mirrors TownView.create_talk_callback,
         but updates the Remnant sub-location embed instead of a town one."""
         async def talk_callback(interaction: discord.Interaction):
             await interaction.response.defer()
-            db_cog = self.bot.get_cog('Database')
-            node, dialogue_npc_data = await self._get_dialogue_node(npc_id)
-            npc_name = dialogue_npc_data.get('name', npc_id) if dialogue_npc_data else npc_data.get('name', npc_id)
-            log_list = []
-
-            if not node:
-                log_list.append(f"🗣️ **{npc_name}**\n*They have nothing to say to you right now.*")
-            else:
-                raw = node.get("text") or node.get("default", "...")
-                dialogue_text = random.choice(raw) if isinstance(raw, list) else raw
-                log_list.append(f"🗣️ **{npc_name}**\n*\"{dialogue_text}\"*")
-
-                if node.get("action") == "grant_item":
-                    item_id = node.get("item_id")
-                    quantity = node.get("quantity", 1)
-                    if item_id:
-                        await db_cog.add_item_to_inventory(self.user_id, item_id, quantity)
-                        item_name = ITEMS.get(item_id, {}).get('name', 'an item')
-                        log_list.append(f"🎁 **Received**\n*{quantity}× {item_name}*")
-
-                if node.get("action") == "grant_quest":
-                    quest_id = node.get("quest_id")
-                    from data.quests import QUESTS
-                    quest_data = next(
-                        (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
-                    )
-                    initial_progress = {"status": "in_progress", "count": 0}
-                    if quest_data.get("time_sensitive"):
-                        initial_progress["ticks_remaining"] = quest_data.get("time_limit_ticks", 2)
-                    await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
-                    quest_title = quest_data.get('title', quest_id)
-                    quest_desc  = quest_data.get('description', '')
-                    quest_type  = quest_data.get('type', 'side')
-                    grant_emoji = {'main': '⭐', 'assignment': '📋', 'side': '🔵', 'repeatable_bounty': '🔄'}.get(quest_type, '📜')
-                    log_list.append(f"{grant_emoji} **New Quest: {quest_title}**\n*{quest_desc}*" if quest_desc
-                                    else f"{grant_emoji} **New Quest: {quest_title}**")
-
-                if node.get("action") == "complete_quest":
-                    quest_id = node.get("quest_id")
-                    from data.quests import QUESTS
-                    quest_data = next(
-                        (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
-                    )
-                    required_item = node.get("required_item")
-                    if required_item:
-                        await db_cog.remove_item_from_inventory(self.user_id, required_item, 1)
-                    await db_cog.complete_quest(self.user_id, quest_id)
-                    await db_cog.set_flag(self.user_id, f"quest_{quest_id}_completed")
-                    reward_item   = quest_data.get("reward_item")
-                    reward_qty    = quest_data.get("reward_item_quantity", 1)
-                    reward_coins  = quest_data.get("reward_coins", 0)
-                    quest_title   = quest_data.get('title', quest_id)
-                    if reward_item:
-                        await db_cog.add_item_to_inventory(self.user_id, reward_item, reward_qty)
-                        item_name = ITEMS.get(reward_item, {}).get('name', reward_item)
-                        log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_qty}× {item_name}*")
-                    elif reward_coins:
-                        await db_cog.update_player(self.user_id, coins=reward_coins)
-                        log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_coins} coins*")
-                    else:
-                        log_list.append(f"🎉 **Quest Complete: {quest_title}**")
-
-                quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id},
-                                                           channel=self.parent_interaction.channel)
-                if quest_updates:
-                    log_list.extend(quest_updates)
-
+            log_list = await self._resolve_npc_dialogue(npc_id, npc_data)
             await self._update_with_dialogue_log(log_list)
         return talk_callback
 
@@ -1289,7 +1368,7 @@ class TownView(discord.ui.View):
             on_enter_embed = build_on_enter_embed(location_info, entry, text)
             await interaction.followup.send(embed=on_enter_embed, ephemeral=True)
 
-    async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog):
+    async def _resolve_on_enter(self, location_info, player_data, player_flags, time_of_day, db_cog, visit_count=None):
         """Check on_enter conditions and return (entry, text) for the first match, or None."""
         on_enter = location_info.get('on_enter', [])
         if not on_enter:
@@ -1328,8 +1407,21 @@ class TownView(discord.ui.View):
                 matched = time_of_day in self._DAY_PHASES
             elif condition == 'time:night':
                 matched = time_of_day in self._NIGHT_PHASES
+            elif condition == 'visit_count':
+                # Dwell/escalation trigger — fires once the player has
+                # visited this sub-location at least `min_count` times.
+                min_count = entry.get('min_count', 1)
+                if visit_count is not None:
+                    if once and flag:
+                        matched = visit_count >= min_count and flag not in player_flags
+                    else:
+                        matched = visit_count >= min_count
 
             if matched and text:
+                # Optional "chance": <0-1> — entry only fires probabilistically.
+                chance = entry.get('chance')
+                if chance is not None and random.random() > chance:
+                    continue
                 if flag and (condition == 'first_visit' or once):
                     await db_cog.set_flag(self.user_id, flag)
                 return entry, text

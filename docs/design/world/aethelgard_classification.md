@@ -54,12 +54,26 @@ Ordinary → Prime → Apex → **Elder** → **Ancient** → Primordial → Ete
 
 ## 2. Encounter Rarity
 
-Common → Uncommon → Rare → (further tiers TBD as needed)
+Normal → Odd → Rare → Peculiar → Strange → Uncanny → Unknown
 
-This is the **familiar rarity language**, but it now describes *sighting frequency*, not
-power level. It's the term Guilds, NPCs, and players would actually use day-to-day —
-"there's a rare sighting of an ordinary pet out near the Thicket" is a complete, useful
-sentence that doesn't require the listener to know anything about Classification Tiers.
+(Implemented in `data/classifications.py` as `ENCOUNTER_RARITIES` /
+`ENCOUNTER_RARITY_WEIGHTS`, superseding the original "Common → Uncommon → Rare →
+TBD" sketch above.)
+
+This is the **rarity language for sightings** — describing how surprising it is to see
+*this* (species, possibly Gloom-marked) at *this* location, not power level. It's the term
+Guilds, NPCs, and players would actually use day-to-day — "there's an odd sighting of an
+ordinary pet out near the Thicket" is a complete, useful sentence that doesn't require the
+listener to know anything about Classification Tiers.
+
+`Unknown` is intentionally reserved for story/quest-triggered encounters, not the general
+wild-encounter pool — it reads as "this shouldn't be happening at all."
+
+**This is now the *only* "rarity" — the old per-species `rarity` field (Starter / Common /
+Uncommon / Rare / Ancient / "Very Rare") on `PET_DATABASE` entries is being discarded.**
+Classification Tier (Section 1) is what "rarity" meant for a *species*; Encounter Rarity
+(this section) is what "rarity" means for a *sighting*. See
+`world/pets_rarity_cleanup.md` for the cleanup this implies.
 
 **Why this split matters:**
 - A creature's Classification Tier rarely changes. Its Encounter Rarity can shift based on

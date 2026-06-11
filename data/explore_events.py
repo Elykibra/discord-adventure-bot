@@ -395,6 +395,37 @@ EXPLORE_EVENTS = {
             ],
         },
 
+        # --- Quest: echoes_from_below ---
+        # Only appears in the explore pool while the quest is active.
+        {
+            "type": "choice",
+            "weight": 8,
+            "required_quest_active": "echoes_from_below",
+            "text": (
+                "Gloom-mist pools in a hollow in the rock here, denser than the air "
+                "around it — thick enough that it almost holds its shape. "
+                "One of Kael's empty sample vials sits heavy in your pack."
+            ),
+            "choices": [
+                {
+                    "label": "Fill a sample vial",
+                    "emoji": "🧪",
+                    "text": (
+                        "You uncap one of Kael's vials and let the mist pour in. It moves "
+                        "slower than mist should, settling like liquid. The glass fogs "
+                        "over immediately and stays that way."
+                    ),
+                    "outcome": {"item": {"item_id": "gloom_mist_sample", "qty": 1}},
+                },
+                {
+                    "label": "Walk past",
+                    "emoji": "🚶",
+                    "text": "You leave it be. Whatever it is, it isn't going anywhere.",
+                    "outcome": {},
+                },
+            ],
+        },
+
         # --- Apex Lore Events (Chasmbane + Veilmother) ---
         # These are atmosphere/scare events — no battle, no capture.
         # Full rank-gated encounter logic tagged for later.

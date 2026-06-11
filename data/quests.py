@@ -135,6 +135,37 @@ QUESTS = {
     },
 
     # ------------------------------------------------------------------
+    # WEEPING CHASM — echoes_from_below
+    # Granted automatically on first visit to The Chasm's Edge.
+    # Resolves entirely on-site with Lore-Keeper Kael at the Scholar's Camp.
+    # ------------------------------------------------------------------
+    "weeping_chasm": {
+        "echoes_from_below": {
+            "title": "Echoes From Below",
+            "description": (
+                "Lore-Keeper Kael, camped near the Chasm's Edge, believes the Weeping "
+                "Chasm is the source of the Gloom itself. He needs samples of the "
+                "gloom-mist gathering in the rock hollows to study it properly."
+            ),
+            "type": "main",
+            "objectives": [
+                {
+                    "text": "Collect 3 `Gloom-mist Sample` vials from the Chasm's Edge.",
+                    "type": "item_pickup", "target": "gloom_mist_sample",
+                    "required_count": 3, "zone": "weeping_chasm"
+                },
+                {
+                    "text": "Bring the samples to Lore-Keeper Kael at the Scholar's Camp.",
+                    "type": "talk_npc", "target": "lore_keeper_kael"
+                }
+            ],
+            "reward_reputation": 30,
+            "reward_item": "kaels_field_notes",
+            "reward_item_quantity": 1
+        }
+    },
+
+    # ------------------------------------------------------------------
     # ASHEN VERGE — Kaelen's repeatable boundary-culling bounty
     # ------------------------------------------------------------------
     "ashenVerge": {

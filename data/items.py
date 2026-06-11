@@ -472,6 +472,34 @@ ITEMS = {
         "price": 0,
         "actions": ["inspect"],
     },
+    "kaels_field_notes": {
+        "name": "Kael's Field Notes",
+        "description": (
+            "A hand-copied set of pages from Lore-Keeper Kael's research journal, given "
+            "to you as thanks for the gloom-mist samples. Dense, careful handwriting — "
+            "theories about the Chasm, the Gloom, and what's worth remembering."
+        ),
+        "dropdown_description": "Lore item from Lore-Keeper Kael.",
+        "menu_description": "Kael's notes on the Gloom's origin. Read to learn what he's found.",
+        "category": "Lore Items",
+        "price": 0,
+        "actions": ["inspect", "drop"],
+        "lore_text": (
+            "**Field Notes — L. Kael, Weeping Chasm Survey**\n\n"
+            "*On the origin:*\n"
+            "The Gloom didn't spread from a single point by accident. Every record points "
+            "here — the Chasm — as the breach site. My working theory: collective grief. "
+            "A catastrophic loss, enough souls in enough pain at once to tear something "
+            "open. The Guild doesn't like that theory. Too difficult to quantify.\n\n"
+            "*On the Hollowed:*\n"
+            "Corrupted creatures can still be reached — the Gloom has touched them but "
+            "hasn't consumed them. There's still something there to work with. Hollowed "
+            "is different. When a creature Hollows, there's nothing left that remembers "
+            "being a creature. That distinction matters. Remember it.\n\n"
+            "*Last line, underlined twice:*\n"
+            "*'It isn't shrinking. It's widening.'*"
+        ),
+    },
     "waystation_ledger": {
         "name": "Waystation Ledger",
         "description": (

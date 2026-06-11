@@ -142,6 +142,26 @@ class Database(commands.Cog):
             user_id, flag
         )
 
+    async def get_counter(self, user_id: int, counter_key: str) -> int:
+        """Read a generic per-player counter (e.g. a location visit count).
+        Defaults to 0 if it has never been incremented."""
+        value = await self.pool.fetchval(
+            'SELECT value FROM player_counters WHERE player_id = $1 AND counter_key = $2',
+            user_id, counter_key
+        )
+        return value or 0
+
+    async def increment_counter(self, user_id: int, counter_key: str, amount: int = 1) -> int:
+        """Increment (or create) a generic per-player counter and return its new value."""
+        return await self.pool.fetchval(
+            '''INSERT INTO player_counters (player_id, counter_key, value)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (player_id, counter_key)
+               DO UPDATE SET value = player_counters.value + $3
+               RETURNING value''',
+            user_id, counter_key, amount
+        )
+
     async def set_active_battle(self, user_id: int, spectator_message_id: int, spectator_channel_id: int) -> None:
         """Record an active battle's spectator message so it can be cleaned up on restart."""
         await self.pool.execute(

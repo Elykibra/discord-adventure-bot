@@ -167,6 +167,17 @@ DIALOGUES = {
                  "Any luck? The pits look calm but they're not. Watch the Gloom Meter if you're heading back in.",
              ]},
 
+            # --- Guild training complete — handoff toward Weeping Chasm ---
+            # Flavor-only nudge toward the next leg of the journey (echoes_from_below).
+            # Doesn't gate or grant anything — just points the player at Kael.
+            {"required_flag": "quest_a_guildsmans_first_steps_completed",
+             "text": (
+                 "The road to Whisperwood runs through the Weeping Chasm first. Guild keeps "
+                 "a scholar out there — Kael. Good man, bit obsessive. He's been cataloguing "
+                 "things out there for years. If the Pits and the Chasm really do share a "
+                 "source like I think... he's the one who'd want to know what you've seen here."
+             )},
+
             # --- Tutorial step 7: offer the quest ---
             {"required_quest_step": {"quest_id": "a_guildsmans_first_steps", "step": 7},
              "action": "grant_quest", "quest_id": "sunk_cost",
@@ -222,6 +233,113 @@ DIALOGUES = {
                 "Soot was just a kit when I found him, near frozen at the edge of the ring. Same as the wild ones out there, more or less. He just happens to be mine.",
                 "Don't get many visitors out here. Most people see the ash and turn back before they even reach the shack.",
             ]},
+        ]
+    },
+
+    # -------------------------------------------------------------------------
+    # WARDEN ORIN — Guild Warden, Weeping Chasm. Manned during daylight hours.
+    # Terse, observational. Reports what he sees without elaborating on it.
+    # -------------------------------------------------------------------------
+    "warden_orin": {
+        "name": "Warden Orin", "role": "Guild Warden",
+        "dialogue_tree": [
+
+            # --- echoes_from_below completed ---
+            {"required_flag": "quest_echoes_from_below_completed",
+             "text": [
+                 "Kael still out there scribbling? Of course he is. Man doesn't know when to stop.",
+                 "You gave Kael what he needed, I take it. Good. Maybe he'll sleep for once.",
+                 "The records say the Gloom first surfaced here. I believe it. Some nights I can feel it thinking.",
+             ]},
+
+            # --- echoes_from_below active ---
+            {"required_quest_status": {"quest_id": "echoes_from_below", "status": "active"},
+             "text": [
+                 "This is as close as most people get. The Chasm draws Gloom-Touched creatures — they're drawn to the source. I keep watch so travelers can pass safely. Mostly.",
+                 "The east section of the wall is webbed over some mornings. Something large made that overnight. He doesn't elaborate. \"I don't go near it.\"",
+                 "Some mornings the mist is different. Heavier. Like something exhaled the whole of it at once. He says it the way you'd report weather.",
+                 "See that marker post? Cracked rune, tally marks scratched into the wood. Thirty-seven, last I counted. I didn't start that count. I just keep adding to it.",
+             ]},
+
+            # --- Default ---
+            {"default": "Road's passable. Mostly. Don't linger at the edge — the creatures here are drawn to the source and they don't watch where they're going."},
+        ]
+    },
+
+    # -------------------------------------------------------------------------
+    # LORE-KEEPER KAEL — Guild Scholar, Weeping Chasm. Obsessive, talks fast,
+    # already mid-thought when you arrive. Studies the Chasm as the Gloom's
+    # origin point. Quest giver/resolver for echoes_from_below.
+    # -------------------------------------------------------------------------
+    "lore_keeper_kael": {
+        "name": "Lore-Keeper Kael", "role": "Guild Scholar",
+        "dialogue_tree": [
+
+            # --- echoes_from_below completed — forward hook + lore in rotation ---
+            {"required_flag": "quest_echoes_from_below_completed",
+             "text": [
+                 "The density readings from your samples were unlike anything recorded further out. When you reach the Sunstone Oasis, find the Obsidian Monoliths. I'll be there. There's something I need to show you.",
+                 "Three samples told me more than three years of notes. Thank you for that — truly.",
+                 "It isn't shrinking. It's widening. I wish I had better news than that.",
+                 "Threnody's been restless since you brought those samples in. I don't think that's a coincidence.",
+             ]},
+
+            # --- Samples collected — turn-in ---
+            {"required_quest_step": {"quest_id": "echoes_from_below", "step": 1},
+             "text": (
+                 "These are clean samples — remarkable. The density here is unlike anything "
+                 "recorded further out. The Gloom didn't spread from a single point by accident. "
+                 "Every record points here — the Chasm — as the breach site. My theory: collective "
+                 "grief. A catastrophic loss, enough souls in enough pain at once to tear something "
+                 "open. The Guild doesn't like that theory. Too difficult to quantify. "
+                 "It isn't shrinking, by the way. It's widening. Thank you for this — truly."
+             )},
+
+            # --- Quest active, still collecting samples ---
+            {"required_quest_status": {"quest_id": "echoes_from_below", "status": "active"},
+             "text": [
+                 "You're here — good. I've been waiting for someone Vexia would actually trust with this. The origin point is right here and nobody bothers to study it properly. I need samples — three vials of gloom-mist from the Edge. Can you do that?",
+                 "Corrupted creatures can still be reached — the Gloom has touched them but hasn't consumed them. There's still something there to work with. Hollowed is different. When a creature Hollows, there's nothing left that remembers being a creature. That distinction matters. Remember it.",
+                 "Threnody — my Duskspinner. Named for a funeral song, after the Gloom's origin in collective sorrow. Yes, I know how that sounds. Ask me again sometime and I'll explain the etymology properly.",
+                 "He shows you a single research note: 'Specimen of unusual scale observed on east face. Preliminary classification impossible.' One entry. The next page is blank.",
+             ]},
+
+            # --- Default ---
+            {"default": "You found me. Good — I wasn't sure Vexia would send anyone capable."},
+        ]
+    },
+
+    # -------------------------------------------------------------------------
+    # "GRIM" GRETTA — Chasm Watcher, Lookout Hollow. Blunt, weathered, doesn't
+    # waste words. Keeps a half-bonded Threshling. Subdue-path perspective.
+    # -------------------------------------------------------------------------
+    "grim_gretta": {
+        "name": "\"Grim\" Gretta", "role": "Chasm Watcher",
+        "dialogue_tree": [
+
+            # --- echoes_from_below completed, Veteran rank or above ---
+            {"required_flag": "quest_echoes_from_below_completed",
+             "required_rank": "Veteran",
+             "text": "She looks you over once. Looks back at the fire. \"Still here.\" That's all she gives you. From Gretta, it means something."},
+
+            # --- echoes_from_below completed ---
+            {"required_flag": "quest_echoes_from_below_completed",
+             "text": [
+                 "Kael got his samples, then. Good. Maybe he'll stop wandering toward the edge at night.",
+                 "\"The breathing. You've heard it.\" Not a question. \"Don't go looking for what makes it.\"",
+                 "That creature following you — you trust it? The Gloom finds the ones you're attached to first. Keep it strong. Soft bonds don't survive this road.",
+             ]},
+
+            # --- echoes_from_below active ---
+            {"required_quest_status": {"quest_id": "echoes_from_below", "status": "active"},
+             "text": [
+                 "Guild sends another one. They always look the same — hopeful. The Chasm fixes that eventually. What do you want?",
+                 "\"Nothing worth finding out there.\"",
+                 "You want to know what I know? Fine. The Guild tells you to heal corrupted creatures. I've watched that fail more times than you've been alive. Control is not cruelty. It's honesty. There's another way — if you're willing to hear it.",
+             ]},
+
+            # --- Default ---
+            {"default": "Guild sends another one. They always look the same."},
         ]
     },
 }
