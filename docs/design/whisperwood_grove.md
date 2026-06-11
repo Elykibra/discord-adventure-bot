@@ -223,6 +223,13 @@ exposure (pre-Guild, long ago) predates the Withering Type that dominates there 
   Rimecrawl/Frostbile, Threshling/Threshbound, Stillroot), using the State/Type/Mark
   vocabulary above. `is_gloom_touched` itself is unchanged and still drives existing battle
   logic — `gloom` is additive, descriptive data for now (not yet read by any code).
+- **`data/classifications.py`** (NEW) — both frameworks (Classification Tier and the
+  7-state Gloom State scale, with titles/descriptions/example phrases, the
+  Classification↔Gloom parallel mapping, and `ACTIVE_*` lists marking which rungs are
+  currently in use vs. lore-reserved) now live here as plain data, so the rest of the
+  codebase has one place to reference them. Not wired into any game logic yet — reference
+  data for future flavor text/tooltips/lore commands. Names/descriptions/order can still be
+  adjusted; this is a structure to build on, not a final lock.
 - `data/remnants.py` (Mirefields/Chasm content) already has an NPC dialogue line
   (`lore_hollowed_vs_corrupted`) that draws the Touched-vs-Hollowed distinction in-world:
   *"Corrupted pets can still be reached — the Gloom has touched them but hasn't consumed
