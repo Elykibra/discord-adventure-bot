@@ -133,4 +133,26 @@ QUESTS = {
             "reward_items": {"mana_stone": 2}
         }
     },
+
+    # ------------------------------------------------------------------
+    # ASHEN VERGE — Kaelen's repeatable boundary-culling bounty
+    # ------------------------------------------------------------------
+    "ashenVerge": {
+        "kaelens_bounty": {
+            "title": "Keeping the Line",
+            "description": "Serpentine are working their way toward the ash circle's boundary again. Kaelen wants them cleared before the vines take hold.",
+            "type": "repeatable_bounty",
+            "objectives": [
+                {
+                    "text": "Defeat 3 Serpentine near the ash circle's boundary.",
+                    "type": "combat_victory",
+                    "target": "Serpentine",
+                    "required_count": 3
+                }
+            ],
+            "reward_coins": 80,
+            "reward_item": "ember_charm",
+            "reward_item_quantity": 1
+        }
+    },
 }

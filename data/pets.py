@@ -687,6 +687,205 @@ PET_DATABASE = {
 
     # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
+    # The Ashen Verge (Whisperwood Grove remnant)
+    # -------------------------------------------------------------------------
+
+    "Cinderkit": {
+        "species": "Cinderkit",
+        "pet_type": "Fire",
+        "rarity": "Common",
+        "personality": "Timid",
+        "description": (
+            "A small fox-kit-like creature with ash-gray fur and faint ember-orange "
+            "streaks running along its spine and tail-tip. Curls up near warm ash to "
+            "sleep — looks like a smudge of soot until it moves. Big ears, low body "
+            "heat except for the glowing streaks."
+        ),
+        "base_capture_rate": 45,
+        "passive_ability": {
+            "name": "Ember Curl",
+            "description": "This pet generates its own warmth, granting it small resistance to energy loss from cold-related hazards."
+        },
+        "base_stat_ranges": {"hp": [38, 43], "attack": [35, 40], "defense": [30, 35], "special_attack": [35, 40],
+                             "special_defense": [30, 35], "speed": [42, 47]},
+        "growth_rates": {"hp": 1.6, "attack": 1.7, "defense": 1.3, "special_attack": 1.5, "special_defense": 1.3,
+                         "speed": 1.8},
+        "skill_tree": {
+            "1": ["scratch", "ember"],
+            "6": ["scorch"],
+            "11": {"choice": ["fire_fang", "headbutt"]}
+        },
+        "evolutions": {
+            "Ashveil": {
+                "evolves_at": 16,
+                "species": "Ashveil",
+                "pet_type": "Fire",
+                "rarity": "Uncommon",
+                "description": (
+                    "Bigger and leaner than Cinderkit. The ember streaks have become "
+                    "trailing wisps of smoke and ash that drift behind it as it moves, "
+                    "partially obscuring its silhouette — genuinely a little hard to "
+                    "track. Embers glow through the haze when it's alert."
+                ),
+                "passive_ability": {
+                    "name": "Ash Shroud",
+                    "description": "This pet's trailing haze of smoke and ash grants it a small chance to evade incoming attacks."
+                },
+                "base_stat_ranges": {"hp": [55, 60], "attack": [55, 60], "defense": [45, 50], "special_attack": [52, 57],
+                                     "special_defense": [45, 50], "speed": [62, 67]},
+                "growth_rates": {"hp": 2.0, "attack": 2.2, "defense": 1.7, "special_attack": 2.0, "special_defense": 1.7,
+                                 "speed": 2.4},
+                "skill_tree": {
+                    "18": ["fireball"],
+                    "23": ["fire_fang"],
+                    "28": {"choice": ["immolate", "cinder_trap"]}
+                }
+            }
+        }
+    },
+
+    "Tindertail": {
+        "species": "Tindertail",
+        "pet_type": "Fire",
+        "rarity": "Uncommon",
+        "personality": "Tactical",
+        "description": (
+            "A small, quick, alert creature — more scout than fighter. Slim, "
+            "weasel-like, with a single ember permanently lit at the very tip of its "
+            "tail, once used to relight dead fire-rings. Its ears are always twitching, "
+            "as if listening for something just out of range."
+        ),
+        "base_capture_rate": 30,
+        "passive_ability": {
+            "name": "Boundary Sense",
+            "description": "This pet has a small chance to sense danger coming and avoid the outcome of a hazard entirely."
+        },
+        "base_stat_ranges": {"hp": [42, 47], "attack": [38, 43], "defense": [35, 40], "special_attack": [55, 60],
+                             "special_defense": [48, 53], "speed": [68, 73]},
+        "growth_rates": {"hp": 1.7, "attack": 1.5, "defense": 1.4, "special_attack": 2.2, "special_defense": 1.9,
+                         "speed": 2.6},
+        "skill_tree": {
+            "1": ["scratch", "ember"],
+            "8": ["scorch"],
+            "14": {"choice": ["fireball", "fire_fang"]},
+            "20": ["cinder_trap"]
+        }
+    },
+
+    "Smolderoot": {
+        "species": "Smolderoot",
+        "pet_type": ["Grass", "Fire"],
+        "rarity": "Uncommon",
+        "personality": "Defensive",
+        "description": (
+            "Looks like a charred sapling that somehow kept growing — blackened "
+            "bark-skin with one thin vein of orange-red glow running through it like "
+            "lava in stone. Stiff and slow-moving, with a faint trail of smoke when "
+            "it 'breathes.'"
+        ),
+        "base_capture_rate": 30,
+        "passive_ability": {
+            "name": "Smolder",
+            "description": "This pet is quietly, permanently smoldering. Its physical attacks have a small chance to inflict a minor burn on the opponent."
+        },
+        "base_stat_ranges": {"hp": [58, 64], "attack": [50, 56], "defense": [55, 61], "special_attack": [48, 54],
+                             "special_defense": [50, 56], "speed": [25, 30]},
+        "growth_rates": {"hp": 2.2, "attack": 1.9, "defense": 2.1, "special_attack": 1.8, "special_defense": 2.0,
+                         "speed": 1.0},
+        "skill_tree": {
+            "1": ["pound", "ember"],
+            "9": ["leaf_slap"],
+            "15": {"choice": ["scorch", "branch_whip"]}
+        },
+        "evolutions": {
+            "Pyrethorn": {
+                "evolves_at": 30,
+                "species": "Pyrethorn",
+                "pet_type": ["Grass", "Fire"],
+                "rarity": "Rare",
+                "description": (
+                    "Smolderoot's larger form — gnarled, root-legged, hunched, walking "
+                    "on four thorned root-limbs with low flame constantly licking along "
+                    "its back like a smoldering log. It leaves smoking footprints behind "
+                    "it, like part of the burned forest got up and started walking."
+                ),
+                "passive_ability": {
+                    "name": "Wildfire Roots",
+                    "description": "An upgraded form of Smolder — higher chance to inflict burn, with greater burn damage. This pet also recovers a small amount of HP at the end of each turn, sustained by its own slow-burning core."
+                },
+                "base_stat_ranges": {"hp": [85, 92], "attack": [78, 85], "defense": [80, 87], "special_attack": [68, 75],
+                                     "special_defense": [72, 79], "speed": [35, 40]},
+                "growth_rates": {"hp": 2.8, "attack": 2.6, "defense": 2.8, "special_attack": 2.4, "special_defense": 2.6,
+                                 "speed": 1.4},
+                "skill_tree": {
+                    "32": ["fireball"],
+                    "38": {"choice": ["wood_hammer", "immolate"]},
+                    "45": ["cinder_trap"]
+                }
+            }
+        }
+    },
+
+    "Cindermaw": {
+        "species": "Cindermaw",
+        "pet_type": ["Grass", "Fire"],
+        "rarity": "Ancient",
+        "personality": "Defensive",
+        "description": (
+            "A massive, mostly inert charred root-mass, half-buried in deep ash at "
+            "The First Ring. Looks like a dead, fused tangle of burned roots — until "
+            "you notice the single faint ember glow deep within, like a heartbeat "
+            "that's almost stopped. It doesn't visibly breathe. "
+            "Capturable only at Legend rank, theoretically."
+        ),
+        "base_capture_rate": 2,
+        "passive_ability": {
+            "name": "Ash Lock",
+            "description": "For the duration of the battle, the opponent's healing effectiveness is reduced. Whatever this corruption touches doesn't recover cleanly."
+        },
+        "base_stat_ranges": {"hp": [100, 108], "attack": [85, 92], "defense": [95, 102], "special_attack": [80, 87],
+                             "special_defense": [88, 95], "speed": [30, 36]},
+        "growth_rates": {"hp": 3.2, "attack": 2.8, "defense": 3.0, "special_attack": 2.6, "special_defense": 2.8,
+                         "speed": 1.2},
+        "skill_tree": {
+            "1": ["pound", "ember"],
+            "30": ["immolate"],
+            "40": {"choice": ["cinder_trap", "wood_hammer"]},
+            "50": ["overwhelm"]
+        }
+    },
+
+    "Pyrehart": {
+        "species": "Pyrehart",
+        "pet_type": "Fire",
+        "rarity": "Ancient",
+        "personality": "Aggressive",
+        "description": (
+            "A large, lion-or-wolf-shaped guardian, its 'fur' made of slow-moving "
+            "embers and ash rather than hair — like a campfire holding the shape of "
+            "an animal. Visibly scarred and dimmer than it should be, with patches "
+            "where the ember-fur has gone cold and gray. Sleeps curled near The First "
+            "Ring. Capturable only at Legend rank, theoretically."
+        ),
+        "base_capture_rate": 2,
+        "passive_ability": {
+            "name": "Last Light",
+            "description": "This pet's Attack and Defense increase as its own HP drops, fighting hardest when it matters most."
+        },
+        "base_stat_ranges": {"hp": [95, 102], "attack": [100, 108], "defense": [75, 82], "special_attack": [70, 77],
+                             "special_defense": [75, 82], "speed": [78, 85]},
+        "growth_rates": {"hp": 3.0, "attack": 3.4, "defense": 2.4, "special_attack": 2.2, "special_defense": 2.4,
+                         "speed": 2.6},
+        "skill_tree": {
+            "1": ["scratch", "ember"],
+            "30": ["fire_fang"],
+            "40": {"choice": ["fireball", "immolate"]},
+            "50": ["overwhelm"]
+        }
+    },
+
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Weeping Chasm
     # -------------------------------------------------------------------------
 
@@ -1082,6 +1281,13 @@ ENCOUNTER_TABLES = {
     "whisperwoodWilds": {
         "day": ["Mossling", "Mossling", "Serpentine"],
         "night": ["Mossling", "Serpentine", "Serpentine", "Grimweave", "Serpumbra"]  # Serpumbra ~20% — low-chance evolution
+    },
+    "ashenVerge": {
+        # The Ash Circle — Tindertail intentionally absent (Bram & Pip's shared
+        # companion, not a wild population). The First Ring is folded into this
+        # table as rare/very-rare sightings rather than its own zone for now.
+        "day": ["Mossling", "Mossling", "Cinderkit", "Cinderkit", "Pyrethorn"],  # Pyrethorn ~20% — First Ring, rare daytime sighting
+        "night": ["Mossling", "Mossling", "Cinderkit", "Cinderkit", "Cinderkit", "Grimweave", "Smolderoot", "Smolderoot", "Cindermaw", "Pyrehart"]  # Cindermaw/Pyrehart ~10% each — ancient, very rare
     },
     "mirefields": {
         "day": ["Murkback", "Pallefin", "Mossling", "Corroder"],

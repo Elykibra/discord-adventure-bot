@@ -542,7 +542,7 @@ class RemnantView(discord.ui.View):
 
         return None
 
-    async def _build_sublocation_embed(self, location_info: dict):
+    async def _build_sublocation_embed(self, location_info: dict, log_list: list[str] = None):
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
         time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
@@ -562,6 +562,12 @@ class RemnantView(discord.ui.View):
             embed.add_field(
                 name="🌑 Zone Hazard: Lingering Gloom",
                 value=f"All battles here start with **{gloom}% Gloom**.",
+                inline=False
+            )
+        if log_list:
+            embed.add_field(
+                name="Activity Log",
+                value=format_log_block(log_list),
                 inline=False
             )
         player_and_pet_data = await db_cog.get_player_and_pet_data(self.user_id)
@@ -584,6 +590,12 @@ class RemnantView(discord.ui.View):
         await interaction.edit_original_response(embed=new_embed, view=self)
 
     def _make_talk_callback(self, npc_id, npc_data):
+        # NPCs with a dialogue_tree in data/dialogues.py get the full
+        # condition/quest-aware engine (same as TownView). NPCs without one
+        # fall back to the simple inline `dialogue` dict on their location entry.
+        if npc_id in DIALOGUES:
+            return self.create_talk_callback(npc_id, npc_data)
+
         async def callback(interaction: discord.Interaction):
             await interaction.response.defer()
             db_cog = self.bot.get_cog('Database')
@@ -591,6 +603,8 @@ class RemnantView(discord.ui.View):
             time_of_day = player_data.get('day_of_cycle', 'morning') if player_data else 'morning'
             dialogue = npc_data.get('dialogue', {})
             text = dialogue.get(time_of_day) or dialogue.get('default') or "..."
+            if isinstance(text, list):
+                text = random.choice(text)
             embed = discord.Embed(
                 title=f"{npc_data.get('emoji', '💬')} {npc_data['name']}",
                 description=f"*\"{text}\"*",
@@ -598,6 +612,172 @@ class RemnantView(discord.ui.View):
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
         return callback
+
+    def create_talk_callback(self, npc_id, npc_data):
+        """Full dialogue-tree talk handler — mirrors TownView.create_talk_callback,
+        but updates the Remnant sub-location embed instead of a town one."""
+        async def talk_callback(interaction: discord.Interaction):
+            await interaction.response.defer()
+            db_cog = self.bot.get_cog('Database')
+            node, dialogue_npc_data = await self._get_dialogue_node(npc_id)
+            npc_name = dialogue_npc_data.get('name', npc_id) if dialogue_npc_data else npc_data.get('name', npc_id)
+            log_list = []
+
+            if not node:
+                log_list.append(f"🗣️ **{npc_name}**\n*They have nothing to say to you right now.*")
+            else:
+                raw = node.get("text") or node.get("default", "...")
+                dialogue_text = random.choice(raw) if isinstance(raw, list) else raw
+                log_list.append(f"🗣️ **{npc_name}**\n*\"{dialogue_text}\"*")
+
+                if node.get("action") == "grant_item":
+                    item_id = node.get("item_id")
+                    quantity = node.get("quantity", 1)
+                    if item_id:
+                        await db_cog.add_item_to_inventory(self.user_id, item_id, quantity)
+                        item_name = ITEMS.get(item_id, {}).get('name', 'an item')
+                        log_list.append(f"🎁 **Received**\n*{quantity}× {item_name}*")
+
+                if node.get("action") == "grant_quest":
+                    quest_id = node.get("quest_id")
+                    from data.quests import QUESTS
+                    quest_data = next(
+                        (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
+                    )
+                    initial_progress = {"status": "in_progress", "count": 0}
+                    if quest_data.get("time_sensitive"):
+                        initial_progress["ticks_remaining"] = quest_data.get("time_limit_ticks", 2)
+                    await db_cog.add_quest(self.user_id, quest_id, progress=initial_progress)
+                    quest_title = quest_data.get('title', quest_id)
+                    quest_desc  = quest_data.get('description', '')
+                    quest_type  = quest_data.get('type', 'side')
+                    grant_emoji = {'main': '⭐', 'assignment': '📋', 'side': '🔵', 'repeatable_bounty': '🔄'}.get(quest_type, '📜')
+                    log_list.append(f"{grant_emoji} **New Quest: {quest_title}**\n*{quest_desc}*" if quest_desc
+                                    else f"{grant_emoji} **New Quest: {quest_title}**")
+
+                if node.get("action") == "complete_quest":
+                    quest_id = node.get("quest_id")
+                    from data.quests import QUESTS
+                    quest_data = next(
+                        (d for town in QUESTS.values() for qid, d in town.items() if qid == quest_id), {}
+                    )
+                    required_item = node.get("required_item")
+                    if required_item:
+                        await db_cog.remove_item_from_inventory(self.user_id, required_item, 1)
+                    await db_cog.complete_quest(self.user_id, quest_id)
+                    await db_cog.set_flag(self.user_id, f"quest_{quest_id}_completed")
+                    reward_item   = quest_data.get("reward_item")
+                    reward_qty    = quest_data.get("reward_item_quantity", 1)
+                    reward_coins  = quest_data.get("reward_coins", 0)
+                    quest_title   = quest_data.get('title', quest_id)
+                    if reward_item:
+                        await db_cog.add_item_to_inventory(self.user_id, reward_item, reward_qty)
+                        item_name = ITEMS.get(reward_item, {}).get('name', reward_item)
+                        log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_qty}× {item_name}*")
+                    elif reward_coins:
+                        await db_cog.update_player(self.user_id, coins=reward_coins)
+                        log_list.append(f"🎉 **Quest Complete: {quest_title}**\n*Reward: {reward_coins} coins*")
+                    else:
+                        log_list.append(f"🎉 **Quest Complete: {quest_title}**")
+
+                quest_updates = await check_quest_progress(self.bot, self.user_id, "talk_npc", {"npc_id": npc_id},
+                                                           channel=self.parent_interaction.channel)
+                if quest_updates:
+                    log_list.extend(quest_updates)
+
+            await self._update_with_dialogue_log(log_list)
+        return talk_callback
+
+    async def _update_with_dialogue_log(self, log_list: list[str]):
+        """Refreshes the current sub-location embed with a dialogue/quest activity
+        log, without the battle/respawn handling in update_with_activity_log."""
+        remnant = REMNANTS.get(self.remnant_id, {})
+        location_info = remnant.get('locations', {}).get(self.current_sub_location_id, {})
+        new_embed = await self._build_sublocation_embed(location_info, log_list=log_list)
+        try:
+            await self.message.edit(embed=new_embed, view=self)
+        except (discord.NotFound, discord.HTTPException):
+            try:
+                msg = await self.parent_interaction.followup.send(embed=new_embed, view=self, ephemeral=True)
+                self.message = msg
+            except Exception:
+                pass
+
+    async def _get_dialogue_node(self, npc_id):
+        """Resolves the active dialogue node for an NPC from data/dialogues.py.
+        Mirrors TownView._get_dialogue_node."""
+        npc_data = DIALOGUES.get(npc_id, {})
+        dialogue_tree = npc_data.get('dialogue_tree', [])
+        db_cog = self.bot.get_cog('Database')
+        player_quests = await db_cog.get_active_quests(self.user_id)
+        player_data = await db_cog.get_player(self.user_id)
+        player_flags = player_data.get('flags', set())
+        time_of_day = player_data.get('day_of_cycle', 'morning')
+
+        inventory = await db_cog.get_player_inventory(self.user_id)
+        owned_items = {i['item_id'] for i in inventory}
+
+        from utils.helpers import get_player_rank_info
+        from utils.constants import CREST_RANKS
+        num_crests = await db_cog.count_player_crests(self.user_id)
+        player_rank = get_player_rank_info(num_crests)['rank']
+        rank_order = [r['rank'] for r in CREST_RANKS]
+        player_rank_index = rank_order.index(player_rank) if player_rank in rank_order else 0
+
+        _req_keys = ("required_flag", "required_item", "required_quest_status",
+                     "required_quest_step", "required_time", "required_rank")
+
+        for node in dialogue_tree:
+            if "required_flag" in node:
+                if node["required_flag"] not in player_flags:
+                    continue
+
+            if "required_item" in node:
+                if node["required_item"] not in owned_items:
+                    continue
+
+            if "required_quest_status" in node:
+                req = node["required_quest_status"]
+                status = req['status']
+                qid   = req['quest_id']
+                if status == 'active':
+                    if not any(q['quest_id'] == qid for q in player_quests):
+                        continue
+                else:
+                    if f"quest_{qid}_{status}" not in player_flags:
+                        continue
+
+            if "required_quest_step" in node:
+                req = node["required_quest_step"]
+                quest = next((q for q in player_quests if q['quest_id'] == req['quest_id']), None)
+                if not (quest and quest['progress'].get('count', 0) == req['step']):
+                    continue
+
+            if "required_time" in node:
+                if time_of_day not in node["required_time"]:
+                    continue
+
+            if "required_rank" in node:
+                req_rank = node["required_rank"]
+                req_rank_index = rank_order.index(req_rank) if req_rank in rank_order else 0
+                if player_rank_index < req_rank_index:
+                    continue
+
+            if any(k in node for k in _req_keys):
+                return node, npc_data
+
+        grant_quest_node = next(
+            (n for n in dialogue_tree
+             if n.get("action") == "grant_quest"
+             and not any(k in n for k in _req_keys)
+             and not any(q['quest_id'] == n.get("quest_id") for q in player_quests)),
+            None,
+        )
+        if grant_quest_node:
+            return grant_quest_node, npc_data
+
+        default_node = next((n for n in dialogue_tree if "default" in n), None)
+        return default_node, npc_data
 
     async def explore_callback(self, interaction: discord.Interaction):
         remnant = REMNANTS.get(self.remnant_id, {})
