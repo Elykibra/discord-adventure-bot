@@ -47,6 +47,40 @@ Weeping Chasm / Mirefields / Whisperwood pass + `implementation_roadmap.md`.
 
 ---
 
+## Other Loose Threads That Touch This Segment
+
+- **`data/towns.py` comment says "TOWN 3 — Sunstone Oasis (stub, unlocked after
+  Verdant Crest)"**. "Verdant Crest" doesn't match any current town name
+  (Whisperwood Grove is the actual predecessor). Likely a leftover/older name
+  from before the remnant naming settled — flag and resolve (or just update the
+  comment) when this segment starts.
+
+- **`data/wandering_npcs.py`** already has a placeholder road entry:
+  `"whisperwoodGrove__sunstoneOasis"`, commented "stub — fill in when Town 3 is
+  built." Wandering NPCs for this road are part of the Town 3 batch.
+
+- **`utils/constants.py`** — "The Ember Crest" achievement is already written
+  and tied to Sunstone Oasis: *"Earned in Sunstone Oasis, it symbolizes an
+  Adventurer's ability to master powerful Fire-type companions and endure the
+  scorching heat of the desert."* This pins Sunstone Oasis as a **Fire-type
+  hub** — useful constraint when designing its pets/NPCs/shop.
+
+- **Forward hooks already planted from Weeping Chasm** point straight at this
+  segment — continuity is already half-built:
+  - `weeping_chasm/echoes_from_below_quest.md`, Beat 5.5 ("Forward Hook,
+    stretch") — Kael's hook points toward "Obsidian Monoliths/Sunstone Oasis."
+  - `weeping_chasm/weeping_chasm_v2.md` — reward note: "forward hook to
+    Obsidian Monoliths / Sunstone Oasis."
+  - `weeping_chasm/archive/weeping_chasm.md` (superseded, but for reference) —
+    "Kael disappears from the Chasm. Thread dangles toward Sunstone Oasis."
+
+  When this segment starts, check whether Kael's forward hook (Layer 1a) should
+  resolve *into* the Glade of Whispers / Sunstone Oasis story, or stay a
+  separate dangling thread for later (Obsidian Monoliths is one stop further,
+  between Sunstone Oasis and the not-yet-built `ironforge`).
+
+---
+
 ## Suggested Next Step (when we pick this up)
 
 Mirrors the Oakhaven → Whisperwood pattern: **the remnant *between* the current
