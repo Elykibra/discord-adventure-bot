@@ -239,7 +239,7 @@ TOWNS = {
             "weepingRoot": 10,
         },
         "connection_requirements": {
-            # Not set by any quest step yet — see docs/design/whisperwoods_plea_quest.md
+            # Not set by any quest step yet — see docs/design/whisperwood_grove/whisperwoods_plea_quest.md
             # Beat 3 (Fae Whisper Choice Event). Wiring is a separate pass; until then
             # this remnant stays hidden from the travel dropdown.
             "weepingRoot": "whisperwoods_plea_weeping_root_unlocked",

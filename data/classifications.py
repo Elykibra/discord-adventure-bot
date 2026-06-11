@@ -2,8 +2,8 @@
 # Aethelgard — Creature Classification & Gloom State frameworks.
 #
 # Source design docs:
-#   - docs/design/aethelgard_classification.md  (Classification Tier / Encounter Rarity)
-#   - docs/design/whisperwood_grove.md          (Gloom Sickness — State / Type / Mark)
+#   - docs/design/world/aethelgard_classification.md      (Classification Tier / Encounter Rarity)
+#   - docs/design/whisperwood_grove/whisperwood_grove.md  (Gloom Sickness — State / Type / Mark)
 #
 # STATUS: Narrative scaffolding. These are the world's *current* in-world
 # understanding — they read as "hearsay," not absolute scientific fact, and
