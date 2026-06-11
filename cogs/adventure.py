@@ -135,11 +135,18 @@ class Adventure(commands.Cog):
                 objectives = q_data.get('objectives', [])
                 if current_step < len(objectives):
                     obj = objectives[current_step]
-                    if (obj.get('type') == 'item_pickup'
-                            and obj.get('zone') == location_id
-                            and obj['target'] not in owned_item_ids):
-                        quest_item_to_drop = obj['target']
-                        break
+                    if obj.get('type') == 'item_pickup' and obj.get('zone') == location_id:
+                        required_count = obj.get('required_count', 1)
+                        current_count = quest['progress'].get('current_count', 0)
+                        if required_count > 1:
+                            # Stackable quest item — keep dropping until the
+                            # required count is reached, regardless of inventory.
+                            if current_count < required_count:
+                                quest_item_to_drop = obj['target']
+                                break
+                        elif obj['target'] not in owned_item_ids:
+                            quest_item_to_drop = obj['target']
+                            break
 
             if is_on_tutorial_battle_step:
                 outcome = "tutorial_pet"
@@ -160,12 +167,15 @@ class Adventure(commands.Cog):
             is_night_time = time_of_day in ('evening', 'night')
 
             if outcome == "flavor_event":
+                active_quest_ids = {q['quest_id'] for q in active_quests}
                 # Filter events by time — events with no "time" key fire any time
                 eligible_events = [
                     e for e in zone_events
-                    if 'time' not in e
-                    or (e['time'] == 'night' and is_night_time)
-                    or (e['time'] == 'day' and not is_night_time)
+                    if ('time' not in e
+                        or (e['time'] == 'night' and is_night_time)
+                        or (e['time'] == 'day' and not is_night_time))
+                    and ('required_quest_active' not in e
+                         or e['required_quest_active'] in active_quest_ids)
                 ]
                 if not eligible_events:
                     eligible_events = zone_events  # fallback — never leave the pool empty
@@ -425,6 +435,9 @@ class Adventure(commands.Cog):
                 if qty > 0:
                     await db_cog.add_item_to_inventory(user_id, item_id, qty)
                     log_list.append(f"*(+{qty}× {item_name})*")
+                    quest_updates = await check_quest_progress(self.bot, user_id, "item_pickup", {"item_id": item_id})
+                    if quest_updates:
+                        log_list.extend(quest_updates)
                 else:
                     # Negative qty = cost; silently skip if player doesn't have it
                     await db_cog.remove_item_from_inventory(user_id, item_id, abs(qty))

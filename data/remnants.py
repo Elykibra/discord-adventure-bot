@@ -72,15 +72,41 @@ REMNANTS = {
                     {
                         "condition": "first_visit",
                         "flag": "visited_chasms_edge",
+                        "action": "grant_quest",
+                        "quest_id": "echoes_from_below",
+                        "footer": "⭐ New Quest: Echoes From Below",
                         "text": (
                             "The cold hits before you reach the rim. Your pet stops a full "
                             "step behind you and won't come closer. From below — not wind, "
                             "not echo — something like breathing."
                         ),
                     },
+                    # --- Beat 4: "The Breathing" — dwell-based escalation ---
+                    # Fires once, the first time the player visits the Edge
+                    # for at least the 5th time. A scare, not a fight — the
+                    # Chasmbane itself stays out of sight for now. Placed
+                    # ahead of the night-mist ambient so it isn't crowded out
+                    # once it becomes eligible.
+                    {
+                        "condition": "visit_count",
+                        "min_count": 5,
+                        "once": True,
+                        "flag": "chasm_breathing_event_seen",
+                        "footer": "Something noticed you.",
+                        "text": (
+                            "You've lost count of how many times you've stood here. "
+                            "This time the breathing doesn't stop when you arrive — "
+                            "it gets louder. Closer. For one long moment the mist "
+                            "below rolls back, like something vast just shifted in "
+                            "the dark and pushed it aside.\n\n"
+                            "Then it's gone. The mist settles back over the hollow. "
+                            "Your pet doesn't move for a long time."
+                        ),
+                    },
                     {
                         "condition": "time:night",
                         "once": False,
+                        "chance": 0.4,
                         "text": (
                             "*The mist curls upward around your ankles. "
                             "Nothing attacks. Something is just checking.*"
@@ -112,11 +138,8 @@ REMNANTS = {
                     {
                         "condition": "first_visit",
                         "flag": "visited_wardens_post",
-                        "text": (
-                            "Orin glances up from his logbook. *\"Road's passable. "
-                            "Mostly. Don't linger at the edge — the creatures here "
-                            "are drawn to the source and they don't watch where they're going.\"*"
-                        ),
+                        "continue_npc": "warden_orin",
+                        "text": "Orin glances up from his logbook, sets it aside.",
                     },
                     {
                         "condition": "flag:quest_a_guildsmans_first_steps_completed",
@@ -147,31 +170,6 @@ REMNANTS = {
                             ),
                             "player_species_reactions": {},
                         },
-                        "dialogue": {
-                            "default": (
-                                "This is as close as most people get. The Chasm draws "
-                                "Gloom-Touched creatures — they're drawn to the source. "
-                                "I keep watch so travelers can pass safely. Mostly."
-                            ),
-                            "lore_prompt": (
-                                "The records say The Gloom first surfaced here. I believe it. "
-                                "Some nights I can feel it thinking."
-                            ),
-                            "returning_recruit": (
-                                "Ah — a Guild recruit. Good. The road east gets worse before "
-                                "it gets better. Keep your pet fed and your energy up."
-                            ),
-                            "lore_east_wall": (
-                                "*\"The east section of the wall is webbed over some mornings. "
-                                "Something large made that overnight.\"* "
-                                "He doesn't elaborate. *\"I don't go near it.\"*"
-                            ),
-                            "lore_breathing": (
-                                "*\"Some mornings the mist is different. Heavier. "
-                                "Like something exhaled the whole of it at once.\"* "
-                                "He says it the way you'd report weather."
-                            ),
-                        },
                     },
                 },
             },
@@ -196,12 +194,8 @@ REMNANTS = {
                     {
                         "condition": "first_visit",
                         "flag": "visited_scholars_camp",
-                        "text": (
-                            "Kael looks up immediately, already talking. "
-                            "*\"You're here — good. I've been waiting for someone "
-                            "Vexia would actually trust with this. "
-                            "The origin point is right here and nobody studies it properly.\"*"
-                        ),
+                        "continue_npc": "lore_keeper_kael",
+                        "text": "Kael looks up immediately, already talking.",
                     },
                 ],
                 "services": {},
@@ -229,40 +223,6 @@ REMNANTS = {
                                 ),
                             },
                         },
-                        "dialogue": {
-                            "default": (
-                                "You found me. Good — I wasn't sure Vexia would send anyone "
-                                "capable. The origin point is right here and nobody bothers "
-                                "to study it properly. I need samples. Three vials of "
-                                "gloom-mist from the Edge. Can you do that?"
-                            ),
-                            "samples_collected": (
-                                "These are clean samples — remarkable. The density here is "
-                                "unlike anything recorded further out. When you reach the "
-                                "Oasis, find the Obsidian Monoliths. I'll be there. "
-                                "There's something I need to show you."
-                            ),
-                            "lore_gloom_origin": (
-                                "The Gloom didn't spread from a single point by accident. "
-                                "Every record points here — the Chasm — as the breach site. "
-                                "My theory: collective grief. A catastrophic loss, enough "
-                                "souls in enough pain at once to tear something open. "
-                                "The Guild doesn't like that theory. Too difficult to quantify."
-                            ),
-                            "lore_hollowed_vs_corrupted": (
-                                "Corrupted pets can still be reached — the Gloom has touched "
-                                "them but hasn't consumed them. There's still something there "
-                                "to work with. Hollowed is different. When a creature Hollows, "
-                                "there's nothing left that remembers being a creature. "
-                                "That distinction matters. Remember it."
-                            ),
-                            "lore_east_wall": (
-                                "He shows you a single research note. "
-                                "*'Specimen of unusual scale observed on east face. "
-                                "Preliminary classification impossible.'* "
-                                "One entry. The next page is blank."
-                            ),
-                        },
                     },
                 },
             },
@@ -287,11 +247,8 @@ REMNANTS = {
                     {
                         "condition": "first_visit",
                         "flag": "visited_lookout_hollow",
-                        "text": (
-                            "Gretta looks up from the fire. Takes you in once, top to bottom. "
-                            "*\"Guild sends another one.\"* She looks back at the fire. "
-                            "*\"They always look the same.\"*"
-                        ),
+                        "continue_npc": "grim_gretta",
+                        "text": "Gretta looks up from the fire. Takes you in once, top to bottom.",
                     },
                     {
                         "condition": "has_pet_species:Threshling",
@@ -335,38 +292,6 @@ REMNANTS = {
                                 "It stays because she makes it stay."
                             ),
                             "player_species_reactions": {},
-                        },
-                        "dialogue": {
-                            "default": (
-                                "Guild sends another one. They always look the same — "
-                                "hopeful. The Chasm fixes that eventually. "
-                                "What do you want?"
-                            ),
-                            "player_has_pet": (
-                                "That creature following you — you trust it? "
-                                "The Gloom finds the ones you're attached to first. "
-                                "Keep it strong. Soft bonds don't survive this road."
-                            ),
-                            "subdue_path_intro": (
-                                "You want to know what I know? Fine. "
-                                "The Guild tells you to heal corrupted creatures. "
-                                "I've watched that fail more times than you've been alive. "
-                                "Control is not cruelty. It's honesty. "
-                                "There's another way — if you're willing to hear it."
-                            ),
-                            "lore_deep_chasm": (
-                                "*\"Nothing worth finding out there.\"*"
-                            ),
-                            "lore_deep_chasm_pressed": (
-                                "She looks at you for a long moment. "
-                                "*\"The breathing. You've heard it. "
-                                "Don't go looking for what makes it.\"*"
-                            ),
-                            "returning_high_rank": (
-                                "She looks you over once. Looks back at the fire. "
-                                "*\"Still here.\"* That's all she gives you. "
-                                "From Gretta, it means something."
-                            ),
                         },
                     },
                 },
