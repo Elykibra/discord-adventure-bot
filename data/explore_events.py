@@ -1030,6 +1030,169 @@ EXPLORE_EVENTS = {
             ],
         },
     ],
+
+    "weepingRoot": [
+
+        # --- Flavor Events ---
+        {
+            "type": "flavor",
+            "weight": 10,
+            "text": (
+                "Bruised-purple veins pulse along the cavern walls, slow and "
+                "steady, like a heartbeat that isn't yours."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 9,
+            "text": (
+                "The air is thick and sweet, almost cloying — like fruit left "
+                "far too long in the sun."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 7,
+            "text": (
+                "Your footsteps echo down here, but a half-second late, like "
+                "something nearby is copying them."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 6,
+            "text": (
+                "Drops of sap fall from somewhere above, hissing faintly where "
+                "they land."
+            ),
+        },
+
+        # --- Pet Sighting Events ---
+        {
+            "type": "pet_sighting",
+            "weight": 8,
+            "text": (
+                "A Mossling shuffles past — its moss has gone duller, ashier, "
+                "with faint purple veining just beneath the surface."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 5,
+            "text": (
+                "Something with too many root-like limbs unravels and reforms "
+                "in the dark, just out of clear sight, before you can get a "
+                "good look."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 5,
+            "text": (
+                "A faint purple glow brightens nearby, then slowly dims again "
+                "as whatever it belongs to settles back into stillness."
+            ),
+        },
+
+        # --- Hazard Events ---
+        {
+            "type": "hazard",
+            "weight": 7,
+            "text": (
+                "You step into a shallow pool of sap before you notice it. "
+                "It's warmer than it should be, and it takes a moment to wash "
+                "off."
+            ),
+            "outcome": {"hp": -6},
+        },
+        {
+            "type": "hazard",
+            "weight": 5,
+            "text": (
+                "One of the root-veins pulses harder than the others, and for "
+                "a moment the whole cavern seems to shudder. Loose stone "
+                "rattles down from somewhere above."
+            ),
+            "outcome": {"energy": -1},
+        },
+
+        # --- Loot Bonus ---
+        {
+            "type": "loot_bonus",
+            "weight": 6,
+            "text": "Something glints faintly beneath a film of dried sap.",
+            "outcome": {"item": {"item_id": "weeping_sap", "qty": 1}},
+        },
+        {
+            "type": "loot_bonus",
+            "weight": 4,
+            "text": (
+                "A piece of calcified bark, cool and smooth, sits loose among "
+                "the rubble — clearly fallen from something, not grown here."
+            ),
+            "outcome": {"item": {"item_id": "stoneplate_shard", "qty": 1}},
+        },
+
+        # --- Choice Events ---
+        {
+            "type": "choice",
+            "weight": 5,
+            "text": (
+                "A faint purple glow brightens as you pass, then dims again — "
+                "slower than the others you've seen. This one didn't flee."
+            ),
+            "choices": [
+                {
+                    "label": "Approach slowly",
+                    "emoji": "🔍",
+                    "text": (
+                        "It's a Veinglow, unbothered by the sap around it. It "
+                        "doesn't seem sick at all — if anything, it seems "
+                        "*fine*, in a way nothing else down here is. You take "
+                        "a careful sample before it drifts off."
+                    ),
+                    "outcome": {"item": {"item_id": "veinglow_essence", "qty": 1}},
+                },
+                {
+                    "label": "Leave it be",
+                    "emoji": "🚶",
+                    "text": "You leave it to its stillness and move on.",
+                    "outcome": {},
+                },
+            ],
+        },
+        {
+            "type": "choice",
+            "weight": 4,
+            "text": (
+                "The path splits — one way deeper into the main cavern, the "
+                "other toward a narrow vein where the purple glow is "
+                "brightest, almost too bright to look at directly. Something "
+                "large moves at the very edge of it, then is gone."
+            ),
+            "choices": [
+                {
+                    "label": "Follow the brightest vein",
+                    "emoji": "🔦",
+                    "text": (
+                        "The vein opens into a wider hollow, and for a moment "
+                        "you see it — something huge, jagged, thorn-shaped, "
+                        "moving with slow purpose along the far wall before "
+                        "the dark swallows it again. You don't move for a long "
+                        "moment after it's gone. Whatever that was, it noticed "
+                        "you too. You decide not to follow further."
+                    ),
+                    "outcome": {"item": {"item_id": "lore_fragment", "qty": 1}},
+                },
+                {
+                    "label": "Stay on the main path",
+                    "emoji": "🚶",
+                    "text": "You stay on the main path. Whatever that was, you'd rather not know.",
+                    "outcome": {},
+                },
+            ],
+        },
+    ],
 }
 
 
@@ -1080,6 +1243,11 @@ ZONE_LOOT_TABLES = {
         ("ash_ember",   4),
         ("ember_charm", 1),
         ("trail_morsels", 2),
+    ],
+    "weepingRoot": [
+        ("weeping_sap",     4),
+        ("stoneplate_shard", 2),
+        ("trail_morsels",   2),
     ],
     # Whisperwood remnants and beyond added here when towns are built
 }
