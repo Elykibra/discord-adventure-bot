@@ -282,6 +282,7 @@ PET_DATABASE = {
         "species": "Mossling",
         "pet_type": "Grass",
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Timid",
         "description": "A small, moss-covered creature that blends seamlessly into the forest floor. Its timid nature means it will flee at the first sign of danger, but it becomes surprisingly resilient when cornered.",
         "base_capture_rate": 45,
@@ -305,6 +306,7 @@ PET_DATABASE = {
                 "species": "Thornmoss",
                 "pet_type": ["Grass", "Rock"],
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": "As Mossling matures, its soft coat hardens into a dense layer of moss-covered rock. Sharp thorns protrude from its back, and it carries itself with a quiet, unmovable confidence.",
                 "passive_ability": {
                     "name": "Thorn Guard",
@@ -326,6 +328,7 @@ PET_DATABASE = {
                         "species": "Ferngale",
                         "pet_type": ["Grass", "Rock"],
                         "rarity": "Rare",
+                        "classification_tier": "Apex",
                         "description": "An ancient, towering form wrapped in layers of living stone and cascading fern. Ferngale moves slowly but commands the battlefield with a primal authority — the forest itself seems to bend around it.",
                         "passive_ability": {
                             "name": "Ancient Growth",
@@ -352,6 +355,7 @@ PET_DATABASE = {
         "species": "Glimmerva",
         "pet_type": "Bug",
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Timid",
         "description": "A soft-bodied, wingless larva covered in fine, glowing scales. It clings to sun-warmed leaves and bark, pulsing faintly with light when disturbed. Slow and harmless-looking, but the dust it sheds when threatened can be surprisingly disorienting.",
         "base_capture_rate": 50,
@@ -375,6 +379,7 @@ PET_DATABASE = {
                 "species": "Luminara",
                 "pet_type": ["Bug"],
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": "Freshly emerged from its cocoon, Luminara's wings are still soft and unfolding, glimmering faintly even in shade. It moves in short, fluttering bursts, not yet trusting its new wings, but already drawn toward warmth and light.",
                 "passive_ability": {
                     "name": "Gilded Wings",
@@ -396,6 +401,7 @@ PET_DATABASE = {
                         "species": "Solarmoth",
                         "pet_type": ["Bug", "Fire"],
                         "rarity": "Rare",
+                        "classification_tier": "Apex",
                         "description": "Its metamorphosis complete, Solarmoth's wings have unfurled into great radiant fans that seem to burn with trapped sunlight. It glides rather than flutters now, leaving faint trails of warmth in the air, and even at night its wings continue to glow like embers.",
                         "passive_ability": {
                             "name": "Radiant Core",
@@ -420,6 +426,7 @@ PET_DATABASE = {
         "species": "Grimweave",
         "pet_type": ["Ghost", "Poison"],
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Aggressive",
         "description": "A shadowy, arachnid-like creature that weaves webs of Gloom-infused silk between the trees at night. Its presence makes the air feel cold and heavy, and the faint glow of its eyes is often the only warning before it strikes.",
         "base_capture_rate": 35,
@@ -445,6 +452,7 @@ PET_DATABASE = {
                 "species": "Duskspinner",
                 "pet_type": ["Ghost", "Poison"],
                 "rarity": "Rare",
+                "classification_tier": "Apex",
                 "description": "A larger, more terrifying form that wraps itself in a shroud of writhing Gloom-silk. Its eight limbs move with unsettling precision, and the webs it spins can trap both body and spirit.",
                 "passive_ability": {
                     "name": "Soul Snare",
@@ -466,6 +474,7 @@ PET_DATABASE = {
                         "species": "Veilmother",
                         "pet_type": ["Ghost", "Poison"],
                         "rarity": "Ancient",
+                        "classification_tier": "Elder",
                         "is_gloom_touched": True,
                         "gloom": {"state": "Hollow", "type": "Shrouded", "mark": "a vast, passive web-shroud — what's left of the self has emptied into something that only waits"},
                         "description": (
@@ -499,6 +508,7 @@ PET_DATABASE = {
         "species": "Moonwisp",
         "pet_type": ["Fairy", "Grass"],
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Tactical",
         "description": "A tiny, luminescent creature that dances among moonlit flowers in the depths of Whisperwood. Gentle by nature, it uses its fae magic to confound and disorient those who threaten its home rather than fighting directly.",
         "base_capture_rate": 35,
@@ -522,6 +532,7 @@ PET_DATABASE = {
                 "species": "Lunarblossom",
                 "pet_type": ["Fairy", "Grass"],
                 "rarity": "Rare",
+                "classification_tier": "Apex",
                 "description": "A graceful, flower-crowned being that radiates a soft silver light. It moves as if weightless, leaving a faint trail of glowing petals wherever it steps. Its fae magic has deepened into something ancient and difficult to resist.",
                 "passive_ability": {
                     "name": "Moonlit Grace",
@@ -545,6 +556,7 @@ PET_DATABASE = {
         "species": "Serpentine",
         "pet_type": ["Grass", "Dark"],
         "rarity": "Uncommon",
+        "classification_tier": "Prime",
         "personality": "Tactical",
         "description": "A slender, vine-like serpent that moves silently through the underbrush, its scales shifting between deep green and shadow depending on the light. It prefers to watch from cover for long stretches before ever striking.",
         "base_capture_rate": 35,
@@ -568,6 +580,7 @@ PET_DATABASE = {
                 "species": "Serpumbra",
                 "pet_type": ["Grass", "Dark"],
                 "rarity": "Rare",
+                "classification_tier": "Apex",
                 "description": "Serpentine's final form — a long, shadow-wreathed serpent whose scales seem to drink in the light around it. In dappled forest shade it can vanish almost entirely, becoming little more than a rustle in the leaves and a pair of watching eyes.",
                 "passive_ability": {
                     "name": "Living Camouflage",
@@ -591,6 +604,7 @@ PET_DATABASE = {
         "species": "Glamorose",
         "pet_type": ["Grass", "Poison"],
         "rarity": "Common",
+        "classification_tier": "Ordinary",
         "personality": "Tactical",
         "description": "A small, flower-headed creature with petals of an almost unnaturally vivid pink. Its sweet fragrance draws other creatures close — a little too close, and a little too often for it to be entirely accidental.",
         "base_capture_rate": 45,
@@ -614,6 +628,7 @@ PET_DATABASE = {
                 "species": "Malicea",
                 "pet_type": ["Grass", "Poison"],
                 "rarity": "Uncommon",
+                "classification_tier": "Prime",
                 "description": "Malicea's petals have unfurled wider and its fragrance grown richer — sweeter, even, the closer one gets to the soft rot at its core. Things that wander too near tend to linger longer than they mean to.",
                 "passive_ability": {
                     "name": "Sweet Decay",
@@ -635,6 +650,7 @@ PET_DATABASE = {
                         "species": "Aberraflora",
                         "pet_type": ["Grass", "Poison"],
                         "rarity": "Ancient",
+                        "classification_tier": "Elder",
                         "description": (
                             "The final form of the Glamorose line. A sprawling mass of bloom and "
                             "rot, half-buried in the deep Thicket where the canopy never quite "
@@ -666,6 +682,7 @@ PET_DATABASE = {
         "species": "Verdanthorn",
         "pet_type": ["Grass", "Normal"],
         "rarity": "Ancient",
+        "classification_tier": "Elder",
         "personality": "Defensive",
         "description": (
             "An ancient, towering presence at the heart of the Thicket — easy to mistake "
@@ -1356,13 +1373,36 @@ ENCOUNTER_TABLES = {
         "day": ["Corroder"],
         "night": ["Corroder", "Corroder", "Corroder", "Grimplate"]  # Grimplate ~25% — surfaces after dark
     },
+    # Encounter Rarity is relative to THIS location, not an intrinsic property
+    # of the species (see data/classifications.py — ENCOUNTER_RARITIES /
+    # ENCOUNTER_RARITY_WEIGHTS). Same species can read differently at
+    # different locations; Gloom-touched species are "Odd" in their home
+    # territory as a baseline for that signal to escalate elsewhere later.
     "whisperwoodGrove": {
-        "day": ["Mossling", "Mossling", "Glimmerva", "Glimmerva", "Verdanthorn"],   # Verdanthorn ~20% — ancient, rare sighting
-        "night": ["Mossling", "Mossling", "Grimweave", "Moonwisp", "Glamorose", "Glamorose", "Malicea"]  # Malicea ~14% — low-chance evolution
+        "day": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Glimmerva", "encounter_rarity": "Normal"},
+            {"species": "Verdanthorn", "encounter_rarity": "Rare"},  # Elder tier, ancient/rare sighting
+        ],
+        "night": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Glamorose", "encounter_rarity": "Normal"},
+            {"species": "Grimweave", "encounter_rarity": "Odd"},  # Gloom-touched
+            {"species": "Moonwisp", "encounter_rarity": "Odd"},
+            {"species": "Malicea", "encounter_rarity": "Odd"},
+        ],
     },
     "whisperwoodWilds": {
-        "day": ["Mossling", "Mossling", "Serpentine"],
-        "night": ["Mossling", "Serpentine", "Serpentine", "Grimweave", "Serpumbra"]  # Serpumbra ~20% — low-chance evolution
+        "day": [
+            {"species": "Mossling", "encounter_rarity": "Normal"},
+            {"species": "Serpentine", "encounter_rarity": "Odd"},
+        ],
+        "night": [
+            {"species": "Serpentine", "encounter_rarity": "Normal"},
+            {"species": "Mossling", "encounter_rarity": "Odd"},
+            {"species": "Grimweave", "encounter_rarity": "Odd"},  # Gloom-touched
+            {"species": "Serpumbra", "encounter_rarity": "Odd"},  # Apex-tier evolution, uncommon at night
+        ],
     },
     "ashenVerge": {
         # The Ash Circle — Tindertail intentionally absent (Bram & Pip's shared

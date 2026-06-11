@@ -10,6 +10,7 @@ from discord.ext import commands
 # --- REFACTORED IMPORTS ---
 from data.towns import TOWNS
 from data.pets import PET_DATABASE, ENCOUNTER_TABLES
+from data.classifications import ENCOUNTER_RARITY_WEIGHTS
 from data.items import ITEMS
 from data.abilities import SHARED_PASSIVES_BY_TYPE
 from data.explore_events import get_zone_events, get_zone_loot
@@ -18,6 +19,21 @@ from core.battle_engine import BattleState  # <-- Key Change: Importing from cor
 from .resources import ACTION_COSTS
 from .views.towns import TownView, WildsView, RemnantView
 from .views.combat import CombatView
+
+
+def choose_wild_species(possible_pets):
+    """Pick a species name from an ENCOUNTER_TABLES entry list.
+
+    Supports both the new per-location format
+    (``{"species": ..., "encounter_rarity": ...}``, weighted via
+    ENCOUNTER_RARITY_WEIGHTS) and the legacy flat list of repeated species
+    names (uniform random.choice), so zones can be migrated incrementally.
+    """
+    if isinstance(possible_pets[0], dict):
+        species_names = [entry["species"] for entry in possible_pets]
+        weights = [ENCOUNTER_RARITY_WEIGHTS.get(entry.get("encounter_rarity"), 1) or 1 for entry in possible_pets]
+        return random.choices(species_names, weights=weights, k=1)[0]
+    return random.choice(possible_pets)
 
 
 class Adventure(commands.Cog):
@@ -212,12 +228,12 @@ class Adventure(commands.Cog):
                     # Map 4 phases to encounter table keys (day/night)
                     # Encounter tables can add 'morning'/'noon'/etc keys later for unique spawns
                     encounter_key = 'night' if is_night_time else 'day'
-                    possible_pet_names = (ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day)
-                                          or ENCOUNTER_TABLES.get(location_id, {}).get(encounter_key, []))
-                    if not possible_pet_names:
+                    possible_pets = (ENCOUNTER_TABLES.get(location_id, {}).get(time_of_day)
+                                     or ENCOUNTER_TABLES.get(location_id, {}).get(encounter_key, []))
+                    if not possible_pets:
                         # (Graceful handling for no pets found)
                         return
-                    chosen_species_name = random.choice(possible_pet_names)
+                    chosen_species_name = choose_wild_species(possible_pets)
                     level = random.randint(3, 5)
 
                 wild_pet_base = PET_DATABASE.get(chosen_species_name)
@@ -227,8 +243,18 @@ class Adventure(commands.Cog):
                     return
 
                 # Pet generation logic (stats, passive, skills)
+                # Ordinary/Prime tier species draw from the shared type-based
+                # passive pool; Apex and above keep their unique passive.
+                # Falls back to the legacy rarity check for species not yet
+                # migrated to classification_tier.
+                classification_tier = wild_pet_base.get('classification_tier')
+                if classification_tier is not None:
+                    use_shared_passive = classification_tier in ("Ordinary", "Prime")
+                else:
+                    use_shared_passive = wild_pet_base['rarity'] in ["Common", "Uncommon"]
+
                 assigned_passive = None
-                if wild_pet_base['rarity'] in ["Common", "Uncommon"]:
+                if use_shared_passive:
                     pet_type = wild_pet_base['pet_type']
                     if isinstance(pet_type, list): pet_type = random.choice(pet_type)
                     possible_passives = SHARED_PASSIVES_BY_TYPE.get(pet_type, [])

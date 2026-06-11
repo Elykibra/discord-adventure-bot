@@ -83,16 +83,41 @@ ACTIVE_CLASSIFICATION_TIERS = ["Ordinary", "Prime", "Apex", "Elder", "Ancient"]
 # =================================================================================
 #  ENCOUNTER RARITY
 # =================================================================================
-# How often a creature is actually seen/caught — independent of Classification
-# Tier. A creature's tier rarely changes; its encounter rarity can shift by
-# context (e.g. a Withering-Marked Mossling is still Ordinary tier, but a Rare sighting).
+# How surprising it is to see *this* (species, possibly Gloom-marked) at *this*
+# location — independent of Classification Tier. A creature's tier rarely
+# changes; its encounter rarity is set per (species[+gloom state], location)
+# pair. E.g. a Mossling is Normal in its home grove; a Touched Mossling in that
+# same clean grove would be Odd — the Gloom variant is the anomaly, not the
+# species. In a Gloom-affected zone those readings could flip.
 
 ENCOUNTER_RARITIES = [
-    "Common",
-    "Uncommon",
+    "Normal",
+    "Odd",
     "Rare",
-    # Further tiers TBD as needed.
+    "Peculiar",
+    "Strange",
+    "Uncanny",
+    "Unknown",
 ]
+
+# Selection weights for random.choices()-style weighted picks within an
+# encounter table. Each step is roughly half the previous one, so the table
+# can be tuned just by adjusting which rarity an entry is assigned.
+#
+# "Unknown" is intentionally NOT meant for normal weighted rolls — it reads as
+# "this shouldn't be happening at all" and should be reserved for
+# story/quest-triggered encounters rather than the general wild-encounter pool.
+# It's listed here for completeness/lore use, but encounter tables should
+# avoid using it until there's a dedicated trigger path for it.
+ENCOUNTER_RARITY_WEIGHTS = {
+    "Normal": 32,
+    "Odd": 16,
+    "Rare": 8,
+    "Peculiar": 4,
+    "Strange": 2,
+    "Uncanny": 1,
+    "Unknown": 0,  # excluded from normal weighted rolls — see note above
+}
 
 
 # =================================================================================
