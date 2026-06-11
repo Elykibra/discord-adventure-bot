@@ -693,6 +693,244 @@ REMNANTS = {
     },
 
     # =========================================================================
+    # SIDE BRANCH: Whisperwood Grove → The Ashen Verge
+    # Free remnant, not a through-stop — "between" reflects this is a
+    # dead-end branch off Whisperwood Grove, not a road between two towns.
+    # NPCs (Kaelen, Bram & Pip), on_enter, and explore events land in a
+    # later pass — this is groundwork only (zone, locations, connections).
+    # =========================================================================
+
+    "ashenVerge": {
+        "id": "ashenVerge",
+        "name": "The Ashen Verge",
+        "emoji": "🔥",
+        "between": ["whisperwoodGrove"],
+        "connections": {
+            "whisperwoodGrove": "Whisperwood Grove",
+        },
+        "connection_costs": {
+            "whisperwoodGrove": 10,
+        },
+        "availability": "all",
+        "gloom_level": 0,
+        "description_day": (
+            "The grass ends in a perfectly straight line. On one side, green. On the "
+            "other, a wide circle of cold, gray ash that doesn't shift in the wind. "
+            "The air smells faintly of smoldering embers, even this far from any fire. "
+            "It is dead silent."
+        ),
+        "description_night": (
+            "The ash circle is darker than the night around it, somehow. Old fire-rings "
+            "are just visible in the gloom, dozens of them, fading outward in concentric "
+            "circles. Nothing here makes a sound."
+        ),
+        "lore": (
+            "Generations ago, something came up out of the ground at this spot — the "
+            "first surface appearance of what would become the Heart of Decay. A "
+            "containment ring of fire was lit around the site, and has been tended ever "
+            "since."
+        ),
+        "locations": {
+            "kaelens_shack": {
+                "name": "Kaelen's Shack",
+                "emoji": "🛖",
+                "menu_description": "A soot-stained deadwood shack at the edge of the ash circle.",
+                "availability": "all",
+                "description_day": (
+                    "A small shack built from deadwood and ash-gray stone, right at the "
+                    "boundary line. Smoke trickles from a crooked chimney, even now."
+                ),
+                "description_night": (
+                    "A single lantern burns in the shack's window — the only warm light "
+                    "for a long way in any direction."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_kaelens_shack",
+                        "once": True,
+                        "speaker": "Kaelen",
+                        "icon": "🛖",
+                        "color": 0xB23B00,
+                        "text": (
+                            "A soot-stained man looks up from a small fire as you "
+                            "approach, unsurprised. \"Don't get many visitors out here. "
+                            "Mind the line on your way in — the ash holds heat longer "
+                            "than you'd think.\""
+                        ),
+                    },
+                ],
+                "services": {},
+                "npcs": {
+                    "kaelen": {
+                        "name": "Kaelen",
+                        "role": "Hearth-Steward",
+                        "availability": "all",
+                        "pet": {
+                            "species": "Cinderkit",
+                            "nickname": "Soot",
+                            "nickname_visible_flag": None,
+                            "lore": (
+                                "Kaelen found Soot as a kit, curled up near the fire "
+                                "ring, half-frozen. He's raised him ever since. "
+                                "Cinderkit and Ashveil live wild in the Verge too — "
+                                "Soot's just one he happened to keep."
+                            ),
+                        },
+                        # Full dialogue tree (lore, bounty grant/active/complete) lives
+                        # in data/dialogues.py under "kaelen" — RemnantView routes any
+                        # NPC present in DIALOGUES through that condition-aware engine.
+                    },
+                },
+            },
+            "bram_pip_caravan": {
+                "name": "Bram & Pip's Caravan",
+                "emoji": "🛒",
+                "menu_description": "A salt-and-ash-caked caravan parked near the boundary.",
+                "availability": "all",
+                "description_day": (
+                    "An old traveling caravan, its wheels long since sunk into the ash. "
+                    "Crates of stripped-down salvage are stacked nearby, sorted with more "
+                    "care than the caravan's exterior would suggest."
+                ),
+                "description_night": (
+                    "A small fire burns near the caravan — the only one in the Verge "
+                    "besides the containment ring itself. Voices carry, mid-argument."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_bram_pip_caravan",
+                        "once": True,
+                        "speaker": "Bram & Pip",
+                        "icon": "🛒",
+                        "color": 0x8B5A2B,
+                        "text": (
+                            "\"—and I'm telling you, it's Match, it's always been "
+                            "Match—\" \"It's WISP—\" Two voices stop arguing at once as "
+                            "you step into view. A small fox-like creature with a "
+                            "glowing tail-tip peers out at you from between them, then "
+                            "ducks back."
+                        ),
+                    },
+                ],
+                "services": {},
+                "npcs": {
+                    "bram": {
+                        "name": "Bram",
+                        "role": "Forager",
+                        "availability": "all",
+                        "pet": {
+                            "species": "Tindertail",
+                            "nickname": "Match",
+                            "nickname_visible_flag": None,
+                            "lore": (
+                                "Found together on the road years back — small, quick, "
+                                "with an ember permanently lit at the tip of its tail. "
+                                "Bram calls it Match, on account of what it's good for. "
+                                "Pip insists that's not its name. Neither has ever "
+                                "backed down."
+                            ),
+                        },
+                        "dialogue": {
+                            "default": [
+                                (
+                                    "\"It's MATCH, Pip, for the hundredth time. It "
+                                    "lights things. That's the whole point of it.\""
+                                ),
+                                (
+                                    "\"Salt and ash, that's the trick. Spirits don't "
+                                    "like either. Keeps the bad luck off the wagon, "
+                                    "mostly.\""
+                                ),
+                                (
+                                    "\"Pip's been muttering about the ash circle again. "
+                                    "It's fine. It's always been fine.\""
+                                ),
+                                (
+                                    "\"We strip what's left of the old ruins out past "
+                                    "the treeline. Edge of the world's still got plenty "
+                                    "left in it, if you know where to dig.\""
+                                ),
+                            ],
+                        },
+                    },
+                    "pip": {
+                        "name": "Pip",
+                        "role": "Forager",
+                        "availability": "all",
+                        "pet": {
+                            "species": "Tindertail",
+                            "nickname": "Wisp",
+                            "nickname_visible_flag": None,
+                            "lore": (
+                                "The same Tindertail Bram calls 'Match.' Pip calls it "
+                                "Wisp — it senses things, drifts off on its own, and "
+                                "comes back when it's found something. Pip taught it to "
+                                "do that. Or it taught itself. Hard to say."
+                            ),
+                        },
+                        "dialogue": {
+                            "default": [
+                                (
+                                    "\"It's Wisp. It senses things — drifts off on its "
+                                    "own when something's wrong. 'Match' is a terrible "
+                                    "name for a creature that thinks.\""
+                                ),
+                                (
+                                    "\"I've been marking the edge of the ash circle for "
+                                    "years. Just... keeping track. No reason.\""
+                                ),
+                                (
+                                    "\"Bram thinks I worry too much. Maybe. But the "
+                                    "stones don't lie.\""
+                                ),
+                                (
+                                    "\"Don't tell Kaelen I said anything. He'd just go "
+                                    "and do more rituals.\""
+                                ),
+                            ],
+                        },
+                    },
+                },
+            },
+            "ash_circle": {
+                "name": "The Ash Circle",
+                "emoji": "🔥",
+                "menu_description": "The ash circle itself — quiet, smoky, and managed rather than hostile.",
+                "availability": "all",
+                "description_day": (
+                    "Dozens of old fire-rings, in concentric circles fading outward. Most "
+                    "look decades old. Your footprints are the only mark on the ash."
+                ),
+                "description_night": (
+                    "The cold ash holds the dark differently than the forest does. A "
+                    "faint smell of smoke never quite fades."
+                ),
+                "on_enter": [
+                    {
+                        "condition": "first_visit",
+                        "flag": "visited_ash_circle",
+                        "once": True,
+                        "speaker": "The Ash Circle",
+                        "icon": "🔥",
+                        "color": 0x4A4A4A,
+                        "text": (
+                            "The grass ends in a perfectly straight line. Beyond it: "
+                            "gray ash, dozens of old fire-rings fading outward in "
+                            "concentric circles, and silence."
+                        ),
+                    },
+                ],
+                "services": {
+                    "explore_zone": "ashenVerge",
+                },
+                "npcs": {},
+            },
+        },
+    },
+
+    # =========================================================================
     # ROAD: Whisperwood Grove ↔ Sunstone Oasis
     # =========================================================================
 

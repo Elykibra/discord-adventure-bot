@@ -230,9 +230,11 @@ TOWNS = {
         "connections": {
             "mirefields": "Mirefields",
             "whisperwoodWilds": "Whisperwood Wilds",  # is_wilds=True → renders as Explore Wilds button
+            "ashenVerge": "The Ashen Verge",  # free remnant, side branch off the Grove
         },
         "connection_costs": {
             "mirefields": 12,  # Leaving the Grove back into the bog costs more
+            "ashenVerge": 10,
         },
 
         "locations": {

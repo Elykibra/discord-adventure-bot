@@ -870,6 +870,166 @@ EXPLORE_EVENTS = {
             ],
         },
     ],
+
+    # ─────────────────────────────────────────────
+    # The Ashen Verge — The Ash Circle
+    # Tone: quiet, smoky, cold, *managed* — not hostile. The First Ring's rare
+    # sightings (Pyrethorn/Cindermaw/Pyrehart) are folded into this zone's
+    # encounter table rather than given a separate explore pool.
+    # ─────────────────────────────────────────────
+    "ashenVerge": [
+
+        # --- Flavor Events ---
+        {
+            "type": "flavor",
+            "weight": 10,
+            "text": (
+                "The grass ends in a perfectly straight line. On one side, green. "
+                "On the other, gray ash that doesn't shift in the wind."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 9,
+            "text": (
+                "Old fire-rings, dozens of them, sit in concentric circles fading "
+                "outward. Most look decades old."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 8,
+            "text": (
+                "Your footprints are the only mark on the ash. It hasn't rained "
+                "here in a long time — or the ash doesn't let it show."
+            ),
+        },
+        {
+            "type": "flavor",
+            "weight": 6,
+            "text": (
+                "A faint smell of smoke that never quite fades, even this far "
+                "from any fire."
+            ),
+        },
+
+        # --- Pet Sighting Events ---
+        {
+            "type": "pet_sighting",
+            "weight": 8,
+            "text": (
+                "A Cinderkit sits at the edge of a cold fire-ring, warming itself "
+                "against embers that aren't there."
+            ),
+        },
+        {
+            "type": "pet_sighting",
+            "weight": 5,
+            "text": (
+                "Something with smoking footprints crossed here recently. The "
+                "tracks lead toward the deeper ash and don't come back."
+            ),
+        },
+
+        # --- Hazard Events ---
+        {
+            "type": "hazard",
+            "weight": 7,
+            "text": (
+                "A patch of ash gives way to a bed of still-hot coals "
+                "underneath."
+            ),
+            "outcome": {"hp": -6},
+        },
+        {
+            "type": "hazard",
+            "weight": 5,
+            "text": (
+                "The wind shifts and a wall of ash dust rolls over you. Hard to "
+                "see, harder to breathe for a moment."
+            ),
+            "outcome": {"energy": -1},
+        },
+
+        # --- Loot Bonus ---
+        {
+            "type": "loot_bonus",
+            "weight": 6,
+            "text": (
+                "Half-buried near an old ring: something someone left as an "
+                "offering, a long time ago."
+            ),
+            "outcome": {"item": {"item_id": "ash_ember", "qty": 1}},
+        },
+        {
+            "type": "loot_bonus",
+            "weight": 4,
+            "text": (
+                "Tucked into a crack in the hardened ash, wrapped in cloth gone "
+                "stiff with age: a small charm, still warm to the touch."
+            ),
+            "outcome": {"item": {"item_id": "ember_charm", "qty": 1}},
+        },
+
+        # --- Choice Events ---
+        {
+            "type": "choice",
+            "weight": 6,
+            "text": (
+                "One of the fire-rings looks recently relit — ash disturbed, "
+                "faint warmth still rising from it. Kaelen didn't mention doing "
+                "this."
+            ),
+            "choices": [
+                {
+                    "label": "Investigate",
+                    "emoji": "🔍",
+                    "text": (
+                        "The ash here was disturbed on purpose, and recently — by "
+                        "something, or someone, that wasn't Kaelen. You can't "
+                        "shake the feeling as you walk away."
+                    ),
+                    "outcome": {"item": {"item_id": "lore_fragment", "qty": 1}},
+                },
+                {
+                    "label": "Leave it",
+                    "emoji": "🚶",
+                    "text": "You leave the ring as you found it and move on.",
+                    "outcome": {},
+                },
+            ],
+        },
+        {
+            "type": "choice",
+            "weight": 4,
+            "text": (
+                "The ash here is older — packed dense, almost glassy in places. "
+                "At the center, something is half-buried: scorched, root-shaped, "
+                "too large to be a tree stump. Nearby, barely visible under the "
+                "ash, the shape of something else — curled, still, also "
+                "half-buried."
+            ),
+            "choices": [
+                {
+                    "label": "Brush away the ash",
+                    "emoji": "🪶",
+                    "text": (
+                        "You recognize enough of both shapes to know they're not "
+                        "natural formations. Neither moves, but you feel watched "
+                        "anyway. You back away slowly and don't look behind you "
+                        "again."
+                    ),
+                    "outcome": {"item": {"item_id": "lore_fragment", "qty": 1}},
+                },
+                {
+                    "label": "Leave it buried",
+                    "emoji": "🚶",
+                    "text": "Whatever it is, it can stay buried. You move on.",
+                    "outcome": {},
+                },
+            ],
+        },
+    ],
 }
 
 
@@ -915,6 +1075,11 @@ ZONE_LOOT_TABLES = {
         ("moss_balm",          2),
         ("tether_orb",         2),
         ("sun_kissed_berries", 2),
+    ],
+    "ashenVerge": [
+        ("ash_ember",   4),
+        ("ember_charm", 1),
+        ("trail_morsels", 2),
     ],
     # Whisperwood remnants and beyond added here when towns are built
 }

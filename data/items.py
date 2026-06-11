@@ -33,6 +33,16 @@ ITEMS = {
         "effect": {"type": "heal_pet", "value": 15},
         "actions": ["use", "drop", "inspect"]
     },
+    "ember_charm": {
+        "name": "Ember Charm",
+        "description": "A small charm that always feels faintly warm to the touch, no matter the weather. Carrying one wards off the worst of the cold.",
+        "dropdown_description": "Restores player energy.",
+        "menu_description": "Restores 15 energy to the player when consumed.",
+        "category": "Consumables",
+        "price": 25,
+        "effect": {"type": "restore_energy", "value": 15},
+        "actions": ["use", "drop", "inspect"]
+    },
     "sun_kissed_berries": {
         "name": "Sun-Kissed Berries",
         "description": "Sweet berries that restore 25 player energy.",
@@ -81,6 +91,15 @@ ITEMS = {
         "menu_description": "A rare luminescent scale. Future crafting use.",
         "category": "Crafting Materials",
         "price": 35,
+        "actions": ["drop", "inspect"],
+    },
+    "ash_ember": {
+        "name": "Ash Ember",
+        "description": "A small ember pried from cold-looking ash. It's still warm. It doesn't cool down.",
+        "dropdown_description": "Crafting material from the Ashen Verge.",
+        "menu_description": "Still-warm ember shed by Ashen Verge wildlife. Future crafting use.",
+        "category": "Crafting Materials",
+        "price": 12,
         "actions": ["drop", "inspect"],
     },
     "mana_stone": {

@@ -119,11 +119,15 @@ more Types get introduced over time. Two are named so far:
 
 - **Withering** (NEW — native to the Weeping Root) — root/sap-based corruption; slow
   replacement of living tissue from the inside. This is the Type that originates here.
-- **Calcifying** (NEW name, but already precedented in code) — the Gloom locks/freezes its
-  own progression instead of advancing it, leaving the afflicted "stuck" partway. The
+- **Calcifying** (NEW name, but already precedented in code) — works like a "stoneplate
+  virus": stone-like plating/growths spread across parts of the body and then **stop
+  spreading**, leaving permanent hardened patches without ever finishing. Critically, this is
+  **not** immobility or unresponsiveness — the afflicted remains fully mobile, alert, and
+  able to fight/communicate normally; only specific patches of the body are affected. The
   existing **Threshling → Threshbound** pet line (`data/pets.py`) — *"Caught at the threshold
   between existence and full Gloom consumption... locked in between states"* — is this Type,
-  already in the roster, just not named until now.
+  already in the roster, just not named until now (re-read as "partial calcification that
+  stalled," not "frozen solid").
 - (Likely more Types exist unnamed in the current codebase — e.g., Gauntling→Waneling reads
   like a "Fading" Type, Rimecrawl→Frostbile reads like a "Frostbound" Type. Not authored here;
   flagged for whoever picks up Gloom framework work next.)
@@ -891,10 +895,18 @@ Zone key: TBD (e.g. `ashenVerge`). Tone: quiet, smoky, cold, *managed* — not h
 
 ### Still TBD
 
-- Evolution levels for Cinderkit→Ashveil and Smolderoot→Pyrethorn
-- `ember_charm` exact effect/value
-- Exact zone key naming (`ashenVerge` vs alternative) and how The First Ring is
-  structured in the locations dropdown (own entry vs sub-area of The Ash Circle)
+- ~~Evolution levels for Cinderkit→Ashveil and Smolderoot→Pyrethorn~~ — RESOLVED
+  (groundwork pass): Cinderkit→Ashveil at 16 (matches other Common→Uncommon lines),
+  Smolderoot→Pyrethorn at 30 (matches Uncommon→Rare lines).
+- ~~`ember_charm` exact effect/value~~ — RESOLVED (groundwork pass): consumable,
+  restores 15 player energy (`restore_energy` effect, same family as Sun-Kissed
+  Berries/Trail Morsels). Matches the "small warmth charm" flavor without adding a
+  new mechanical hook.
+- ~~Exact zone key naming and First Ring structure~~ — RESOLVED (groundwork pass):
+  zone key is `ashenVerge`. The First Ring was folded into The Ash Circle's
+  encounter table as rare/very-rare sightings (Pyrethorn day, Cindermaw/Pyrehart
+  night) rather than its own dropdown entry — revisit if it needs a distinct
+  location later (e.g. for the lore choice events).
 
 ---
 
@@ -950,9 +962,10 @@ the Gloom Sickness section for why.)
 State/Type/Mark framework:**
 
 - **Corvin, the Root-Eaten Scribe** (long ago, pre-Guild) — found the wound first. His
-  exposure predates Withering — instead his Gloom Type is **Calcifying**, which locked his
-  State at "Touched" and froze him mid-transformation, "Petrified" — a living record of the
-  "before."
+  exposure predates Withering — instead his Gloom Type is **Calcifying**, which spread
+  stone-like patches across parts of his body and then stalled at "Touched," decades ago.
+  Fully mobile and lucid — "Petrified" describes the patches, not the person — a living
+  record of the "before."
 - **Anora** (decades ago, Guild scout) — Type: **Withering**, State: **Hollowing**. The
   process ran its full course, unobstructed. She *is* the wound now, fused into the root
   wall — the current active threat/quest climax.
@@ -1135,7 +1148,7 @@ as "added" yet. Everything else reuses existing species with a Gloom Mark applie
 | Tier | Pet (Mark) |
 |---|---|
 | Common | Mossling (Withering Mark, Touched) |
-| Uncommon | Serpentine (Withering Mark, Hollowing), Glamorose (Withering Mark, Touched) |
+| Uncommon | Serpentine (Withering Mark, Hollowing), Glamorose (Withering Mark, Touched), Veinglow (unmarked, adapted) |
 | Rare | Stillroot (Calcifying Mark, Touched) |
 | Lore zone (The Deep Vein) only | Hollowthorn (very rare sighting) |
 
@@ -1144,6 +1157,80 @@ ones show **Withering progressing toward Hollowing**, a special rare shows the *
 (Calcifying)** existing alongside it, and the lore zone teases the framework's extreme
 endpoint via Hollowthorn.
 
+### Items (The Weeping Root)
+
+| Item ID | Name | Type | Source | Notes |
+|---|---|---|---|---|
+| `weeping_sap` | Weeping Sap | Crafting material | Withering-Marked pet drops, Loot Bonus events | Bruised-purple, faintly warm, doesn't behave like sap should. Future crafting use — keep flexible (parallel to `ash_ember`). |
+| `stoneplate_shard` | Stoneplate Shard | Crafting material | Stillroot drop, Loot Bonus events | A piece of calcified bark/stone. Cool, smooth, doesn't regrow. |
+| `veinglow_essence` | Veinglow Essence | Quest/research item | Rare Veinglow drop | Tastes neutral against the tongue — somehow, against everything else down here. Elowen would want this (side-story seed for the Gloom Sickness research thread). Not a cure; a clue. |
+
+### Explore Events — The Weeping Root
+
+Zone key: TBD (e.g. `weepingRoot`). Tone: dark, oppressive, dripping, sickly-sweet — the
+inverse of the Thicket's "managed" Ashen Verge quiet. Bioluminescent bruised-purple glow is
+the only light source.
+
+**Flavor**
+```
+- Bruised-purple veins pulse along the cavern walls, slow and steady, like a heartbeat
+  that isn't yours.
+
+- The air is thick and sweet, almost cloying — like fruit left far too long in the
+  sun.
+
+- Your footsteps echo down here, but a half-second late, like something nearby is
+  copying them.
+
+- Drops of sap fall from somewhere above, hissing faintly where they land.
+```
+
+**Pet Sighting**
+```
+- A Mossling shuffles past — its moss has gone duller, ashier, with faint purple
+  veining just beneath the surface.
+
+- Something with too many root-like limbs unravels and reforms in the dark, just out
+  of clear sight, before you can get a good look.
+
+- A faint purple glow brightens nearby, then slowly dims again as whatever it belongs
+  to settles back into stillness.
+```
+
+**Hazard**
+```
+- You step into a shallow pool of sap before you notice it. It's warmer than it
+  should be, and it takes a moment to wash off.
+  outcome: { hp: -6 }
+
+- One of the root-veins pulses harder than the others, and for a moment the whole
+  cavern seems to shudder. Loose stone rattles down from somewhere above.
+  outcome: { energy: -1 }
+```
+
+**Loot Bonus**
+```
+- Something glints faintly beneath a film of dried sap.
+  outcome: { item: weeping_sap or stoneplate_shard, qty: 1 }
+```
+
+**Choice Events**
+```
+1. A faint purple glow brightens as you pass, then dims again — slower than the others
+   you've seen. This one didn't flee.
+   - "Approach slowly": it's a Veinglow, unbothered by the sap around it. Doesn't seem
+     sick at all. (lore_fragment, seeds Elowen's research thread / veinglow_essence
+     chance)
+   - "Leave it be": nothing
+
+2. The path splits — one way deeper into the main cavern, the other toward a narrow
+   vein where the purple glow is brightest, almost too bright to look at directly.
+   Something large moves at the very edge of it, then is gone.
+   - "Follow the brightest vein": glimpse toward The Deep Vein — ties to Hollowthorn
+     (Verdanthorn's Reflection), not a full encounter yet. (lore_fragment, unsettling)
+   - "Stay on the main path": nothing
+```
+
 ### A note on terminology ("pets")
 
 Open idea, not acted on yet: is there an in-world term the people of Aethelgard use instead
@@ -1151,10 +1238,9 @@ of "pets" (companions, partners, etc.)? Flagged here so it isn't lost — for no
 stays the working term throughout this doc and in code.
 
 Still TBD: exact dropdown structure/zone keys, encounter tables for the other 4 locations
-(if any need their own beyond the main zone), explore events, items, full dialogue trees,
-Anora's purify/defeat mechanics and dialogue branches (including whether her
-"vine-manifestations" boss mechanic uses Withering/Hollowing-Marked creatures as the fight's
-building blocks).
+(if any need their own beyond the main zone), full dialogue trees, Anora's purify/defeat
+mechanics and dialogue branches (including whether her "vine-manifestations" boss mechanic
+uses Withering/Hollowing-Marked creatures as the fight's building blocks).
 
 ---
 
@@ -1202,8 +1288,55 @@ building blocks).
   X" currently falls back to "They have nothing to say to you right now." Intentionally left
   unwired until quest/side-story flags exist to give these NPCs something conditional to say.
 
+**The Ashen Verge — groundwork + NPC pass done:**
+- New pets added to `data/pets.py`: Cinderkit→Ashveil, Tindertail (standalone),
+  Smolderoot→Pyrethorn, Cindermaw (Ancient standalone), Pyrehart (Ancient standalone).
+- New items added to `data/items.py`: `ash_ember` (crafting material), `ember_charm`
+  (consumable, restores 15 energy).
+- New `ashenVerge` remnant added to `data/remnants.py` — side branch off Whisperwood
+  Grove (connection added both ways, cost 10), with 3 locations: Kaelen's Shack,
+  Bram & Pip's Caravan, The Ash Circle (`explore_zone: "ashenVerge"`).
+- `ENCOUNTER_TABLES["ashenVerge"]` added (day/night, First Ring sightings folded in).
+- NPCs added (using the `dialogue: {default: [...]}` inline pattern, same as Vexia/
+  Linden/Bea — random-line flavor, no flag/quest branching yet, consistent with how
+  those Whisperwood NPCs currently work):
+  - **Kaelen** (Kaelen's Shack) — pet "Soot" (Cinderkit). Dialogue covers the lore
+    spine (first ring, "fire was the only thing the roots couldn't pretend to be"),
+    a hint at The First Ring's buried occupants, and the Serpentine-culling bounty
+    flavor line.
+  - **Bram & Pip** (Bram & Pip's Caravan) — shared pet Tindertail, nicknamed "Match"
+    by Bram and "Wisp" by Pip (unresolved, per design — both nicknames present via
+    each NPC's own `pet` entry). Pip's lines hint at "the line is moving" without
+    confirming it.
+- `on_enter` entries added for all 3 locations (first-visit ambient text, same
+  `condition: first_visit` / `flag` / `once` pattern as other zones).
+- `EXPLORE_EVENTS["ashenVerge"]` added — 12 events (4 flavor, 2 pet sighting,
+  2 hazard, 2 loot bonus, 2 choice) covering the doc's flavor/hazard/loot/choice
+  beats, including the "recently relit fire-ring" and "First Ring burial" choice
+  events. `ZONE_LOOT_TABLES["ashenVerge"]` added (`ash_ember`, `ember_charm`,
+  `trail_morsels`).
+- `QUESTS["ashenVerge"]["kaelens_bounty"]` added — repeatable bounty, "Defeat 3
+  Serpentine", rewards 80 coins + 1 Ember Charm. Written in the fully-structured
+  objective format (`type`/`target`/`required_count`) so `check_quest_progress`
+  can track it, unlike `forest_cleanup`'s plain-string objectives.
+- **Dialogue-tree wiring fixed**: `RemnantView` now checks `data/dialogues.py`
+  first — if an NPC has a `dialogue_tree` there, `_make_talk_callback` routes
+  through a new `create_talk_callback`/`_get_dialogue_node` pair (mirroring
+  `TownView`'s, added to `RemnantView` in `cogs/views/towns.py`), so
+  `grant_quest`/`complete_quest` actions and flag/quest-conditional lines work.
+  NPCs without a `dialogue_tree` (Bram, Pip) keep using the simple inline
+  `dialogue: {default: [...]}` lookup. Added `kaelen` to `DIALOGUES`: grants
+  `kaelens_bounty` on first talk, shows the "bounty active" line while it's
+  active, and a rotating thank-you once `quest_kaelens_bounty_completed` is set.
+  Kaelen's old inline `dialogue` dict was removed (now redundant).
+- **Still pending** (separate pass, lower priority): the "the choosing" side story
+  (Tindertail picks who to follow during a hazard), the slow reveal of "the line is
+  moving" at higher rank, and re-grant flow for repeatable bounties in general —
+  `add_quest` is `ON CONFLICT DO NOTHING`, so once `kaelens_bounty` is completed it
+  can't currently be picked up again (same pre-existing limitation as
+  `forest_cleanup`; not specific to this remnant).
+
 **Remaining, separate design passes (not started, not blocking the above):**
-- The Ashen Verge (free remnant) — rough sketch only, see "Remnants — Rough Sketches" above.
 - The Weeping Root (quest-gated remnant) — rough sketch only, includes Gloom Sickness tie-in.
 - Gloom Sickness — State/Type/Mark framework (see section above) — marked NOT FINAL,
   Town 2 era; needs its own design pass before any code (status/mark application, gloom_tick

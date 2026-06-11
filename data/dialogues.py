@@ -188,4 +188,40 @@ DIALOGUES = {
             ]},
         ]
     },
+
+    # -------------------------------------------------------------------------
+    # KAELEN — Hearth-Steward of The Ashen Verge. Soot-stained, terse, dutiful.
+    # Tends a containment ring of fire he doesn't fully understand the
+    # purpose of, out of inherited obligation. Hands out a repeatable
+    # Serpentine-culling bounty to keep the boundary clear.
+    # -------------------------------------------------------------------------
+    "kaelen": {
+        "name": "Kaelen", "role": "Hearth-Steward",
+        "dialogue_tree": [
+
+            # --- Bounty completed ---
+            {"required_flag": "quest_kaelens_bounty_completed",
+             "text": [
+                 "Fewer vines on the line today. I noticed. Thank you for that.",
+                 "The ash has been quiet since you cleared those Serpentine out. It won't last — it never does — but thank you.",
+                 "Soot's been less jumpy lately. He notices when the line's been cleared, same as I do.",
+             ]},
+
+            # --- Bounty active ---
+            {"required_quest_status": {"quest_id": "kaelens_bounty", "status": "active"},
+             "text": "Serpentine's been working its way toward the line again. Vines don't respect boundaries — never have. Clear a few out, would you? Keeps the ash where it belongs."},
+
+            # --- Initial grant ---
+            {"action": "grant_quest", "quest_id": "kaelens_bounty",
+             "text": "My grandmother's grandmother lit the first ring. Said fire was the only thing the roots couldn't pretend to be. We've kept it lit ever since — but the vines keep testing the line. If you're heading into the Verge, clear a few Serpentine out for me. Keeps the ash where it belongs."},
+
+            # --- Default ---
+            {"default": [
+                "Out past the deeper ash — the old folk called it the First Ring — something's buried. Two somethings, actually. I don't go that far in. Don't need to.",
+                "The circle needs to stay clean. I don't fully understand why it works. Just that it does.",
+                "Soot was just a kit when I found him, near frozen at the edge of the ring. Same as the wild ones out there, more or less. He just happens to be mine.",
+                "Don't get many visitors out here. Most people see the ash and turn back before they even reach the shack.",
+            ]},
+        ]
+    },
 }
