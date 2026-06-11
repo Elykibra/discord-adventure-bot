@@ -921,7 +921,7 @@ PET_DATABASE = {
     # -------------------------------------------------------------------------
 
     "Stillroot": {
-        "species": "Stillroot", "pet_type": ["Rock", "Grass"], "rarity": "Common", "classification_tier": "Ordinary",
+        "species": "Stillroot", "pet_type": ["Rock", "Grass"], "rarity": "Common", "classification_tier": "Apex",  # bumped from Ordinary so its unique Stonecrust passive isn't overridden by the shared pool — fits its Gloom-marked, Rare-sighting status at the Weeping Root
         "personality": "Steadfast",
         "is_gloom_touched": True,
         "gloom": {"state": "Touched", "type": "Calcifying", "mark": "patches of genuine stone-like growth across the body, stalled in place"},
