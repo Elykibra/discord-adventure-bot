@@ -1021,6 +1021,8 @@ REMNANTS = {
                             "species": "Glamorose",
                             "nickname": None,  # TBD — Pass B
                             "nickname_visible_flag": None,
+                            "is_gloom_touched": True,
+                            "gloom": {"state": "Touched", "type": "Withering", "mark": "one wilted, discolored petal, faintly leaking bruised-purple bioluminescence"},
                             "lore": (
                                 "Identical to a normal Glamorose at a glance — soft, "
                                 "floating, delicate petals — except for one petal "
@@ -1079,6 +1081,8 @@ REMNANTS = {
                             "species": "Stillroot",
                             "nickname": None,  # TBD — Pass B
                             "nickname_visible_flag": None,
+                            "is_gloom_touched": True,
+                            "gloom": {"state": "Touched", "type": "Calcifying", "mark": "calcified patches matching the journals around it, stalled decades ago"},
                             "lore": (
                                 "Found among Corvin's petrified journals — a small "
                                 "root-and-moss creature with the same calcified "
