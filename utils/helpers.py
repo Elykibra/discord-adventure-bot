@@ -148,7 +148,7 @@ def _pet_tuple_to_dict(pet_data: tuple) -> Dict[str, Any]:
     if isinstance(pet_data, dict): return pet_data
 
     # This is the corrected list of keys in the exact order of your new database table
-    keys = ['pet_id', 'player_id', 'name', 'species', 'description', 'rarity', 'pet_type', 'level', 'xp', 'current_hp', 'max_hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed', 'base_hp', 'base_attack', 'base_defense', 'base_special_attack', 'base_special_defense', 'base_speed', 'hunger', 'skills', 'is_in_party', 'passive_ability']
+    keys = ['pet_id', 'player_id', 'name', 'species', 'description', 'classification_tier', 'pet_type', 'level', 'xp', 'current_hp', 'max_hp', 'attack', 'defense', 'special_attack', 'special_defense', 'speed', 'base_hp', 'base_attack', 'base_defense', 'base_special_attack', 'base_special_defense', 'base_speed', 'hunger', 'skills', 'is_in_party', 'passive_ability']
 
     # Ensure the data from the database has the same number of items as our keys
     if len(keys) != len(pet_data):

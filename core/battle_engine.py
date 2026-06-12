@@ -9,7 +9,7 @@ from data.notifications import NOTIFICATIONS
 from data.pets import PET_DATABASE, get_pet_data
 from data.items import ITEMS
 from data.skills import PET_SKILLS
-from utils.constants import XP_REWARD_BY_RARITY
+from utils.constants import XP_REWARD_BY_TIER
 from utils.helpers import get_notification, get_type_multiplier
 from core.effect_system import (
     PASSIVE_HANDLERS_ON_HIT,
@@ -765,7 +765,7 @@ class BattleState:
                 name=self.wild_pet['species'],  # Defaults to its species name
                 species=self.wild_pet['species'],
                 description=get_pet_data(self.wild_pet['species']).get('description', ''),
-                rarity=self.wild_pet['rarity'],
+                classification_tier=self.wild_pet['classification_tier'],
                 pet_type=self.wild_pet['pet_type'],
                 skills=self.wild_pet['skills'],
                 # We use the pet's current HP from the battle
@@ -808,7 +808,10 @@ class BattleState:
             "is_gloom_touched": self.wild_pet.get('is_gloom_touched', False)
         }
 
-        RARITY_MODIFIERS = {"Common": 1.1, "Uncommon": 1.0, "Rare": 0.9, "Legendary": 0.7, "Starter": 1.0}
+        TIER_CAPTURE_MODIFIERS = {
+            "Ordinary": 1.1, "Prime": 1.0, "Apex": 0.9, "Elder": 0.75,
+            "Ancient": 0.6, "Primordial": 0.45, "Eternal": 0.3,
+        }
         PERSONALITY_MODIFIERS = {"Aggressive": 0.9, "Defensive": 0.95, "Tactical": 0.95, "Timid": 1.1}
         STATUS_MODIFIERS = {"sleep": 2.0, "paralyze": 1.5, "frozen": 2.0, "confused": 1.2}
 
@@ -833,7 +836,7 @@ class BattleState:
         current_hp = self.wild_pet.get('current_hp', 1)
         hp_factor = ((3 * max_hp) - (2 * current_hp)) / (3 * max_hp) if max_hp > 0 else 0
 
-        rarity_mult = RARITY_MODIFIERS.get(self.wild_pet.get('rarity'), 1.0)
+        tier_mult = TIER_CAPTURE_MODIFIERS.get(self.wild_pet.get('classification_tier'), 1.0)
         pers_mult = PERSONALITY_MODIFIERS.get(self.wild_pet.get('personality'), 1.0)
 
         status_mult = 1.0
@@ -862,7 +865,7 @@ class BattleState:
             orb_mult += (scaling_value * bonus_info['bonus_per_unit'])
 
         # Clamp final rate between 1 and 100
-        final_rate = max(1, min(100, int((hp_factor * base_rate) * rarity_mult * pers_mult * status_mult * orb_mult)))
+        final_rate = max(1, min(100, int((hp_factor * base_rate) * tier_mult * pers_mult * status_mult * orb_mult)))
 
         if context["is_gloom_touched"]:
             lore_text = "The Gloom's grip is weakening! The creature's spirit is fighting back."
@@ -935,7 +938,7 @@ class BattleState:
     async def _grant_rewards_for_faint(self, fainted_pet: dict):
         """Grants XP to the player's pet and handles mid-battle level up."""
         # --- ALL XP LOGIC IS NOW HERE ---
-        base_xp = XP_REWARD_BY_RARITY.get(fainted_pet['rarity'], 20)
+        base_xp = XP_REWARD_BY_TIER.get(fainted_pet['classification_tier'], 20)
         hunger_percentage = (self.player_pet.get('hunger', 0) / 100)
         is_satiated = hunger_percentage >= 0.9
 

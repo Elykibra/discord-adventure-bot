@@ -231,7 +231,7 @@ class Database(commands.Cog):
         return [row['recipe_id'] for row in records]
 
     # --- Pet Management ---
-    async def add_pet(self, owner_id: int, name: str, species: str, description: str, rarity: str, pet_type: any,
+    async def add_pet(self, owner_id: int, name: str, species: str, description: str, classification_tier: str, pet_type: any,
                       skills: list, current_hp: int, max_hp: int, attack: int, defense: int, special_attack: int,
                       special_defense: int, speed: int, base_hp: int, base_attack: int, base_defense: int,
                       base_special_attack: int, base_special_defense: int, base_speed: int,
@@ -246,14 +246,14 @@ class Database(commands.Cog):
 
         skills_json = json.dumps(skills if skills else [])
         pet_type_to_save = json.dumps(pet_type) if isinstance(pet_type, list) else pet_type
-        query = '''INSERT INTO pets (player_id, name, species, description, rarity, pet_type, skills,
+        query = '''INSERT INTO pets (player_id, name, species, description, classification_tier, pet_type, skills,
                                      current_hp, max_hp, attack, defense, special_attack, special_defense, speed,
                                      base_hp, base_attack, base_defense, base_special_attack, base_special_defense,
                                      base_speed, passive_ability)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
                    RETURNING pet_id'''
         return await self.pool.fetchval(
-            query, owner_id, name, species, description, rarity, pet_type_to_save, skills_json,
+            query, owner_id, name, species, description, classification_tier, pet_type_to_save, skills_json,
             current_hp, max_hp, attack, defense, special_attack, special_defense, speed,
             base_hp, base_attack, base_defense, base_special_attack, base_special_defense,
             base_speed, passive_to_save

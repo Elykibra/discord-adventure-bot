@@ -207,7 +207,7 @@ class SqlRepository:
     async def add_pet(self, player_id: int, species: str):
         import random, math
         pet_data = PET_DATABASE.get(species, {})
-        rarity = pet_data.get("rarity", "Common")
+        classification_tier = pet_data.get("classification_tier", "Ordinary")
         pet_type = pet_data.get("pet_type", "Normal")
         if isinstance(pet_type, list):
             pet_type = "/".join(pet_type)
@@ -241,14 +241,14 @@ class SqlRepository:
         async with self.pool.acquire() as con:
             await con.execute(
                 """INSERT INTO pets
-                   (player_id, name, species, rarity, pet_type,
+                   (player_id, name, species, classification_tier, pet_type,
                     current_hp, max_hp, attack, defense,
                     special_attack, special_defense, speed,
                     base_hp, base_attack, base_defense,
                     base_special_attack, base_special_defense, base_speed,
                     skills, passive_ability)
                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)""",
-                player_id, species, species, rarity, pet_type,
+                player_id, species, species, classification_tier, pet_type,
                 hp, hp, attack, defense,
                 sp_atk, sp_def, speed,
                 hp, attack, defense,

@@ -59,13 +59,14 @@ CATEGORY_EMOJIS = {
     "Status": "🔄",
 }
 
-RARITY_EMOJIS = {
-    "Starter": "⭐",
-    "Common": "⚪",
-    "Uncommon": "🟢",
-    "Rare": "🔵",
-    "Epic": "🟣",
-    "Legendary": "🟡",
+CLASSIFICATION_TIER_EMOJIS = {
+    "Ordinary": "⚪",
+    "Prime": "🟢",
+    "Apex": "🔵",
+    "Elder": "🟣",
+    "Ancient": "🟠",
+    "Primordial": "🔴",
+    "Eternal": "🟡",
 }
 
 # ---------------------------------------------------------------------------
@@ -174,8 +175,8 @@ def _pet_embed(species: str) -> discord.Embed:
         type_str = f"{TYPE_EMOJIS.get(pet_type, '')} {pet_type}"
 
     color = TYPE_COLORS.get(primary_type, 0x7289DA)
-    rarity = data.get("rarity", "Common")
-    rarity_emoji = RARITY_EMOJIS.get(rarity, "⚪")
+    classification_tier = data.get("classification_tier", "Ordinary")
+    tier_emoji = CLASSIFICATION_TIER_EMOJIS.get(classification_tier, "⚪")
 
     embed = discord.Embed(
         title=f"🐾 {species}",
@@ -184,7 +185,7 @@ def _pet_embed(species: str) -> discord.Embed:
     )
 
     embed.add_field(name="Type", value=type_str, inline=True)
-    embed.add_field(name="Rarity", value=f"{rarity_emoji} {rarity}", inline=True)
+    embed.add_field(name="Classification", value=f"{tier_emoji} {classification_tier}", inline=True)
 
     personality = data.get("personality")
     if personality:
