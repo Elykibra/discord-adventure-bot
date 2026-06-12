@@ -255,13 +255,8 @@ class Adventure(commands.Cog):
                 # Pet generation logic (stats, passive, skills)
                 # Ordinary/Prime tier species draw from the shared type-based
                 # passive pool; Apex and above keep their unique passive.
-                # Falls back to the legacy rarity check for species not yet
-                # migrated to classification_tier.
-                classification_tier = wild_pet_base.get('classification_tier')
-                if classification_tier is not None:
-                    use_shared_passive = classification_tier in ("Ordinary", "Prime")
-                else:
-                    use_shared_passive = wild_pet_base['rarity'] in ["Common", "Uncommon"]
+                classification_tier = wild_pet_base['classification_tier']
+                use_shared_passive = classification_tier in ("Ordinary", "Prime")
 
                 assigned_passive = None
                 if use_shared_passive:
@@ -286,7 +281,7 @@ class Adventure(commands.Cog):
                             all_learnable_skills.append(random.choice(skills['choice']))
                 active_skills = all_learnable_skills[-4:] if all_learnable_skills else ["pound"]
                 wild_pet_instance = {
-                    "species": wild_pet_base['species'], "rarity": wild_pet_base['rarity'],
+                    "species": wild_pet_base['species'], "classification_tier": wild_pet_base['classification_tier'],
                     "pet_type": wild_pet_base['pet_type'], "level": level,
                     "personality": wild_pet_base.get('personality', 'Aggressive'),
                     "current_hp": calculated_stats['hp'], "max_hp": calculated_stats['hp'],

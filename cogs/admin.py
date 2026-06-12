@@ -133,7 +133,7 @@ class Admin(commands.Cog):
                             base_stats}
 
         wild_pet = {
-            "species": pet_base_data['species'], "rarity": pet_base_data['rarity'],
+            "species": pet_base_data['species'], "classification_tier": pet_base_data['classification_tier'],
             "pet_type": pet_base_data['pet_type'],
             "level": level, "current_hp": calculated_stats['hp'], "max_hp": calculated_stats['hp'],
             "attack": calculated_stats['attack'], "defense": calculated_stats['defense'],

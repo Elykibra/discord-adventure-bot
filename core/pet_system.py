@@ -22,7 +22,7 @@ class Pet:
         self.owner_id = pet_data.get('player_id') or pet_data.get('owner_id')  # schema renamed owner_id → player_id
         self.name = pet_data.get('name', 'Unnamed')
         self.species = pet_data.get('species')
-        self.rarity = pet_data.get('rarity')
+        self.classification_tier = pet_data.get('classification_tier')
         self.pet_type = pet_data.get('pet_type')
         self.personality = pet_data.get('personality', 'Unknown')
 

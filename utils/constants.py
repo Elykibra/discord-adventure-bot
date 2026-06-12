@@ -88,19 +88,16 @@ PET_DESCRIPTIONS = {
     "Corroder": "A foul creature born from the tainted sludge of the Rotting Pits, its rocky hide drips with a weak poison.",
 }
 
-# Define pet evolutions (to be used later)
-PET_EVOLUTIONS = {
-    "Mossling": {
-        "level": 20,
-        "species": "Verdant Golem"
-    }
-}
-
-XP_REWARD_BY_RARITY = {
-    "Common": 20,
-    "Uncommon": 30,
-    "Rare": 45,
-    "Legendary": 100,
+# XP granted to the player's pet for defeating a wild pet, keyed by the
+# defeated pet's classification_tier (see data/classifications.py).
+XP_REWARD_BY_TIER = {
+    "Ordinary": 20,
+    "Prime": 30,
+    "Apex": 45,
+    "Elder": 70,
+    "Ancient": 100,
+    "Primordial": 150,
+    "Eternal": 200,
 }
 
 ## --- REFACTORING CHANGES ---

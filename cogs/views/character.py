@@ -371,10 +371,11 @@ class PetView(discord.ui.View):
         db_cog = self.bot.get_cog('Database')
         player_data = await db_cog.get_player(self.user_id)
 
-        rarity_colors = {"Starter": discord.Color.light_grey(), "Common": discord.Color.dark_grey(),
-                         "Uncommon": discord.Color.green(), "Rare": discord.Color.blue(),
-                         "Legendary": discord.Color.gold()}
-        color = rarity_colors.get(pet.rarity, discord.Color.light_grey())
+        tier_colors = {"Ordinary": discord.Color.dark_grey(), "Prime": discord.Color.green(),
+                       "Apex": discord.Color.blue(), "Elder": discord.Color.purple(),
+                       "Ancient": discord.Color.orange(), "Primordial": discord.Color.dark_red(),
+                       "Eternal": discord.Color.gold()}
+        color = tier_colors.get(pet.classification_tier, discord.Color.light_grey())
 
         is_main_pet = player_data.get('main_pet_id') == pet.pet_id
         indicator = "👑 " if is_main_pet else ""
@@ -402,7 +403,7 @@ class PetView(discord.ui.View):
         # --- Pet Details (Left Column) ---
         pet_type_str = " / ".join(pet.pet_type) if isinstance(pet.pet_type, list) else pet.pet_type
         details_text = (
-            f"**Rarity:** {pet.rarity}\n"
+            f"**Classification:** {pet.classification_tier}\n"
             f"**Type:** {pet_type_str}\n"
             f"**Personality:** {pet.personality}\n"
             f"**Talent:** {pet.passive_ability or 'None'}\n"

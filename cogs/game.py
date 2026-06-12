@@ -9,12 +9,12 @@ import random
 import traceback
 
 from utils.constants import PET_DESCRIPTIONS
-from data.pets import PET_DATABASE
+from data.pets import PET_DATABASE, STARTER_SPECIES
 from utils.helpers import get_pet_image_url, get_status_bar
 from data.abilities import STARTER_TALENTS
 
 # Only starter pets shown during /start
-STARTER_PETS_LIST = [pet for pet in PET_DATABASE.values() if pet.get('rarity') == 'Starter']
+STARTER_PETS_LIST = [PET_DATABASE[species] for species in STARTER_SPECIES]
 
 
 class StartModal(discord.ui.Modal, title="Guild Registration"):
@@ -211,7 +211,7 @@ class StarterPetView(discord.ui.View):
                 name=self.selected_pet_data["species"],
                 species=self.selected_pet_data["species"],
                 description=PET_DESCRIPTIONS.get(self.selected_pet_data["species"], ""),
-                rarity=self.selected_pet_data["rarity"],
+                classification_tier=self.selected_pet_data["classification_tier"],
                 pet_type=self.selected_pet_data["pet_type"],
                 skills=starting_skills,
                 current_hp=base_stats["hp"],          max_hp=base_stats["hp"],
