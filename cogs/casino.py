@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from .views.dungeon import DungeonRunView, ENTRY_FEE as DUNGEON_ENTRY_FEE
 from .views.blackjack import BlackjackBetView, blackjack_bet_embed
 from .views.poker import StakeSelectView
+from .views.baccarat import create_table as create_baccarat_table
 from data.weapons import WEAPON_CATALOG, STARTER_WEAPON, format_damage_range, trait_display, tier_display
 from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_level, format_effect
 
@@ -44,6 +45,8 @@ class CasinoSelect(discord.ui.Select):
                                   description="Play a hand against the dealer"),
             discord.SelectOption(label="Poker", value="poker", emoji="♠️",
                                   description="Open a Texas Hold'em table"),
+            discord.SelectOption(label="Baccarat", value="baccarat", emoji="🎴",
+                                  description="Bet Player, Banker, or Tie — solo or with others"),
         ]
         super().__init__(placeholder="What would you like to do?", options=options)
 
@@ -54,6 +57,10 @@ class CasinoSelect(discord.ui.Select):
             view = StakeSelectView()
             embed = casino_embed("🃏 Poker", "Pick a stake to open a new table, or set your own.")
             await interaction.response.edit_message(embed=embed, view=view)
+            return
+
+        if self.values[0] == "baccarat":
+            await create_baccarat_table(interaction)
             return
 
         if self.values[0] == "armory":

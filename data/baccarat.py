@@ -90,3 +90,15 @@ def play_round(deck: list) -> dict:
         "natural": natural,
         "outcome": outcome,
     }
+
+
+def resolve_bet_amount(side: str, amount: int, outcome: str) -> int:
+    """How much to credit back for a bet, given the round's outcome —
+    0 means a clean loss. Player/Banker bets push (stake returned, no
+    win or loss) on a Tie outcome, standard baccarat convention; a Tie
+    bet only wins if the outcome is actually a tie."""
+    if side == outcome:
+        return amount + int(amount * PAYOUTS[side])
+    if outcome == "tie" and side in ("player", "banker"):
+        return amount
+    return 0
