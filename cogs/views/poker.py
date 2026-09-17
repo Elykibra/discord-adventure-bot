@@ -1,10 +1,10 @@
 # cogs/views/poker.py
 #
-# Texas Hold'em — Phase 2: table creation and the lobby (stake selection,
-# Join/Leave, host Start). Dealing, betting rounds, and showdown land in
-# later phases on top of this. Buy-ins/cash-outs are the only points that
-# touch the database — same "DB only at checkpoints" approach as the
-# dungeon and blackjack.
+# Texas Hold'em — Phase 2 (table creation/lobby) + Phase 3 (dealing hole
+# cards, posting blinds, the private "View My Hand" reveal). Betting rounds
+# and showdown land in later phases on top of this. Buy-ins/cash-outs are
+# the only points that touch the database — same "DB only at checkpoints"
+# approach as the dungeon and blackjack; nothing mid-hand writes to it.
 #
 # Every button here guards against double-click races the same way the
 # dungeon and blackjack views do: a `busy` flag checked in interaction_check,
@@ -15,7 +15,7 @@
 
 import discord
 
-from data.poker import STAKE_TIERS
+from data.poker import STAKE_TIERS, new_shuffled_deck, format_cards
 
 MIN_PLAYERS_TO_START = 2
 MAX_PLAYERS = 6
@@ -28,6 +28,7 @@ class PokerPlayer:
         self.user_id = user_id
         self.name = name
         self.stack = stack
+        self.hole: list = []
 
 
 class PokerTableView(discord.ui.View):
@@ -38,8 +39,17 @@ class PokerTableView(discord.ui.View):
         self.stake = stake
         self.players: list[PokerPlayer] = [PokerPlayer(host.id, host.display_name, stake["buy_in"])]
         self.started = False
+        self.closed = False
         self.message: discord.Message | None = None
         self.busy = False
+
+        # Set once dealing happens (Phase 3) — see deal_hand().
+        self.deck: list = []
+        self.pot = 0
+        self.dealer_idx = 0
+        self.sb_idx = 0
+        self.bb_idx = 0
+
         self.rebuild_items()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -52,35 +62,98 @@ class PokerTableView(discord.ui.View):
     def find_player(self, user_id: int) -> PokerPlayer | None:
         return next((p for p in self.players if p.user_id == user_id), None)
 
+    def deal_hand(self):
+        """Shuffles, deals 2 hole cards to everyone, and posts blinds.
+        Dealer button placement for this first hand is arbitrary (last
+        seated player) — rotating it hand-to-hand is a later phase."""
+        self.deck = new_shuffled_deck()
+        for p in self.players:
+            p.hole = [self.deck.pop(), self.deck.pop()]
+
+        n = len(self.players)
+        self.dealer_idx = n - 1
+        if n == 2:
+            # Heads-up plays by different rules: the dealer posts the small
+            # blind (and acts first preflop), the other player posts the big
+            # blind. The general n+1/n+2 formula below is for 3+ players.
+            self.sb_idx = self.dealer_idx
+            self.bb_idx = (self.dealer_idx + 1) % n
+        else:
+            self.sb_idx = (self.dealer_idx + 1) % n
+            self.bb_idx = (self.dealer_idx + 2) % n
+
+        sb_player = self.players[self.sb_idx]
+        bb_player = self.players[self.bb_idx]
+        sb_amount = min(self.stake["small_blind"], sb_player.stack)
+        bb_amount = min(self.stake["big_blind"], bb_player.stack)
+        sb_player.stack -= sb_amount
+        bb_player.stack -= bb_amount
+        self.pot = sb_amount + bb_amount
+
     def rebuild_items(self):
         self.busy = False
         self.clear_items()
-        if self.started:
+        if self.closed:
             return
-        self.add_item(JoinTableButton())
-        self.add_item(LeaveTableButton())
-        self.add_item(StartTableButton())
+        if not self.started:
+            self.add_item(JoinTableButton())
+            self.add_item(LeaveTableButton())
+            self.add_item(StartTableButton())
+            return
+        self.add_item(ViewHandButton())
 
     def build_embed(self) -> discord.Embed:
-        lines = []
-        for p in self.players:
-            tag = " 👑" if p.user_id == self.host_id else ""
-            lines.append(f"🪑 {p.name}{tag} — {p.stack:,} chips")
+        if self.closed:
+            embed = discord.Embed(
+                title=f"🃏 Poker Table — {self.stake['name']}",
+                description="*Host left — table closed, buy-ins refunded.*",
+                color=discord.Color.dark_grey(),
+            )
+            return embed
 
-        embed = discord.Embed(
-            title=f"🃏 Poker Table — {self.stake['name']}",
-            description=(
-                f"**Buy-in:** {self.stake['buy_in']:,} chips\n"
-                f"**Blinds:** {self.stake['small_blind']:,} / {self.stake['big_blind']:,}\n\n"
-                f"**Players ({len(self.players)}/{MAX_PLAYERS}):**\n" + "\n".join(lines)
-            ),
-            color=discord.Color.gold(),
-        )
         if not self.started:
+            lines = []
+            for p in self.players:
+                tag = " 👑" if p.user_id == self.host_id else ""
+                lines.append(f"🪑 {p.name}{tag} — {p.stack:,} chips")
+
+            embed = discord.Embed(
+                title=f"🃏 Poker Table — {self.stake['name']}",
+                description=(
+                    f"**Buy-in:** {self.stake['buy_in']:,} chips\n"
+                    f"**Blinds:** {self.stake['small_blind']:,} / {self.stake['big_blind']:,}\n\n"
+                    f"**Players ({len(self.players)}/{MAX_PLAYERS}):**\n" + "\n".join(lines)
+                ),
+                color=discord.Color.gold(),
+            )
             if len(self.players) >= MIN_PLAYERS_TO_START:
                 embed.set_footer(text="Waiting for the host to start...")
             else:
                 embed.set_footer(text=f"Need at least {MIN_PLAYERS_TO_START} players to start.")
+            return embed
+
+        lines = []
+        for i, p in enumerate(self.players):
+            tags = []
+            if i == self.dealer_idx:
+                tags.append("D")
+            if i == self.sb_idx:
+                tags.append("SB")
+            if i == self.bb_idx:
+                tags.append("BB")
+            tag_text = f" ({'/'.join(tags)})" if tags else ""
+            lines.append(f"🪑 {p.name}{tag_text} — {p.stack:,} chips")
+
+        embed = discord.Embed(
+            title=f"🃏 Poker Table — {self.stake['name']}",
+            description=(
+                f"**Pot:** {self.pot:,} chips\n\n"
+                f"**Players:**\n" + "\n".join(lines) + "\n\n"
+                "Cards have been dealt — check your hand privately below."
+            ),
+            color=discord.Color.dark_gold(),
+        )
+        embed.set_footer(text="🚧 Betting rounds are the next phase — nothing to act on yet.")
         return embed
 
 
@@ -129,14 +202,10 @@ class LeaveTableButton(discord.ui.Button):
             for p in view.players:
                 await view.db_cog.add_chips(p.user_id, p.stack)
             view.players.clear()
-            view.started = True  # reuse "started" to also mean "closed" — rebuild_items() clears all buttons either way
-            view.busy = False
-            for item in view.children:
-                item.disabled = True
-            embed = view.build_embed()
-            embed.description += "\n\n*Host left — table closed, buy-ins refunded.*"
+            view.closed = True
+            view.rebuild_items()
             view.stop()
-            return await interaction.response.edit_message(embed=embed, view=view)
+            return await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
         await view.db_cog.add_chips(interaction.user.id, player.stack)
         view.players.remove(player)
@@ -159,13 +228,25 @@ class StartTableButton(discord.ui.Button):
                 f"Need at least {MIN_PLAYERS_TO_START} players to start.", ephemeral=True
             )
 
-        # Dealing/betting rounds are the next phase — this confirms the lobby
-        # itself (stakes, join, leave, buy-ins) works end-to-end on its own
-        # before anything is built on top of it.
-        view.busy = False
+        view.started = True
+        view.deal_hand()
+        view.rebuild_items()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class ViewHandButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="View My Hand", style=discord.ButtonStyle.secondary, emoji="🂠")
+
+    async def callback(self, interaction: discord.Interaction):
+        view: PokerTableView = self.view
+        player = view.find_player(interaction.user.id)
+        view.busy = False  # purely informational — never reaches rebuild_items()
+        if not player:
+            return await interaction.response.send_message("You're not seated at this table.", ephemeral=True)
+
         await interaction.response.send_message(
-            "🚧 Dealing isn't wired up yet — that's the next phase. The lobby itself is fully working, though!",
-            ephemeral=True,
+            f"🂠 Your hand: **{format_cards(player.hole)}**", ephemeral=True
         )
 
 
