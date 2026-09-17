@@ -125,6 +125,22 @@ async def on_ready():
         except Exception as e:
             print(f"⚠️ Battle cleanup error: {e}")
 
+        # 4) Refund any poker tables left mid-session by a restart. Poker
+        # keeps its live state in memory only, same as Blackjack/Dungeon —
+        # this is just the stacks safety net (see migrations/018), not a
+        # recovery of the in-progress hand itself.
+        try:
+            orphaned_tables = await db_cog.get_all_poker_snapshots()
+            for snapshot in orphaned_tables:
+                for user_id_str, stack in snapshot["stacks"].items():
+                    if stack > 0:
+                        await db_cog.add_chips(int(user_id_str), stack)
+                await db_cog.clear_poker_snapshot(snapshot["table_key"])
+            if orphaned_tables:
+                print(f"🃏 Refunded {len(orphaned_tables)} orphaned poker table(s) after restart.")
+        except Exception as e:
+            print(f"⚠️ Poker snapshot recovery error: {e}")
+
 bot.run(config.DISCORD_TOKEN)
 
 
