@@ -174,7 +174,11 @@ class DungeonRunView(discord.ui.View):
     async def offer_levelup(self, interaction: discord.Interaction):
         self.pending_levelup = True
         self.levelup_choices = draw_skill_choices(self.skills, LEVELUP_CHOICES_OFFERED)
-        self.last_event += "\n\n**Level Up!** Choose an upgrade:"
+        choice_lines = "\n".join(
+            f"{SKILL_POOL[key]['emoji']} **{SKILL_POOL[key]['name']}** — {SKILL_POOL[key]['description']}"
+            for key in self.levelup_choices
+        )
+        self.last_event += f"\n\n**Level Up!** Choose an upgrade:\n{choice_lines}"
         self.rebuild_items()
         await self.push_update(interaction)
 
