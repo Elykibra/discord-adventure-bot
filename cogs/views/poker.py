@@ -710,7 +710,7 @@ class NextHandButton(discord.ui.Button):
 
 class ViewHandButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="View My Hand", style=discord.ButtonStyle.secondary, emoji="🂠")
+        super().__init__(label="View My Hand", style=discord.ButtonStyle.secondary, emoji="🎴")
 
     async def callback(self, interaction: discord.Interaction):
         view: PokerTableView = self.view
