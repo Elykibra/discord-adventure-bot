@@ -14,6 +14,7 @@
 # tied to a single owner.
 
 import asyncio
+import traceback
 
 import discord
 
@@ -84,6 +85,26 @@ class PokerTableView(discord.ui.View):
             return False
         self.busy = True
         return True
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item) -> None:
+        """If a button/modal callback throws after interaction_check has
+        already set busy=True, the default View.on_error just logs to
+        stderr and never responds — leaving the interaction to time out
+        AND leaving the whole table permanently stuck (busy never gets
+        released, since that only happens via rebuild_items()). Print the
+        real traceback (so it's actually visible in the bot's console)
+        and release the lock so at least the next click isn't dead too."""
+        print(f"[Poker] Error in {item.__class__.__name__} (user {interaction.user.id}, table {self.table_key}):")
+        traceback.print_exception(type(error), error, error.__traceback__)
+        self.busy = False
+        try:
+            message = "Something went wrong processing that — please try again."
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            pass
 
     def find_player(self, user_id: int) -> PokerPlayer | None:
         return next((p for p in self.players if p.user_id == user_id), None)
@@ -846,6 +867,22 @@ class RaiseModal(discord.ui.Modal, title="Raise"):
             await view.save_snapshot()
             await view.record_hand_stats()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        """Same reasoning as PokerTableView.on_error — a raise is the
+        highest-frequency action during real play, so it's worth the same
+        visibility/graceful-failure instead of a silent timeout."""
+        print(f"[Poker] Error in RaiseModal (user {interaction.user.id}, table {self.poker_view.table_key}):")
+        traceback.print_exception(type(error), error, error.__traceback__)
+        self.poker_view.busy = False
+        try:
+            message = "Something went wrong processing that raise — please try again."
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            pass
 
 
 class RaiseButton(discord.ui.Button):
