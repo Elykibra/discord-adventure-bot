@@ -190,13 +190,15 @@ class Database(commands.Cog):
     # players' chips at once for a long session, so this snapshot exists
     # purely so a bot restart never actually loses anyone's chips — see
     # migration 018 for the full rationale.
-    async def save_poker_snapshot(self, table_key: str, stacks: Dict[str, int]) -> None:
-        """Upserts the current stacks for a live poker table, keyed by its message id."""
+    async def save_poker_snapshot(self, table_key: str, channel_id: int, stacks: Dict[str, int]) -> None:
+        """Upserts the current stacks for a live poker table, keyed by its message id.
+        channel_id lets startup recovery find and close out the old message, not just
+        refund the chips — see migration 020."""
         await self.pool.execute(
-            '''INSERT INTO poker_session_snapshots (table_key, stacks, updated_at)
-               VALUES ($1, $2, NOW())
-               ON CONFLICT (table_key) DO UPDATE SET stacks = $2, updated_at = NOW()''',
-            table_key, json.dumps(stacks)
+            '''INSERT INTO poker_session_snapshots (table_key, channel_id, stacks, updated_at)
+               VALUES ($1, $2, $3, NOW())
+               ON CONFLICT (table_key) DO UPDATE SET channel_id = $2, stacks = $3, updated_at = NOW()''',
+            table_key, channel_id, json.dumps(stacks)
         )
 
     async def clear_poker_snapshot(self, table_key: str) -> None:
@@ -206,7 +208,7 @@ class Database(commands.Cog):
     async def get_all_poker_snapshots(self) -> list:
         """Every leftover snapshot — a non-empty result means the bot went
         down without those tables closing cleanly (used on startup cleanup)."""
-        records = await self.pool.fetch('SELECT table_key, stacks FROM poker_session_snapshots')
+        records = await self.pool.fetch('SELECT table_key, channel_id, stacks FROM poker_session_snapshots')
         result = []
         for r in records:
             d = dict(r)
