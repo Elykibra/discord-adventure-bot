@@ -462,6 +462,98 @@ class Database(commands.Cog):
                    ON CONFLICT (key) DO UPDATE SET value = $2'''
         await self.pool.execute(query, "game_channel_id", str(channel_id))
 
+    # --- Casino Wallet Management ---
+    async def get_or_create_wallet(self, user_id: int) -> Dict[str, Any]:
+        """Returns a player's casino wallet, creating one with the starting balance if needed."""
+        record = await self.pool.fetchrow(
+            '''INSERT INTO casino_wallets (user_id) VALUES ($1)
+               ON CONFLICT (user_id) DO UPDATE SET user_id = casino_wallets.user_id
+               RETURNING *''',
+            user_id
+        )
+        return self._record_to_dict(record)
+
+    async def add_chips(self, user_id: int, amount: int) -> int:
+        """Adds (or, with a negative amount, subtracts) chips. Returns the new balance."""
+        await self.get_or_create_wallet(user_id)
+        return await self.pool.fetchval(
+            'UPDATE casino_wallets SET balance = balance + $1 WHERE user_id = $2 RETURNING balance',
+            amount, user_id
+        )
+
+    async def set_daily_claim(self, user_id: int, amount: int, streak: int) -> int:
+        """Applies a daily-bonus claim: adds chips, records the new streak and claim time.
+        Returns the new balance."""
+        await self.get_or_create_wallet(user_id)
+        return await self.pool.fetchval(
+            '''UPDATE casino_wallets
+               SET balance = balance + $1, daily_streak = $2, last_daily_claim = NOW()
+               WHERE user_id = $3
+               RETURNING balance''',
+            amount, streak, user_id
+        )
+
+    # --- Casino Armory ---
+    async def get_owned_weapons(self, user_id: int) -> List[str]:
+        """Weapon keys the player has bought. The free starter weapon isn't stored here."""
+        records = await self.pool.fetch(
+            'SELECT weapon_key FROM owned_weapons WHERE user_id = $1', user_id
+        )
+        return [r['weapon_key'] for r in records]
+
+    async def buy_weapon(self, user_id: int, weapon_key: str, cost: int) -> None:
+        """Deducts the cost and records ownership, atomically."""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    'UPDATE casino_wallets SET balance = balance - $1 WHERE user_id = $2',
+                    cost, user_id
+                )
+                await conn.execute(
+                    'INSERT INTO owned_weapons (user_id, weapon_key) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                    user_id, weapon_key
+                )
+
+    async def set_equipped_weapon(self, user_id: int, weapon_key: str) -> None:
+        await self.get_or_create_wallet(user_id)
+        await self.pool.execute(
+            'UPDATE casino_wallets SET equipped_weapon = $1 WHERE user_id = $2',
+            weapon_key, user_id
+        )
+
+    # --- Dungeon ---
+    async def log_dungeon_run(self, user_id: int, floor_reached: int, outcome: str,
+                               chips_won: int, weapon_key: str) -> None:
+        """Records a finished dungeon run (outcome is 'died' or 'cashed_out')."""
+        await self.pool.execute(
+            '''INSERT INTO dungeon_runs (user_id, floor_reached, outcome, chips_won, weapon_key)
+               VALUES ($1, $2, $3, $4, $5)''',
+            user_id, floor_reached, outcome, chips_won, weapon_key
+        )
+
+    # --- Permanent Stats ---
+    async def get_stat_levels(self, user_id: int) -> Dict[str, int]:
+        """Levels for every permanent stat the player has bought. Missing keys imply level 0."""
+        records = await self.pool.fetch(
+            'SELECT stat_key, level FROM casino_stats WHERE user_id = $1', user_id
+        )
+        return {r['stat_key']: r['level'] for r in records}
+
+    async def buy_stat_level(self, user_id: int, stat_key: str, cost: int) -> int:
+        """Deducts the cost and increments the stat's level by 1. Returns the new level."""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    'UPDATE casino_wallets SET balance = balance - $1 WHERE user_id = $2',
+                    cost, user_id
+                )
+                return await conn.fetchval(
+                    '''INSERT INTO casino_stats (user_id, stat_key, level) VALUES ($1, $2, 1)
+                       ON CONFLICT (user_id, stat_key) DO UPDATE SET level = casino_stats.level + 1
+                       RETURNING level''',
+                    user_id, stat_key
+                )
+
 
 async def setup(bot: commands.Bot):
     db_cog = await Database.create(bot)
