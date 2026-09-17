@@ -43,10 +43,12 @@ class PokerTableView(discord.ui.View):
         self.host_id = host.id
         self.stake = stake
         self.players: list[PokerPlayer] = [PokerPlayer(host.id, host.display_name, stake["buy_in"])]
+        self.pending: list[PokerPlayer] = []  # joined mid-session — seated in at the next deal, not this one
         self.started = False
         self.closed = False
         self.message: discord.Message | None = None
         self.busy = False
+        self.hand_number = 0
 
         # Set once dealing happens — see deal_hand().
         self.deck: list = []
@@ -75,14 +77,25 @@ class PokerTableView(discord.ui.View):
 
     def deal_hand(self):
         """Shuffles, deals 2 hole cards to everyone, and posts blinds.
-        Dealer button placement for this first hand is arbitrary (last
-        seated player) — rotating it hand-to-hand is a later phase."""
+        The dealer button starts on the last seated player for the table's
+        first hand (arbitrary — there's no "previous" position yet), then
+        rotates one seat per hand after that. Note this rotates by *index*,
+        not by tracking the same physical seat across busts/new joins — a
+        reasonable simplification rather than a fully seat-stable button."""
         self.deck = new_shuffled_deck()
         for p in self.players:
             p.hole = [self.deck.pop(), self.deck.pop()]
+            p.folded = False
+            p.bet = 0
+            p.acted = False
 
         n = len(self.players)
-        self.dealer_idx = n - 1
+        if self.hand_number == 0:
+            self.dealer_idx = n - 1
+        else:
+            self.dealer_idx = (self.dealer_idx + 1) % n
+        self.hand_number += 1
+
         if n == 2:
             # Heads-up plays by different rules: the dealer posts the small
             # blind (and acts first preflop), the other player posts the big
@@ -187,12 +200,24 @@ class PokerTableView(discord.ui.View):
             return self.advance_stage()
         return "continue"
 
+    def _remove_busted(self):
+        """Drops anyone at 0 chips after the hand just resolved. Only ever
+        called once a hand is fully over — mid-hand all-ins (stack 0 but
+        still in the pot) must never be removed before showdown pays out."""
+        busted = [p for p in self.players if p.stack <= 0]
+        for p in busted:
+            self.players.remove(p)
+        if busted:
+            names = ", ".join(p.name for p in busted)
+            self.result_text += f"\n💀 **Busted out:** {names}"
+
     def resolve_fold_win(self):
         winner = self.active_players()[0]
         winner.stack += self.pot
         self.result_text = f"🏆 **{winner.name}** wins **{self.pot:,} chips** — everyone else folded."
         self.stage = 4
         self.pot = 0
+        self._remove_busted()
 
     def resolve_showdown(self):
         active = self.active_players()
@@ -215,6 +240,7 @@ class PokerTableView(discord.ui.View):
         self.result_text = f"🏆 **Showdown!** {names} — wins {share:,} each." if len(winners) > 1 \
             else f"🏆 **{winners[0].name}** wins **{self.pot:,} chips** with a {hand_name(best)}!"
         self.pot = 0
+        self._remove_busted()
 
     def rebuild_items(self):
         self.busy = False
@@ -226,11 +252,18 @@ class PokerTableView(discord.ui.View):
             self.add_item(LeaveTableButton())
             self.add_item(StartTableButton())
             return
+
+        # Joining stays open even mid-session — new arrivals wait in the
+        # pending queue for the next deal rather than sitting mid-hand.
+        self.add_item(JoinTableButton())
         self.add_item(ViewHandButton())
         if self.stage < 4:
             self.add_item(FoldButton())
             self.add_item(CheckCallButton(self))
             self.add_item(RaiseButton())
+        else:
+            self.add_item(LeaveTableButton())
+            self.add_item(NextHandButton())
 
     def build_embed(self) -> discord.Embed:
         if self.closed:
@@ -292,6 +325,9 @@ class PokerTableView(discord.ui.View):
             f"**Community:** {community_text}\n\n"
             f"**Players:**\n" + "\n".join(lines)
         )
+        if self.pending:
+            pending_names = ", ".join(p.name for p in self.pending)
+            description += f"\n\n⏳ **Waiting to join next hand:** {pending_names}"
         if self.result_text:
             description += f"\n\n{self.result_text}"
 
@@ -302,6 +338,8 @@ class PokerTableView(discord.ui.View):
         )
         if self.stage < 4:
             embed.set_footer(text=f"{self.players[self.turn_idx].name}'s turn to act")
+        else:
+            embed.set_footer(text="Between hands — host can deal the next one, or anyone can leave.")
         return embed
 
 
@@ -312,10 +350,14 @@ class JoinTableButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         view: PokerTableView = self.view
 
-        if view.find_player(interaction.user.id):
+        already_seated = view.find_player(interaction.user.id) is not None
+        already_pending = any(p.user_id == interaction.user.id for p in view.pending)
+        if already_seated or already_pending:
             view.busy = False
-            return await interaction.response.send_message("You're already seated.", ephemeral=True)
-        if len(view.players) >= MAX_PLAYERS:
+            return await interaction.response.send_message(
+                "You're already seated (or waiting to join).", ephemeral=True
+            )
+        if len(view.players) + len(view.pending) >= MAX_PLAYERS:
             view.busy = False
             return await interaction.response.send_message("Table is full.", ephemeral=True)
 
@@ -328,7 +370,14 @@ class JoinTableButton(discord.ui.Button):
             )
 
         await view.db_cog.add_chips(interaction.user.id, -view.stake["buy_in"])
-        view.players.append(PokerPlayer(interaction.user.id, interaction.user.display_name, view.stake["buy_in"]))
+        new_player = PokerPlayer(interaction.user.id, interaction.user.display_name, view.stake["buy_in"])
+
+        if view.started:
+            # A hand may be in progress — new arrivals wait for the next deal.
+            view.pending.append(new_player)
+        else:
+            view.players.append(new_player)
+
         view.rebuild_items()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
@@ -340,16 +389,27 @@ class LeaveTableButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         view: PokerTableView = self.view
         player = view.find_player(interaction.user.id)
+
         if not player:
-            view.busy = False
-            return await interaction.response.send_message("You're not seated at this table.", ephemeral=True)
+            # Maybe they're only in the pending queue (joined mid-session,
+            # haven't been seated in for a hand yet).
+            pending_player = next((p for p in view.pending if p.user_id == interaction.user.id), None)
+            if not pending_player:
+                view.busy = False
+                return await interaction.response.send_message("You're not seated at this table.", ephemeral=True)
+            await view.db_cog.add_chips(interaction.user.id, pending_player.stack)
+            view.pending.remove(pending_player)
+            view.rebuild_items()
+            return await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
         if player.user_id == view.host_id:
             # No host-succession concept yet — the host leaving closes the
-            # table outright and everyone gets their buy-in back.
-            for p in view.players:
+            # table outright and everyone (seated or still pending) gets
+            # their buy-in back.
+            for p in view.players + view.pending:
                 await view.db_cog.add_chips(p.user_id, p.stack)
             view.players.clear()
+            view.pending.clear()
             view.closed = True
             view.rebuild_items()
             view.stop()
@@ -377,6 +437,36 @@ class StartTableButton(discord.ui.Button):
             )
 
         view.started = True
+        view.deal_hand()
+        view.rebuild_items()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class NextHandButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Next Hand", style=discord.ButtonStyle.primary, emoji="🔁")
+
+    async def callback(self, interaction: discord.Interaction):
+        view: PokerTableView = self.view
+        if interaction.user.id != view.host_id:
+            view.busy = False
+            return await interaction.response.send_message("Only the host can deal the next hand.", ephemeral=True)
+
+        # Check the combined count before touching anything — merging
+        # pending players in only to bail out on the player-count check
+        # would leave the public embed stale (they'd stay shown as
+        # "pending" until some other action happened to refresh it).
+        if len(view.players) + len(view.pending) < MIN_PLAYERS_TO_START:
+            view.busy = False
+            return await interaction.response.send_message(
+                f"Need at least {MIN_PLAYERS_TO_START} players to continue — waiting for more to join.",
+                ephemeral=True,
+            )
+
+        if view.pending:
+            view.players.extend(view.pending)
+            view.pending = []
+
         view.deal_hand()
         view.rebuild_items()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
