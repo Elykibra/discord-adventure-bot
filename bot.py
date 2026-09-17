@@ -5,24 +5,6 @@ from core import config
 from core.repository import MemoryRepository, SqlRepository
 from core.validator import validate_all
 
-async def force_clear_all_guild_commands(bot: commands.Bot):
-    """
-    Remove ANY previously-synced guild-scoped commands in every guild the bot is in.
-    Run this AFTER the bot is ready (guild cache is populated).
-    """
-    print("— Force-clearing ALL guild-scoped commands (post-ready) —")
-    cleared_any = False
-    for guild in bot.guilds:
-        try:
-            bot.tree.clear_commands(guild=guild)           # wipe per-guild commands
-            await bot.tree.sync(guild=guild)                # push the wipe
-            print(f"  > Cleared guild commands for {guild.id} ({guild.name})")
-            cleared_any = True
-        except Exception as e:
-            print(f"  > Failed to clear guild {guild.id}: {e}")
-    if not cleared_any:
-        print("  > No guilds to clear (cache empty or not in any guild)")
-
 async def build_repo():
     has_db = all([config.DB_HOST, config.DB_PORT, config.DB_USER, config.DB_PASSWORD, config.DB_NAME])
     if not has_db:
@@ -41,11 +23,17 @@ async def build_repo():
     return SqlRepository(pool)
 
 async def sync_commands_global(bot: commands.Bot):
-    print("--- Syncing Commands (GUILD) ---")
+    """A real global sync (no per-guild loop) — propagates to every guild
+    the bot is in over time (up to ~an hour per Discord's own docs),
+    instead of hitting the tight per-guild bulk-overwrite rate limit on
+    every single restart. For instant updates in one server while
+    testing, use the admin /sync command instead (cogs/admin.py) — it
+    does its own guild-scoped sync on demand, so this one doesn't need
+    to (and shouldn't) also race to do that on every boot."""
+    print("--- Syncing Commands (GLOBAL) ---")
     try:
-        for guild in bot.guilds:
-            await bot.tree.sync(guild=guild)
-            print(f"  > Synced commands to guild: {guild.name} ({guild.id})")
+        synced = await bot.tree.sync()
+        print(f"  > Synced {len(synced)} global command(s).")
     except Exception as e:
         print(f"  > An error with syncing occurred: {e}")
     print("----------------------")
@@ -93,20 +81,21 @@ bot = GuildBot(command_prefix=commands.when_mentioned, intents=intents)
 
 @bot.event
 async def on_ready():
-    # Run the cleanup ONCE after the bot is fully ready (guilds are cached)
+    # Run this ONCE after the bot is fully ready (guilds are cached) — not
+    # on every gateway reconnect, which also fires on_ready but isn't a
+    # fresh process start.
     if getattr(bot, "_did_global_cleanup", False):
         return
     bot._did_global_cleanup = True
 
-    # 1) Wipe all per-guild commands everywhere
-    await force_clear_all_guild_commands(bot)
-
-    # 2) Register ONLY the global set
+    # 1) Register the global command set. Deliberately just this — no
+    # per-guild clear/resync loop here anymore (removed after it and the
+    # admin /sync command repeatedly hit Discord's per-guild command
+    # rate limit together during a day of frequent redeploys). Run
+    # /sync in a server when you want that server updated immediately.
     await sync_commands_global(bot)
 
-    print("🧹 Guild-scoped commands cleared. Global commands are now the single source.")
-
-    # 3) Clean up any orphaned battle spectator messages from before the restart
+    # 2) Clean up any orphaned battle spectator messages from before the restart
     db_cog = bot.get_cog('Database')
     if db_cog:
         try:
@@ -125,7 +114,7 @@ async def on_ready():
         except Exception as e:
             print(f"⚠️ Battle cleanup error: {e}")
 
-        # 4) Refund any poker tables left mid-session by a restart. Poker
+        # 3) Refund any poker tables left mid-session by a restart. Poker
         # keeps its live state in memory only, same as Blackjack/Dungeon —
         # this is just the stacks safety net (see migrations/018), not a
         # recovery of the in-progress hand itself. Also try to close out
