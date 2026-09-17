@@ -83,7 +83,22 @@ class DungeonRunView(discord.ui.View):
         self.levelup_choices: list[str] = []
         self.boss_floor_pending = False
 
+        # Guards against double-clicking a button before the previous click's
+        # response has landed — Discord sends each click as a separate
+        # interaction, so without this a fast double-click on Search (or
+        # anything else) could resolve the same room twice.
+        self.busy = False
+
         self.rebuild_items()
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message(
+                "Still resolving your last move — hang on a second.", ephemeral=True
+            )
+            return False
+        self.busy = True
+        return True
 
     # --- Skills / build ---
     def apply_skill(self, skill_key: str):
@@ -130,6 +145,7 @@ class DungeonRunView(discord.ui.View):
 
     # --- View state ---
     def rebuild_items(self):
+        self.busy = False  # reaching a new stable button state releases the lock
         self.clear_items()
         if self.finished:
             return
