@@ -67,6 +67,7 @@ class PokerTableView(discord.ui.View):
         self.min_raise_increment = 0
         self.turn_idx = 0
         self.result_text = ""
+        self._pending_hand_result: dict | None = None  # set by resolve_fold_win/resolve_showdown — see record_hand_stats()
 
         # Per-turn auto-fold timer — see start_turn_timer()/cancel_turn_timer().
         # turn_token is bumped every time the "current turn" changes, so a
@@ -190,6 +191,7 @@ class PokerTableView(discord.ui.View):
                 pass
         if result in ("fold_win", "showdown"):
             await self.save_snapshot()
+            await self.record_hand_stats()
 
     # --- Restart safety net (see migrations/018) ---
     def current_stacks(self) -> dict:
@@ -206,6 +208,45 @@ class PokerTableView(discord.ui.View):
         if not self.table_key:
             return
         await self.db_cog.clear_poker_snapshot(self.table_key)
+
+    async def close_and_refund(self):
+        """Shared close path for both an explicit host-leave and an
+        auto-close when the table's dwindled below playable — refunds
+        everyone still seated/pending, closes the view, and stops the
+        timer/snapshot from lingering after nobody can act on them again.
+        Can run mid-hand (nothing currently stops someone from leaving
+        while a hand's in progress), so any chips already bet into
+        self.pot this hand get split among whoever's still seated first —
+        otherwise that money would just vanish, credited to nobody."""
+        if self.pot > 0 and self.players:
+            share = self.pot // len(self.players)
+            leftover = self.pot - share * len(self.players)
+            for i, p in enumerate(self.players):
+                p.stack += share + (leftover if i == 0 else 0)
+            self.pot = 0
+
+        for p in self.players + self.pending:
+            await self.db_cog.add_chips(p.user_id, p.stack)
+        self.players.clear()
+        self.pending.clear()
+        self.closed = True
+        self.cancel_turn_timer()
+        self.rebuild_items()
+        self.stop()
+        await self.clear_snapshot()
+
+    # --- Stats & history ---
+    async def record_hand_stats(self):
+        """Persists the outcome of the hand that just resolved — see the
+        _pending_hand_result set by resolve_fold_win()/resolve_showdown().
+        Called from the same checkpoints as save_snapshot()."""
+        data = self._pending_hand_result
+        self._pending_hand_result = None
+        if not data:
+            return
+        await self.db_cog.record_poker_hand(
+            self.table_key or "unknown", self.stake["name"], data["pot"], data["players"]
+        )
 
     # --- Turn / round-state helpers ---
     def first_active_from(self, start_idx: int) -> int:
@@ -302,6 +343,14 @@ class PokerTableView(discord.ui.View):
         winner = self.active_players()[0]
         winner.stack += self.pot
         self.result_text = f"🏆 **{winner.name}** wins **{self.pot:,} chips** — everyone else folded."
+        self._pending_hand_result = {
+            "pot": self.pot,
+            "players": [
+                {"user_id": p.user_id, "name": p.name, "contributed": p.contributed,
+                 "won": self.pot if p is winner else 0}
+                for p in self.players
+            ],
+        }
         self.stage = 4
         self.pot = 0
         self._remove_busted()
@@ -382,6 +431,14 @@ class PokerTableView(discord.ui.View):
             reveal_lines.append(f"🂠 {p.name}: {format_cards(p.hole)} ({hand_name(ranks[p.user_id])}){won_text}")
 
         self.result_text = "🏆 **Showdown!**\n" + "\n".join(pot_lines) + "\n\n" + "\n".join(reveal_lines)
+        self._pending_hand_result = {
+            "pot": self.pot,
+            "players": [
+                {"user_id": p.user_id, "name": p.name, "contributed": p.contributed,
+                 "won": won_amounts.get(p.user_id, 0)}
+                for p in self.players
+            ],
+        }
         self.pot = 0
         self._remove_busted()
 
@@ -412,7 +469,7 @@ class PokerTableView(discord.ui.View):
         if self.closed:
             embed = discord.Embed(
                 title=f"🃏 Poker Table — {self.stake['name']}",
-                description="*Host left — table closed, buy-ins refunded.*",
+                description="*Table closed — everyone's buy-in has been refunded.*",
                 color=discord.Color.dark_grey(),
             )
             return embed
@@ -546,6 +603,16 @@ class LeaveTableButton(discord.ui.Button):
                 return await interaction.response.send_message("You're not seated at this table.", ephemeral=True)
             await view.db_cog.add_chips(interaction.user.id, pending_player.stack)
             view.pending.remove(pending_player)
+
+            # If the table already started and this leave drops it below a
+            # playable headcount, don't leave it stranded forever waiting on
+            # a "Next Hand" nobody can click — close it out the same as a
+            # host-leave. A fresh, never-started lobby with just the host is
+            # normal (still waiting for people to join) and stays open.
+            if view.started and len(view.players) + len(view.pending) < MIN_PLAYERS_TO_START:
+                await view.close_and_refund()
+                return await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
             view.rebuild_items()
             await view.save_snapshot()
             return await interaction.response.edit_message(embed=view.build_embed(), view=view)
@@ -554,19 +621,16 @@ class LeaveTableButton(discord.ui.Button):
             # No host-succession concept yet — the host leaving closes the
             # table outright and everyone (seated or still pending) gets
             # their buy-in back.
-            for p in view.players + view.pending:
-                await view.db_cog.add_chips(p.user_id, p.stack)
-            view.players.clear()
-            view.pending.clear()
-            view.closed = True
-            view.cancel_turn_timer()
-            view.rebuild_items()
-            view.stop()
-            await view.clear_snapshot()
+            await view.close_and_refund()
             return await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
         await view.db_cog.add_chips(interaction.user.id, player.stack)
         view.players.remove(player)
+
+        if view.started and len(view.players) + len(view.pending) < MIN_PLAYERS_TO_START:
+            await view.close_and_refund()
+            return await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
         view.rebuild_items()
         await view.save_snapshot()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
@@ -672,6 +736,7 @@ class FoldButton(discord.ui.Button):
         view.rebuild_items()
         if result in ("fold_win", "showdown"):
             await view.save_snapshot()
+            await view.record_hand_stats()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -707,6 +772,7 @@ class CheckCallButton(discord.ui.Button):
         view.rebuild_items()
         if result in ("fold_win", "showdown"):
             await view.save_snapshot()
+            await view.record_hand_stats()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -749,23 +815,36 @@ class RaiseModal(discord.ui.Modal, title="Raise"):
                 f"Raise must be to at least {min_valid:,} (or go all-in with {max_possible:,}).", ephemeral=True
             )
 
+        # A short all-in below a full raise (only reachable here when
+        # target == max_possible, per the validation above) is an
+        # "incomplete" raise by standard rules: the amount to call still
+        # rises to it, but it doesn't reopen betting for players who've
+        # already matched the previous bet — they only get to call the
+        # small top-up or fold, not raise again off of it. A full raise
+        # reopens the action for everyone as before.
+        is_full_raise = target >= min_valid
+        raise_increment = target - view.current_bet
+
         view.busy = True
         added = target - player.bet
         player.stack -= added
         player.bet = target
         player.contributed += added
         view.pot += added
-        view.min_raise_increment = max(target - view.current_bet, view.min_raise_increment)
         view.current_bet = target
+        if is_full_raise:
+            view.min_raise_increment = max(raise_increment, view.min_raise_increment)
         player.acted = True
-        for p in view.players:
-            if p is not player and not p.folded and p.stack > 0:
-                p.acted = False  # a raise reopens action for everyone else
+        if is_full_raise:
+            for p in view.players:
+                if p is not player and not p.folded and p.stack > 0:
+                    p.acted = False  # a full raise reopens action for everyone else
 
         result = view.advance_after_action()
         view.rebuild_items()
         if result in ("fold_win", "showdown"):
             await view.save_snapshot()
+            await view.record_hand_stats()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -841,12 +920,43 @@ class CustomStakeButton(discord.ui.Button):
         await interaction.response.send_modal(CustomStakeModal())
 
 
+class PokerStatsButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="My Stats", style=discord.ButtonStyle.secondary, emoji="📊")
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        stats = await db_cog.get_poker_stats(interaction.user.id)
+        recent = await db_cog.get_recent_poker_hands(5)
+
+        played = stats["hands_played"]
+        win_rate = f"{stats['hands_won'] / played * 100:.0f}%" if played else "—"
+        net = stats["net_chips"]
+        net_text = f"+{net:,}" if net >= 0 else f"{net:,}"
+
+        description = (
+            f"**Hands played:** {played:,}\n"
+            f"**Hands won:** {stats['hands_won']:,} ({win_rate})\n"
+            f"**Net chips (lifetime):** {net_text}\n"
+            f"**Biggest pot won:** {stats['biggest_pot_won']:,}"
+        )
+        if recent:
+            lines = "\n".join(
+                f"• {h['stake_name']} — pot {h['pot']:,}: {h['winners_summary']}" for h in recent
+            )
+            description += f"\n\n**Recent hands (server-wide):**\n{lines}"
+
+        embed = discord.Embed(title="📊 Your Poker Stats", description=description, color=discord.Color.gold())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 class StakeSelectView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=120)
         for stake in STAKE_TIERS.values():
             self.add_item(StakePresetButton(stake))
         self.add_item(CustomStakeButton())
+        self.add_item(PokerStatsButton())
 
 
 async def create_table(interaction: discord.Interaction, stake: dict):

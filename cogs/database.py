@@ -215,6 +215,50 @@ class Database(commands.Cog):
             result.append(d)
         return result
 
+    # --- Poker stats & history ---
+    async def record_poker_hand(self, table_key: str, stake_name: str, pot: int, player_results: List[Dict[str, Any]]) -> None:
+        """Updates lifetime stats for everyone dealt into a just-resolved hand and
+        logs a short summary of it. `player_results` is one dict per seated player
+        (winners and losers, folded or not): {user_id, name, contributed, won}."""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                for r in player_results:
+                    net = r["won"] - r["contributed"]
+                    won_flag = 1 if r["won"] > 0 else 0
+                    await conn.execute(
+                        '''INSERT INTO poker_stats (user_id, hands_played, hands_won, net_chips, biggest_pot_won)
+                           VALUES ($1, 1, $2, $3, $4)
+                           ON CONFLICT (user_id) DO UPDATE SET
+                               hands_played = poker_stats.hands_played + 1,
+                               hands_won = poker_stats.hands_won + $2,
+                               net_chips = poker_stats.net_chips + $3,
+                               biggest_pot_won = GREATEST(poker_stats.biggest_pot_won, $4)''',
+                        r["user_id"], won_flag, net, r["won"]
+                    )
+
+                winners_summary = ", ".join(
+                    f"{r['name']} (+{r['won']:,})" for r in player_results if r["won"] > 0
+                ) or "no winner recorded"
+                await conn.execute(
+                    '''INSERT INTO poker_hand_history (table_key, stake_name, pot, winners_summary)
+                       VALUES ($1, $2, $3, $4)''',
+                    table_key, stake_name, pot, winners_summary
+                )
+
+    async def get_poker_stats(self, user_id: int) -> Dict[str, Any]:
+        record = await self.pool.fetchrow('SELECT * FROM poker_stats WHERE user_id = $1', user_id)
+        return self._record_to_dict(record) or {
+            "user_id": user_id, "hands_played": 0, "hands_won": 0, "net_chips": 0, "biggest_pot_won": 0
+        }
+
+    async def get_recent_poker_hands(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Most recent resolved hands, server-wide (not filtered per-user) — a
+        lightweight "recent activity" feed rather than a per-player history."""
+        records = await self.pool.fetch(
+            'SELECT * FROM poker_hand_history ORDER BY resolved_at DESC LIMIT $1', limit
+        )
+        return self._records_to_list_of_dicts(records)
+
     async def get_player_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         record = await self.pool.fetchrow('SELECT * FROM players WHERE username = $1', username)
         return self._record_to_dict(record)
