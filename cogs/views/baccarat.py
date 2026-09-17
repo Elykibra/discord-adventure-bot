@@ -30,12 +30,13 @@ import traceback
 
 import discord
 
-from data.baccarat import play_round, resolve_bet_amount, PAYOUTS
+from data.baccarat import play_round, resolve_bet_amount, hand_value, PAYOUTS
 from data.poker import new_shuffled_deck, format_cards
 
 MIN_BET = 10
 MAX_PLAYERS = 10
 BETTING_WINDOW_SECONDS = 20
+REVEAL_DELAY_SECONDS = 1.2  # pause between each dealt-card reveal — same idea as Blackjack's dealer draw delay
 
 SIDE_LABELS = {"player": "Player", "banker": "Banker", "tie": "Tie"}
 SIDE_EMOJI = {"player": "🔵", "banker": "🔴", "tie": "🟢"}
@@ -109,11 +110,13 @@ class BaccaratTableView(discord.ui.View):
         if token != self.betting_token or self.closed or not self.bets:
             return
         await self.resolve_round()
+        frames = self._reveal_frames()
         if self.message:
             try:
-                await self.message.edit(embed=self.build_embed(), view=self)
+                await self.message.edit(embed=frames[0], view=self)
             except discord.HTTPException:
                 pass
+        await self.animate_remaining_reveal(frames[1:])
 
     # --- Betting / resolution ---
     def register_bet(self, user_id: int, side: str, amount: int) -> bool:
@@ -129,10 +132,13 @@ class BaccaratTableView(discord.ui.View):
         return bool(self.expected_bettors) and self.expected_bettors.issubset(self.bets.keys())
 
     async def resolve_round(self):
-        """Deals the round and pays out every live bet. Pure state
-        mutation — callers decide how to actually show the result (an
-        interaction response, or editing the message directly when
-        triggered by the timeout watcher, which has no interaction)."""
+        """Deals the round and pays out every live bet. Money is fully
+        settled by the time this returns, but busy stays True (doesn't
+        call rebuild_items()) — the caller always follows this with the
+        reveal animation, and releasing the lock early would let a new
+        bet start a second round whose message edits would race with
+        this one's animation still playing out."""
+        self.busy = True
         self.cancel_betting_timer()
         deck = new_shuffled_deck()
         result = play_round(deck)
@@ -153,7 +159,68 @@ class BaccaratTableView(discord.ui.View):
         self.bets = {}
         self.expected_bettors = set()
         self.betting_deadline = None
-        self.rebuild_items()
+
+    def _reveal_frames(self) -> list:
+        """Builds the sequence of embeds for the post-round reveal, each
+        showing progressively more of the already-resolved hands — same
+        idea as how online casino Baccarat deals visibly one card at a
+        time instead of just announcing the winner. The outcome/payout
+        line only appears in build_embed()'s normal state, shown as the
+        final step after this sequence finishes, so the result lands a
+        beat after the last card rather than all at once."""
+        r = self.last_result
+        header = [f"🪑 {p.name}{' 👑' if p.user_id == self.host_id else ''}" for p in self.players]
+
+        def hand_line(label, cards):
+            if not cards:
+                return f"{label}: *(waiting)*"
+            return f"{label}: {format_cards(cards)}  =  **{hand_value(cards)}**"
+
+        def frame(note, player_cards, banker_cards):
+            embed = discord.Embed(title="🎴 Baccarat Table", description=f"🎴 *{note}*", color=discord.Color.dark_gold())
+            embed.add_field(name=f"Players ({len(self.players)})", value="\n".join(header), inline=False)
+            embed.add_field(
+                name="Cards", value=hand_line("Player", player_cards) + "\n" + hand_line("Banker", banker_cards),
+                inline=False,
+            )
+            return embed
+
+        frames = [
+            frame("Dealing...", [], []),
+            frame("Dealing Player's cards...", r["player"][:2], []),
+            frame("Dealing Banker's cards...", r["player"][:2], r["banker"][:2]),
+        ]
+        if len(r["player"]) > 2:
+            frames.append(frame("Player draws a third card...", r["player"], r["banker"][:2]))
+        if len(r["banker"]) > 2:
+            frames.append(frame("Banker draws a third card...", r["player"], r["banker"]))
+        return frames
+
+    async def animate_remaining_reveal(self, frames: list):
+        """Plays out reveal frames after the first one (already shown by
+        the caller, since it needs to happen immediately — an interaction
+        response, or the first message.edit() from the timeout watcher).
+        Ends on build_embed()'s real, persistent state. The `finally`
+        guarantees busy releases (via rebuild_items()) no matter which
+        exit path this takes, since resolve_round() deliberately left it
+        held for this entire animation."""
+        try:
+            for embed in frames:
+                await asyncio.sleep(REVEAL_DELAY_SECONDS)
+                if not self.message:
+                    return
+                try:
+                    await self.message.edit(embed=embed, view=self)
+                except discord.HTTPException:
+                    return
+            await asyncio.sleep(REVEAL_DELAY_SECONDS)
+        finally:
+            self.rebuild_items()
+        if self.message:
+            try:
+                await self.message.edit(embed=self.build_embed(), view=self)
+            except discord.HTTPException:
+                pass
 
     async def close_table(self):
         """Refunds any live bet from the round in progress (it'll never
@@ -188,34 +255,44 @@ class BaccaratTableView(discord.ui.View):
                 color=discord.Color.dark_grey(),
             )
 
-        lines = [f"🪑 {p.name}{' 👑' if p.user_id == self.host_id else ''}" for p in self.players]
-        description = f"**Players ({len(self.players)}):**\n" + "\n".join(lines)
-
-        if self.bets:
-            bet_lines = []
-            for p in self.players:
-                bet = self.bets.get(p.user_id)
-                if bet:
-                    bet_lines.append(f"{SIDE_EMOJI[bet['side']]} {p.name}: {SIDE_LABELS[bet['side']]} — {bet['amount']:,} chips")
-            description += "\n\n**Bets this round:**\n" + "\n".join(bet_lines)
-            if self.betting_deadline:
-                description += f"\n\n⏱️ Round deals <t:{int(self.betting_deadline)}:R>"
+        if self.betting_deadline:
+            status = f"⏱️ Round deals <t:{int(self.betting_deadline)}:R>"
+        elif not self.bets:
+            status = "*Waiting for a bet — the round deals automatically once one comes in.*"
         else:
-            description += "\n\n*Waiting for a bet — the round deals automatically once one comes in.*"
+            status = None  # bets exist but no deadline shouldn't happen — they're set/cleared together
+
+        embed = discord.Embed(title="🎴 Baccarat Table", description=status, color=discord.Color.dark_gold())
+
+        # One line per player showing their current bet right next to their
+        # name, rather than a separate list a reader has to cross-reference.
+        player_lines = []
+        for p in self.players:
+            crown = " 👑" if p.user_id == self.host_id else ""
+            bet = self.bets.get(p.user_id)
+            if bet:
+                bet_text = f"{SIDE_EMOJI[bet['side']]} {SIDE_LABELS[bet['side']]} — {bet['amount']:,} chips"
+            else:
+                bet_text = "*no bet yet*"
+            player_lines.append(f"🪑 **{p.name}**{crown} — {bet_text}")
+        embed.add_field(name=f"Players ({len(self.players)})", value="\n".join(player_lines), inline=False)
 
         if self.last_result:
             r = self.last_result
             outcome_label = SIDE_LABELS[r["outcome"]]
             natural_tag = " (Natural!)" if r["natural"] else ""
-            description += (
-                f"\n\n🏆 **Last round:** Player {format_cards(r['player'])} = {r['player_total']}   |   "
-                f"Banker {format_cards(r['banker'])} = {r['banker_total']}\n"
-                f"**{outcome_label} wins{natural_tag}**"
+            embed.add_field(
+                name="🏆 Last Round",
+                value=(
+                    f"Player {format_cards(r['player'])}  =  **{r['player_total']}**\n"
+                    f"Banker {format_cards(r['banker'])}  =  **{r['banker_total']}**\n"
+                    f"**{outcome_label} wins{natural_tag}**"
+                ),
+                inline=False,
             )
             if r["payout_lines"]:
-                description += "\n" + "\n".join(r["payout_lines"])
+                embed.add_field(name="💰 Payouts", value="\n".join(r["payout_lines"]), inline=False)
 
-        embed = discord.Embed(title="🎴 Baccarat Table", description=description, color=discord.Color.dark_gold())
         embed.set_footer(text=f"Banker pays {PAYOUTS['banker']}:1 (5% commission) · Tie pays {PAYOUTS['tie']:.0f}:1")
         return embed
 
@@ -262,14 +339,18 @@ class BetModal(discord.ui.Modal, title="Place Bet"):
         should_resolve = view.register_bet(interaction.user.id, self.side, amount)
         if should_resolve:
             await view.resolve_round()
-        view.rebuild_items()
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            frames = view._reveal_frames()
+            await interaction.response.edit_message(embed=frames[0], view=view)
+            await view.animate_remaining_reveal(frames[1:])
+        else:
+            view.rebuild_items()
+            await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
 class BetButton(discord.ui.Button):
     def __init__(self, side: str):
         super().__init__(
-            label=f"Bet {SIDE_LABELS[side]}", style=discord.ButtonStyle.primary, emoji=SIDE_EMOJI[side]
+            label=SIDE_LABELS[side], style=discord.ButtonStyle.primary, emoji=SIDE_EMOJI[side]
         )
         self.side = side
 
