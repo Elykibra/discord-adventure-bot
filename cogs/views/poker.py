@@ -15,12 +15,14 @@
 
 import discord
 
-from data.poker import STAKE_TIERS, new_shuffled_deck, format_cards
+from data.poker import STAKE_TIERS, new_shuffled_deck, format_cards, best_hand_from_7, hand_name
 
 MIN_PLAYERS_TO_START = 2
 MAX_PLAYERS = 6
 MIN_CUSTOM_BUY_IN = 20
 MIN_CUSTOM_SMALL_BLIND = 1
+
+STAGE_NAMES = ["Pre-Flop", "Flop", "Turn", "River", "Showdown"]
 
 
 class PokerPlayer:
@@ -29,6 +31,9 @@ class PokerPlayer:
         self.name = name
         self.stack = stack
         self.hole: list = []
+        self.folded = False
+        self.bet = 0     # this betting round's contribution so far
+        self.acted = False
 
 
 class PokerTableView(discord.ui.View):
@@ -43,12 +48,18 @@ class PokerTableView(discord.ui.View):
         self.message: discord.Message | None = None
         self.busy = False
 
-        # Set once dealing happens (Phase 3) — see deal_hand().
+        # Set once dealing happens — see deal_hand().
         self.deck: list = []
+        self.community: list = []
         self.pot = 0
         self.dealer_idx = 0
         self.sb_idx = 0
         self.bb_idx = 0
+        self.stage = 0  # index into STAGE_NAMES; >=4 means the hand is fully resolved
+        self.current_bet = 0
+        self.min_raise_increment = 0
+        self.turn_idx = 0
+        self.result_text = ""
 
         self.rebuild_items()
 
@@ -88,7 +99,122 @@ class PokerTableView(discord.ui.View):
         bb_amount = min(self.stake["big_blind"], bb_player.stack)
         sb_player.stack -= sb_amount
         bb_player.stack -= bb_amount
+        sb_player.bet = sb_amount
+        bb_player.bet = bb_amount
         self.pot = sb_amount + bb_amount
+
+        self.community = []
+        self.stage = 0
+        self.current_bet = bb_amount
+        self.min_raise_increment = self.stake["big_blind"]
+        self.result_text = ""
+
+        # Preflop action starts left of the big blind (3+ players), or with
+        # the dealer/SB in heads-up (see the heads-up note above).
+        start = self.dealer_idx if n == 2 else (self.bb_idx + 1) % n
+        self.turn_idx = self.first_active_from(start)
+
+    # --- Turn / round-state helpers ---
+    def first_active_from(self, start_idx: int) -> int:
+        """The first player at/after start_idx who can still act (not folded, has chips)."""
+        n = len(self.players)
+        for step in range(n):
+            idx = (start_idx + step) % n
+            p = self.players[idx]
+            if not p.folded and p.stack > 0:
+                return idx
+        return start_idx
+
+    def active_players(self) -> list:
+        return [p for p in self.players if not p.folded]
+
+    def can_act_players(self) -> list:
+        return [p for p in self.players if not p.folded and p.stack > 0]
+
+    def round_complete(self) -> bool:
+        active = self.active_players()
+        if len(active) <= 1:
+            return True
+        can_act = self.can_act_players()
+        if not can_act:
+            return True  # everyone left is all-in — nothing more to bet
+        return all(p.acted and p.bet == self.current_bet for p in can_act)
+
+    def advance_after_action(self):
+        """Called after any Fold/Check/Call/Raise resolves. Returns one of
+        'fold_win', 'showdown', or 'continue' — the caller decides what to
+        show based on that."""
+        active = self.active_players()
+        if len(active) <= 1:
+            self.resolve_fold_win()
+            return "fold_win"
+
+        if self.round_complete():
+            return self.advance_stage()
+
+        self.turn_idx = self.first_active_from((self.turn_idx + 1) % len(self.players))
+        return "continue"
+
+    def advance_stage(self) -> str:
+        """Moves to the next stage (dealing community cards as needed),
+        resetting betting for the new round. If fewer than 2 players can
+        still act (the rest are all-in), keeps advancing automatically
+        straight through to showdown rather than waiting on betting that
+        can't happen."""
+        for p in self.players:
+            p.bet = 0
+            p.acted = False
+        self.current_bet = 0
+        self.min_raise_increment = self.stake["big_blind"]
+        self.stage += 1
+
+        if self.stage == 1:
+            self.community += [self.deck.pop(), self.deck.pop(), self.deck.pop()]
+        elif self.stage == 2:
+            self.community.append(self.deck.pop())
+        elif self.stage == 3:
+            self.community.append(self.deck.pop())
+        elif self.stage >= 4:
+            self.resolve_showdown()
+            return "showdown"
+
+        n = len(self.players)
+        start = self.bb_idx if n == 2 else self.sb_idx
+        self.turn_idx = self.first_active_from(start)
+
+        if len(self.can_act_players()) < 2 and len(self.active_players()) > 1:
+            # Everyone left is all-in — run out the rest of the board with no more betting.
+            return self.advance_stage()
+        return "continue"
+
+    def resolve_fold_win(self):
+        winner = self.active_players()[0]
+        winner.stack += self.pot
+        self.result_text = f"🏆 **{winner.name}** wins **{self.pot:,} chips** — everyone else folded."
+        self.stage = 4
+        self.pot = 0
+
+    def resolve_showdown(self):
+        active = self.active_players()
+        best = None
+        winners = []
+        for p in active:
+            rank = best_hand_from_7(p.hole + self.community)
+            if best is None or rank > best:
+                best = rank
+                winners = [p]
+            elif rank == best:
+                winners.append(p)
+
+        share = self.pot // len(winners)
+        leftover = self.pot - share * len(winners)  # odd chips — see note below
+        for i, w in enumerate(winners):
+            w.stack += share + (leftover if i == 0 else 0)  # simplest odd-chip rule: first winner gets the remainder
+
+        names = ", ".join(f"{w.name} ({hand_name(best)})" for w in winners)
+        self.result_text = f"🏆 **Showdown!** {names} — wins {share:,} each." if len(winners) > 1 \
+            else f"🏆 **{winners[0].name}** wins **{self.pot:,} chips** with a {hand_name(best)}!"
+        self.pot = 0
 
     def rebuild_items(self):
         self.busy = False
@@ -101,6 +227,10 @@ class PokerTableView(discord.ui.View):
             self.add_item(StartTableButton())
             return
         self.add_item(ViewHandButton())
+        if self.stage < 4:
+            self.add_item(FoldButton())
+            self.add_item(CheckCallButton(self))
+            self.add_item(RaiseButton())
 
     def build_embed(self) -> discord.Embed:
         if self.closed:
@@ -141,19 +271,37 @@ class PokerTableView(discord.ui.View):
                 tags.append("SB")
             if i == self.bb_idx:
                 tags.append("BB")
+            if self.stage < 4 and i == self.turn_idx and not p.folded:
+                tags.append("👉")
             tag_text = f" ({'/'.join(tags)})" if tags else ""
-            lines.append(f"🪑 {p.name}{tag_text} — {p.stack:,} chips")
+
+            status = ""
+            if p.folded:
+                status = " — folded"
+            elif p.stack == 0:
+                status = " — all-in"
+            elif p.bet > 0:
+                status = f" — bet {p.bet:,}"
+
+            lines.append(f"🪑 {p.name}{tag_text} — {p.stack:,} chips{status}")
+
+        community_text = format_cards(self.community) if self.community else "*(none yet)*"
+
+        description = (
+            f"**Pot:** {self.pot:,} chips\n"
+            f"**Community:** {community_text}\n\n"
+            f"**Players:**\n" + "\n".join(lines)
+        )
+        if self.result_text:
+            description += f"\n\n{self.result_text}"
 
         embed = discord.Embed(
-            title=f"🃏 Poker Table — {self.stake['name']}",
-            description=(
-                f"**Pot:** {self.pot:,} chips\n\n"
-                f"**Players:**\n" + "\n".join(lines) + "\n\n"
-                "Cards have been dealt — check your hand privately below."
-            ),
-            color=discord.Color.dark_gold(),
+            title=f"🃏 Poker Table — {self.stake['name']} ({STAGE_NAMES[self.stage]})",
+            description=description,
+            color=discord.Color.green() if self.stage >= 4 else discord.Color.dark_gold(),
         )
-        embed.set_footer(text="🚧 Betting rounds are the next phase — nothing to act on yet.")
+        if self.stage < 4:
+            embed.set_footer(text=f"{self.players[self.turn_idx].name}'s turn to act")
         return embed
 
 
@@ -248,6 +396,152 @@ class ViewHandButton(discord.ui.Button):
         await interaction.response.send_message(
             f"🂠 Your hand: **{format_cards(player.hole)}**", ephemeral=True
         )
+
+
+def _reject_if_not_turn(view: "PokerTableView", user_id: int):
+    """Shared turn-gate for the action buttons. Returns an error string if the
+    click is invalid, or None if the click is for the correct player."""
+    player = view.find_player(user_id)
+    if not player:
+        return "You're not seated at this table."
+    if player.folded:
+        return "You've already folded this hand."
+    if view.stage >= 4:
+        return "This hand is already over."
+    if view.players[view.turn_idx].user_id != user_id:
+        return "It's not your turn."
+    return None
+
+
+class FoldButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Fold", style=discord.ButtonStyle.danger, emoji="✋")
+
+    async def callback(self, interaction: discord.Interaction):
+        view: PokerTableView = self.view
+        error = _reject_if_not_turn(view, interaction.user.id)
+        if error:
+            view.busy = False
+            return await interaction.response.send_message(error, ephemeral=True)
+
+        player = view.find_player(interaction.user.id)
+        player.folded = True
+        player.acted = True
+        view.advance_after_action()
+        view.rebuild_items()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class CheckCallButton(discord.ui.Button):
+    def __init__(self, view: "PokerTableView"):
+        call_amount = 0
+        if view.stage < 4 and view.players:
+            current_player = view.players[view.turn_idx]
+            call_amount = max(0, view.current_bet - current_player.bet)
+        if call_amount > 0:
+            label, emoji = f"Call {call_amount:,}", "📞"
+        else:
+            label, emoji = "Check", "✔️"
+        super().__init__(label=label, style=discord.ButtonStyle.primary, emoji=emoji)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: PokerTableView = self.view
+        error = _reject_if_not_turn(view, interaction.user.id)
+        if error:
+            view.busy = False
+            return await interaction.response.send_message(error, ephemeral=True)
+
+        player = view.find_player(interaction.user.id)
+        call_amount = min(view.current_bet - player.bet, player.stack)
+        if call_amount > 0:
+            player.stack -= call_amount
+            player.bet += call_amount
+            view.pot += call_amount
+        player.acted = True
+
+        view.advance_after_action()
+        view.rebuild_items()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class RaiseModal(discord.ui.Modal, title="Raise"):
+    amount = discord.ui.TextInput(label="Raise to (total bet this round)", placeholder="e.g. 100", max_length=10)
+
+    def __init__(self, poker_view: "PokerTableView", player: PokerPlayer):
+        super().__init__()
+        self.poker_view = poker_view
+        self.player = player
+
+    async def on_submit(self, interaction: discord.Interaction):
+        view = self.poker_view
+        player = self.player
+
+        if view.busy:
+            return await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+        error = _reject_if_not_turn(view, player.user_id)
+        if error:
+            return await interaction.response.send_message(f"{error} (the raise didn't go through)", ephemeral=True)
+
+        try:
+            target = int(self.amount.value)
+        except ValueError:
+            return await interaction.response.send_message("Amount must be a number.", ephemeral=True)
+
+        max_possible = player.bet + player.stack
+        min_valid = view.current_bet + view.min_raise_increment
+
+        if target <= view.current_bet:
+            return await interaction.response.send_message(
+                f"Raise must be more than the current bet ({view.current_bet:,}).", ephemeral=True
+            )
+        if target > max_possible:
+            return await interaction.response.send_message(
+                f"You only have {max_possible:,} chips available this round.", ephemeral=True
+            )
+        if target < min_valid and target < max_possible:
+            return await interaction.response.send_message(
+                f"Raise must be to at least {min_valid:,} (or go all-in with {max_possible:,}).", ephemeral=True
+            )
+
+        view.busy = True
+        added = target - player.bet
+        player.stack -= added
+        player.bet = target
+        view.pot += added
+        view.min_raise_increment = max(target - view.current_bet, view.min_raise_increment)
+        view.current_bet = target
+        player.acted = True
+        for p in view.players:
+            if p is not player and not p.folded and p.stack > 0:
+                p.acted = False  # a raise reopens action for everyone else
+
+        view.advance_after_action()
+        view.rebuild_items()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class RaiseButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Raise", style=discord.ButtonStyle.success, emoji="⬆️")
+
+    async def callback(self, interaction: discord.Interaction):
+        view: PokerTableView = self.view
+        error = _reject_if_not_turn(view, interaction.user.id)
+        if error:
+            view.busy = False
+            return await interaction.response.send_message(error, ephemeral=True)
+
+        player = view.find_player(interaction.user.id)
+        if player.stack <= 0:
+            view.busy = False
+            return await interaction.response.send_message("You're all-in — nothing left to raise with.", ephemeral=True)
+
+        # A modal takes over from here instead of rebuild_items() — release
+        # the lock now. RaiseModal.on_submit re-validates it's still this
+        # player's turn before touching any state, since the table can move
+        # on while the modal is open.
+        view.busy = False
+        await interaction.response.send_modal(RaiseModal(view, player))
 
 
 class StakePresetButton(discord.ui.Button):
