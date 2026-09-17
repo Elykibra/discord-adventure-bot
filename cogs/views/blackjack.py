@@ -152,6 +152,9 @@ class BlackjackHandView(discord.ui.View):
         self.outcome = "pending"
         self.result_text = "Your move."
         self.message: discord.Message | None = None
+        # Guards against double-clicking a button before the previous click's
+        # response has landed — see the same fix in cogs/views/dungeon.py.
+        self.busy = False
         self.rebuild_items()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -160,9 +163,16 @@ class BlackjackHandView(discord.ui.View):
                 "This isn't your hand — feel free to watch, though!", ephemeral=True
             )
             return False
+        if self.busy:
+            await interaction.response.send_message(
+                "Still resolving your last move — hang on a second.", ephemeral=True
+            )
+            return False
+        self.busy = True
         return True
 
     def rebuild_items(self):
+        self.busy = False  # reaching a new stable button state releases the lock
         self.clear_items()
         if self.finished:
             return
@@ -326,6 +336,7 @@ class DoubleDownButton(discord.ui.Button):
 
         wallet = await view.db_cog.get_or_create_wallet(view.user_id)
         if wallet["balance"] < view.bet:
+            view.busy = False  # bail out before doing anything — release the lock we just took
             await interaction.followup.send(
                 f"You need {view.bet:,} more chips to double down — you have {wallet['balance']:,}.",
                 ephemeral=True,
