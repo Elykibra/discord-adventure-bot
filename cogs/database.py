@@ -184,6 +184,37 @@ class Database(commands.Cog):
         )
         return [dict(r) for r in records]
 
+    # --- Poker restart safety net ---
+    # A poker table keeps its live state (cards, pot, turn order) in memory
+    # only, same as Blackjack/Dungeon. Unlike those, it can hold several
+    # players' chips at once for a long session, so this snapshot exists
+    # purely so a bot restart never actually loses anyone's chips — see
+    # migration 018 for the full rationale.
+    async def save_poker_snapshot(self, table_key: str, stacks: Dict[str, int]) -> None:
+        """Upserts the current stacks for a live poker table, keyed by its message id."""
+        await self.pool.execute(
+            '''INSERT INTO poker_session_snapshots (table_key, stacks, updated_at)
+               VALUES ($1, $2, NOW())
+               ON CONFLICT (table_key) DO UPDATE SET stacks = $2, updated_at = NOW()''',
+            table_key, json.dumps(stacks)
+        )
+
+    async def clear_poker_snapshot(self, table_key: str) -> None:
+        """Removes a table's snapshot once it closes normally (host left, everyone cashed out)."""
+        await self.pool.execute('DELETE FROM poker_session_snapshots WHERE table_key = $1', table_key)
+
+    async def get_all_poker_snapshots(self) -> list:
+        """Every leftover snapshot — a non-empty result means the bot went
+        down without those tables closing cleanly (used on startup cleanup)."""
+        records = await self.pool.fetch('SELECT table_key, stacks FROM poker_session_snapshots')
+        result = []
+        for r in records:
+            d = dict(r)
+            if isinstance(d['stacks'], str):
+                d['stacks'] = json.loads(d['stacks'])
+            result.append(d)
+        return result
+
     async def get_player_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         record = await self.pool.fetchrow('SELECT * FROM players WHERE username = $1', username)
         return self._record_to_dict(record)

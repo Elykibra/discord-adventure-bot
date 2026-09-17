@@ -13,6 +13,8 @@
 # this one (anyone can Join/Leave), so the guard is table-wide rather than
 # tied to a single owner.
 
+import asyncio
+
 import discord
 
 from data.poker import STAKE_TIERS, new_shuffled_deck, format_cards, best_hand_from_7, hand_name
@@ -21,6 +23,7 @@ MIN_PLAYERS_TO_START = 2
 MAX_PLAYERS = 6
 MIN_CUSTOM_BUY_IN = 20
 MIN_CUSTOM_SMALL_BLIND = 1
+TURN_TIMEOUT_SECONDS = 90
 
 STAGE_NAMES = ["Pre-Flop", "Flop", "Turn", "River", "Showdown"]
 
@@ -32,7 +35,8 @@ class PokerPlayer:
         self.stack = stack
         self.hole: list = []
         self.folded = False
-        self.bet = 0     # this betting round's contribution so far
+        self.bet = 0          # this betting round's contribution so far
+        self.contributed = 0  # this whole hand's contribution — drives side-pot eligibility
         self.acted = False
 
 
@@ -47,6 +51,7 @@ class PokerTableView(discord.ui.View):
         self.started = False
         self.closed = False
         self.message: discord.Message | None = None
+        self.table_key: str | None = None  # set once the table's message exists — see save_snapshot()
         self.busy = False
         self.hand_number = 0
 
@@ -62,6 +67,13 @@ class PokerTableView(discord.ui.View):
         self.min_raise_increment = 0
         self.turn_idx = 0
         self.result_text = ""
+
+        # Per-turn auto-fold timer — see start_turn_timer()/cancel_turn_timer().
+        # turn_token is bumped every time the "current turn" changes, so a
+        # timer that fires after the turn has already moved on (acted upon
+        # manually, or already timed out once) can tell it's stale and no-op.
+        self.turn_token = 0
+        self.turn_task: asyncio.Task | None = None
 
         self.rebuild_items()
 
@@ -87,6 +99,7 @@ class PokerTableView(discord.ui.View):
             p.hole = [self.deck.pop(), self.deck.pop()]
             p.folded = False
             p.bet = 0
+            p.contributed = 0
             p.acted = False
 
         n = len(self.players)
@@ -114,6 +127,8 @@ class PokerTableView(discord.ui.View):
         bb_player.stack -= bb_amount
         sb_player.bet = sb_amount
         bb_player.bet = bb_amount
+        sb_player.contributed = sb_amount
+        bb_player.contributed = bb_amount
         self.pot = sb_amount + bb_amount
 
         self.community = []
@@ -126,6 +141,71 @@ class PokerTableView(discord.ui.View):
         # the dealer/SB in heads-up (see the heads-up note above).
         start = self.dealer_idx if n == 2 else (self.bb_idx + 1) % n
         self.turn_idx = self.first_active_from(start)
+        self.start_turn_timer()
+
+    # --- Per-turn timeout ---
+    def cancel_turn_timer(self):
+        if self.turn_task and not self.turn_task.done():
+            self.turn_task.cancel()
+        self.turn_task = None
+
+    def start_turn_timer(self):
+        """(Re)arms the auto-fold timer for whoever's turn it is right now.
+        Safe to call freely — always cancels any previous timer first, and
+        bumps turn_token so a previous timer waking up later recognizes
+        it's stale and does nothing."""
+        self.cancel_turn_timer()
+        self.turn_token += 1
+        self.turn_task = asyncio.create_task(self._turn_timeout_watcher(self.turn_token))
+
+    async def _turn_timeout_watcher(self, token: int):
+        try:
+            await asyncio.sleep(TURN_TIMEOUT_SECONDS)
+        except asyncio.CancelledError:
+            return
+        if token != self.turn_token or self.closed or not self.started or self.stage >= 4:
+            return
+        if not self.players or self.turn_idx >= len(self.players):
+            return  # the player on the clock left mid-hand — nothing sane to auto-act on
+        await self._auto_act_timeout()
+
+    async def _auto_act_timeout(self):
+        player = self.players[self.turn_idx]
+        call_amount = self.current_bet - player.bet
+        if call_amount > 0:
+            player.folded = True
+            note = f"⏱️ **{player.name}** took too long and was auto-folded."
+        else:
+            note = f"⏱️ **{player.name}** took too long and auto-checked."
+        player.acted = True
+
+        result = self.advance_after_action()
+        self.rebuild_items()
+        self.result_text = f"{note}\n\n{self.result_text}" if self.result_text else note
+
+        if self.message:
+            try:
+                await self.message.edit(embed=self.build_embed(), view=self)
+            except discord.HTTPException:
+                pass
+        if result in ("fold_win", "showdown"):
+            await self.save_snapshot()
+
+    # --- Restart safety net (see migrations/018) ---
+    def current_stacks(self) -> dict:
+        stacks = {str(p.user_id): p.stack for p in self.players}
+        stacks.update({str(p.user_id): p.stack for p in self.pending})
+        return stacks
+
+    async def save_snapshot(self):
+        if not self.table_key:
+            return
+        await self.db_cog.save_poker_snapshot(self.table_key, self.current_stacks())
+
+    async def clear_snapshot(self):
+        if not self.table_key:
+            return
+        await self.db_cog.clear_poker_snapshot(self.table_key)
 
     # --- Turn / round-state helpers ---
     def first_active_from(self, start_idx: int) -> int:
@@ -159,13 +239,20 @@ class PokerTableView(discord.ui.View):
         show based on that."""
         active = self.active_players()
         if len(active) <= 1:
+            self.cancel_turn_timer()
             self.resolve_fold_win()
             return "fold_win"
 
         if self.round_complete():
-            return self.advance_stage()
+            result = self.advance_stage()
+            if result == "continue":
+                self.start_turn_timer()
+            else:
+                self.cancel_turn_timer()
+            return result
 
         self.turn_idx = self.first_active_from((self.turn_idx + 1) % len(self.players))
+        self.start_turn_timer()
         return "continue"
 
     def advance_stage(self) -> str:
@@ -219,26 +306,82 @@ class PokerTableView(discord.ui.View):
         self.pot = 0
         self._remove_busted()
 
+    def compute_pots(self) -> list:
+        """Splits self.pot into a main pot plus one side pot per distinct
+        all-in amount among the players still active. A player who went
+        all-in short only ever contests chips up to what they personally
+        put in — whatever the other players bet beyond that forms a side
+        pot those short-stacked players aren't eligible to win. Folded
+        players' chips still count toward whichever layer(s) they
+        contributed to; they just aren't in `eligible` for any of them."""
+        active = self.active_players()
+        if not active:
+            return []
+
+        contributors = [p for p in self.players if p.contributed > 0]
+        levels = sorted(set(p.contributed for p in active))
+
+        pots = []
+        prev_level = 0
+        for level in levels:
+            layer_contributors = [p for p in contributors if p.contributed > prev_level]
+            layer_amount = sum(min(p.contributed, level) - prev_level for p in layer_contributors)
+            eligible = [p for p in active if p.contributed >= level]
+            if layer_amount > 0:
+                pots.append({"amount": layer_amount, "eligible": eligible})
+            prev_level = level
+
+        # Defensive: a folded player's contribution should never realistically
+        # exceed every remaining active player's (folding only ever happens in
+        # response to a bet an active player already matched or made), but if
+        # some edge case ever produced that anyway, don't let the excess
+        # silently vanish — fold it into the top pot rather than lose chips.
+        accounted = sum(p["amount"] for p in pots)
+        leftover = sum(p.contributed for p in contributors) - accounted
+        if leftover > 0:
+            if pots:
+                pots[-1]["amount"] += leftover
+            else:
+                # Every active player's contributed level was 0 (e.g. blind
+                # posters folded before anyone else put money in) — no tier
+                # exists to attach the leftover to, so give everyone still
+                # active a shot at it rather than losing it.
+                pots.append({"amount": leftover, "eligible": active})
+        return pots
+
     def resolve_showdown(self):
         active = self.active_players()
-        best = None
-        winners = []
+        ranks = {p.user_id: best_hand_from_7(p.hole + self.community) for p in active}
+        pots = self.compute_pots()
+
+        won_amounts = {p.user_id: 0 for p in active}
+        pot_lines = []
+        for i, pot in enumerate(pots):
+            eligible = pot["eligible"]
+            best = max(ranks[p.user_id] for p in eligible)
+            winners = [p for p in eligible if ranks[p.user_id] == best]
+            share = pot["amount"] // len(winners)
+            leftover = pot["amount"] - share * len(winners)  # simplest odd-chip rule: first winner gets the remainder
+            for j, w in enumerate(winners):
+                take = share + (leftover if j == 0 else 0)
+                w.stack += take
+                won_amounts[w.user_id] += take
+
+            label = "Main pot" if i == 0 else f"Side pot {i}"
+            names = ", ".join(f"{w.name} ({hand_name(best)})" for w in winners)
+            pot_lines.append(f"**{label}** ({pot['amount']:,}): {names}")
+
+        # Real showdown convention: everyone who saw it through to the end
+        # shows their hand, winners and losers alike — that's the whole
+        # dramatic point, and it's different from folding, where a player
+        # never has to reveal what they had.
+        reveal_lines = []
         for p in active:
-            rank = best_hand_from_7(p.hole + self.community)
-            if best is None or rank > best:
-                best = rank
-                winners = [p]
-            elif rank == best:
-                winners.append(p)
+            won = won_amounts[p.user_id]
+            won_text = f" — **+{won:,}**" if won > 0 else ""
+            reveal_lines.append(f"🂠 {p.name}: {format_cards(p.hole)} ({hand_name(ranks[p.user_id])}){won_text}")
 
-        share = self.pot // len(winners)
-        leftover = self.pot - share * len(winners)  # odd chips — see note below
-        for i, w in enumerate(winners):
-            w.stack += share + (leftover if i == 0 else 0)  # simplest odd-chip rule: first winner gets the remainder
-
-        names = ", ".join(f"{w.name} ({hand_name(best)})" for w in winners)
-        self.result_text = f"🏆 **Showdown!** {names} — wins {share:,} each." if len(winners) > 1 \
-            else f"🏆 **{winners[0].name}** wins **{self.pot:,} chips** with a {hand_name(best)}!"
+        self.result_text = "🏆 **Showdown!**\n" + "\n".join(pot_lines) + "\n\n" + "\n".join(reveal_lines)
         self.pot = 0
         self._remove_busted()
 
@@ -337,7 +480,10 @@ class PokerTableView(discord.ui.View):
             color=discord.Color.green() if self.stage >= 4 else discord.Color.dark_gold(),
         )
         if self.stage < 4:
-            embed.set_footer(text=f"{self.players[self.turn_idx].name}'s turn to act")
+            embed.set_footer(
+                text=f"{self.players[self.turn_idx].name}'s turn to act "
+                     f"(auto-folds after {TURN_TIMEOUT_SECONDS}s of inactivity)"
+            )
         else:
             embed.set_footer(text="Between hands — host can deal the next one, or anyone can leave.")
         return embed
@@ -379,6 +525,7 @@ class JoinTableButton(discord.ui.Button):
             view.players.append(new_player)
 
         view.rebuild_items()
+        await view.save_snapshot()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -400,6 +547,7 @@ class LeaveTableButton(discord.ui.Button):
             await view.db_cog.add_chips(interaction.user.id, pending_player.stack)
             view.pending.remove(pending_player)
             view.rebuild_items()
+            await view.save_snapshot()
             return await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
         if player.user_id == view.host_id:
@@ -411,13 +559,16 @@ class LeaveTableButton(discord.ui.Button):
             view.players.clear()
             view.pending.clear()
             view.closed = True
+            view.cancel_turn_timer()
             view.rebuild_items()
             view.stop()
+            await view.clear_snapshot()
             return await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
         await view.db_cog.add_chips(interaction.user.id, player.stack)
         view.players.remove(player)
         view.rebuild_items()
+        await view.save_snapshot()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -517,8 +668,10 @@ class FoldButton(discord.ui.Button):
         player = view.find_player(interaction.user.id)
         player.folded = True
         player.acted = True
-        view.advance_after_action()
+        result = view.advance_after_action()
         view.rebuild_items()
+        if result in ("fold_win", "showdown"):
+            await view.save_snapshot()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -546,11 +699,14 @@ class CheckCallButton(discord.ui.Button):
         if call_amount > 0:
             player.stack -= call_amount
             player.bet += call_amount
+            player.contributed += call_amount
             view.pot += call_amount
         player.acted = True
 
-        view.advance_after_action()
+        result = view.advance_after_action()
         view.rebuild_items()
+        if result in ("fold_win", "showdown"):
+            await view.save_snapshot()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -597,6 +753,7 @@ class RaiseModal(discord.ui.Modal, title="Raise"):
         added = target - player.bet
         player.stack -= added
         player.bet = target
+        player.contributed += added
         view.pot += added
         view.min_raise_increment = max(target - view.current_bet, view.min_raise_increment)
         view.current_bet = target
@@ -605,8 +762,10 @@ class RaiseModal(discord.ui.Modal, title="Raise"):
             if p is not player and not p.folded and p.stack > 0:
                 p.acted = False  # a raise reopens action for everyone else
 
-        view.advance_after_action()
+        result = view.advance_after_action()
         view.rebuild_items()
+        if result in ("fold_win", "showdown"):
+            await view.save_snapshot()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
@@ -718,3 +877,5 @@ async def create_table(interaction: discord.Interaction, stake: dict):
         view=view,
     )
     view.message = message
+    view.table_key = str(message.id)
+    await view.save_snapshot()
