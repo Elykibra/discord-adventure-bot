@@ -14,6 +14,7 @@
 # tied to a single owner.
 
 import asyncio
+import time
 import traceback
 
 import discord
@@ -76,6 +77,7 @@ class PokerTableView(discord.ui.View):
         # manually, or already timed out once) can tell it's stale and no-op.
         self.turn_token = 0
         self.turn_task: asyncio.Task | None = None
+        self.turn_deadline: float | None = None  # unix timestamp — shown as a live countdown in the embed
 
         self.rebuild_items()
 
@@ -178,6 +180,7 @@ class PokerTableView(discord.ui.View):
         it's stale and does nothing."""
         self.cancel_turn_timer()
         self.turn_token += 1
+        self.turn_deadline = time.time() + TURN_TIMEOUT_SECONDS
         self.turn_task = asyncio.create_task(self._turn_timeout_watcher(self.turn_token))
 
     async def _turn_timeout_watcher(self, token: int):
@@ -546,6 +549,8 @@ class PokerTableView(discord.ui.View):
             f"**Community:** {community_text}\n\n"
             f"**Players:**\n" + "\n".join(lines)
         )
+        if self.stage < 4 and self.turn_deadline:
+            description += f"\n\n⏱️ Auto-folds <t:{int(self.turn_deadline)}:R> if no action is taken."
         if self.pending:
             pending_names = ", ".join(p.name for p in self.pending)
             description += f"\n\n⏳ **Waiting to join next hand:** {pending_names}"
@@ -558,10 +563,7 @@ class PokerTableView(discord.ui.View):
             color=discord.Color.green() if self.stage >= 4 else discord.Color.dark_gold(),
         )
         if self.stage < 4:
-            embed.set_footer(
-                text=f"{self.players[self.turn_idx].name}'s turn to act "
-                     f"(auto-folds after {TURN_TIMEOUT_SECONDS}s of inactivity)"
-            )
+            embed.set_footer(text=f"{self.players[self.turn_idx].name}'s turn to act")
         else:
             embed.set_footer(text="Between hands — host can deal the next one, or anyone can leave.")
         return embed
