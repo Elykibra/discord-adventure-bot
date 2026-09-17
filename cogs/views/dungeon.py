@@ -161,6 +161,8 @@ class DungeonRunView(discord.ui.View):
         self.add_item(RestButton())
         if self.room_number >= CASH_OUT_FROM_ROOM:
             self.add_item(CashOutButton())
+        if self.skills:
+            self.add_item(BuildSelect(self.skills))
 
     def build_embed(self) -> discord.Embed:
         theme = get_theme_for_floor(self.floor)
@@ -178,8 +180,7 @@ class DungeonRunView(discord.ui.View):
         embed.add_field(name="Room", value=f"{self.room_in_floor}/{get_rooms_per_floor(self.floor)}", inline=True)
 
         if self.skills:
-            build_text = ", ".join(f"{SKILL_POOL[s]['emoji']} {SKILL_POOL[s]['name']}" for s in self.skills)
-            embed.add_field(name="Build", value=build_text, inline=False)
+            embed.add_field(name="Build", value=f"{len(self.skills)} active — see the dropdown below", inline=True)
 
         return embed
 
@@ -278,6 +279,35 @@ class DungeonRunView(discord.ui.View):
             await self.message.edit(embed=self.build_embed(), view=self)
         except discord.HTTPException:
             pass
+
+
+class BuildSelect(discord.ui.Select):
+    """Purely informational — lets a player browse their current run's build
+    (with real descriptions, shown natively by Discord's dropdown) without
+    the main embed growing a line for every skill picked up over the run."""
+
+    def __init__(self, skills: list[str]):
+        counts: dict[str, int] = {}
+        for key in skills:
+            counts[key] = counts.get(key, 0) + 1
+
+        options = []
+        for key, count in counts.items():
+            skill = SKILL_POOL[key]
+            label = skill["name"] + (f" x{count}" if count > 1 else "")
+            options.append(discord.SelectOption(
+                label=label, value=key, emoji=skill["emoji"], description=skill["description"][:100],
+            ))
+
+        super().__init__(placeholder=f"📋 View your build ({len(skills)} active)", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        # Nothing to apply — the dropdown's own descriptions are the point.
+        # Still release the busy lock interaction_check took, since this
+        # path never reaches rebuild_items().
+        view: DungeonRunView = self.view
+        view.busy = False
+        await interaction.response.defer()
 
 
 class LevelUpButton(discord.ui.Button):
