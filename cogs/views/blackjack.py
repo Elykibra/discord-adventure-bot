@@ -180,7 +180,7 @@ class BlackjackHandView(discord.ui.View):
             dealer_hand_text = format_hand(self.dealer_cards)
             dealer_label = f"{dealer_total}" + (" (soft)" if dealer_soft else "")
         else:
-            dealer_hand_text = f"{format_hand([self.dealer_cards[0]])} 🂠"
+            dealer_hand_text = f"{format_hand([self.dealer_cards[0]])} 🎴"
             dealer_label = "?"
 
         color = {
