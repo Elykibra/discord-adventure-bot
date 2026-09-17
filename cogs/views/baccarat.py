@@ -170,16 +170,20 @@ class BaccaratTableView(discord.ui.View):
         beat after the last card rather than all at once."""
         r = self.last_result
         header = [f"🪑 {p.name}{' 👑' if p.user_id == self.host_id else ''}" for p in self.players]
-        base = f"**Players ({len(self.players)}):**\n" + "\n".join(header)
 
         def hand_line(label, cards):
             if not cards:
                 return f"{label}: *(waiting)*"
-            return f"{label}: {format_cards(cards)}  =  {hand_value(cards)}"
+            return f"{label}: {format_cards(cards)}  =  **{hand_value(cards)}**"
 
         def frame(note, player_cards, banker_cards):
-            desc = f"{base}\n\n🎴 *{note}*\n\n" + hand_line("Player", player_cards) + "\n" + hand_line("Banker", banker_cards)
-            return discord.Embed(title="🎴 Baccarat Table", description=desc, color=discord.Color.dark_gold())
+            embed = discord.Embed(title="🎴 Baccarat Table", description=f"🎴 *{note}*", color=discord.Color.dark_gold())
+            embed.add_field(name=f"Players ({len(self.players)})", value="\n".join(header), inline=False)
+            embed.add_field(
+                name="Cards", value=hand_line("Player", player_cards) + "\n" + hand_line("Banker", banker_cards),
+                inline=False,
+            )
+            return embed
 
         frames = [
             frame("Dealing...", [], []),
@@ -251,34 +255,44 @@ class BaccaratTableView(discord.ui.View):
                 color=discord.Color.dark_grey(),
             )
 
-        lines = [f"🪑 {p.name}{' 👑' if p.user_id == self.host_id else ''}" for p in self.players]
-        description = f"**Players ({len(self.players)}):**\n" + "\n".join(lines)
-
-        if self.bets:
-            bet_lines = []
-            for p in self.players:
-                bet = self.bets.get(p.user_id)
-                if bet:
-                    bet_lines.append(f"{SIDE_EMOJI[bet['side']]} {p.name}: {SIDE_LABELS[bet['side']]} — {bet['amount']:,} chips")
-            description += "\n\n**Bets this round:**\n" + "\n".join(bet_lines)
-            if self.betting_deadline:
-                description += f"\n\n⏱️ Round deals <t:{int(self.betting_deadline)}:R>"
+        if self.betting_deadline:
+            status = f"⏱️ Round deals <t:{int(self.betting_deadline)}:R>"
+        elif not self.bets:
+            status = "*Waiting for a bet — the round deals automatically once one comes in.*"
         else:
-            description += "\n\n*Waiting for a bet — the round deals automatically once one comes in.*"
+            status = None  # bets exist but no deadline shouldn't happen — they're set/cleared together
+
+        embed = discord.Embed(title="🎴 Baccarat Table", description=status, color=discord.Color.dark_gold())
+
+        # One line per player showing their current bet right next to their
+        # name, rather than a separate list a reader has to cross-reference.
+        player_lines = []
+        for p in self.players:
+            crown = " 👑" if p.user_id == self.host_id else ""
+            bet = self.bets.get(p.user_id)
+            if bet:
+                bet_text = f"{SIDE_EMOJI[bet['side']]} {SIDE_LABELS[bet['side']]} — {bet['amount']:,} chips"
+            else:
+                bet_text = "*no bet yet*"
+            player_lines.append(f"🪑 **{p.name}**{crown} — {bet_text}")
+        embed.add_field(name=f"Players ({len(self.players)})", value="\n".join(player_lines), inline=False)
 
         if self.last_result:
             r = self.last_result
             outcome_label = SIDE_LABELS[r["outcome"]]
             natural_tag = " (Natural!)" if r["natural"] else ""
-            description += (
-                f"\n\n🏆 **Last round:** Player {format_cards(r['player'])} = {r['player_total']}   |   "
-                f"Banker {format_cards(r['banker'])} = {r['banker_total']}\n"
-                f"**{outcome_label} wins{natural_tag}**"
+            embed.add_field(
+                name="🏆 Last Round",
+                value=(
+                    f"Player {format_cards(r['player'])}  =  **{r['player_total']}**\n"
+                    f"Banker {format_cards(r['banker'])}  =  **{r['banker_total']}**\n"
+                    f"**{outcome_label} wins{natural_tag}**"
+                ),
+                inline=False,
             )
             if r["payout_lines"]:
-                description += "\n" + "\n".join(r["payout_lines"])
+                embed.add_field(name="💰 Payouts", value="\n".join(r["payout_lines"]), inline=False)
 
-        embed = discord.Embed(title="🎴 Baccarat Table", description=description, color=discord.Color.dark_gold())
         embed.set_footer(text=f"Banker pays {PAYOUTS['banker']}:1 (5% commission) · Tie pays {PAYOUTS['tie']:.0f}:1")
         return embed
 
@@ -336,7 +350,7 @@ class BetModal(discord.ui.Modal, title="Place Bet"):
 class BetButton(discord.ui.Button):
     def __init__(self, side: str):
         super().__init__(
-            label=f"Bet {SIDE_LABELS[side]}", style=discord.ButtonStyle.primary, emoji=SIDE_EMOJI[side]
+            label=SIDE_LABELS[side], style=discord.ButtonStyle.primary, emoji=SIDE_EMOJI[side]
         )
         self.side = side
 
