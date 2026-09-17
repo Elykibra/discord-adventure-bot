@@ -221,9 +221,9 @@ class PokerTableView(discord.ui.View):
         return stacks
 
     async def save_snapshot(self):
-        if not self.table_key:
+        if not self.table_key or not self.message:
             return
-        await self.db_cog.save_poker_snapshot(self.table_key, self.current_stacks())
+        await self.db_cog.save_poker_snapshot(self.table_key, self.message.channel.id, self.current_stacks())
 
     async def clear_snapshot(self):
         if not self.table_key:

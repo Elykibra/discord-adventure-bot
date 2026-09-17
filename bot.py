@@ -128,13 +128,38 @@ async def on_ready():
         # 4) Refund any poker tables left mid-session by a restart. Poker
         # keeps its live state in memory only, same as Blackjack/Dungeon —
         # this is just the stacks safety net (see migrations/018), not a
-        # recovery of the in-progress hand itself.
+        # recovery of the in-progress hand itself. Also try to close out
+        # the old table message so its buttons don't just silently eat
+        # clicks — the View object behind them is gone after a restart,
+        # so discord.py discards any interaction with nothing to route it
+        # to, which looks to a player like the bot hung.
         try:
             orphaned_tables = await db_cog.get_all_poker_snapshots()
             for snapshot in orphaned_tables:
                 for user_id_str, stack in snapshot["stacks"].items():
                     if stack > 0:
                         await db_cog.add_chips(int(user_id_str), stack)
+
+                try:
+                    channel_id = snapshot.get("channel_id")
+                    if channel_id:
+                        channel = bot.get_channel(channel_id)
+                        if channel:
+                            msg = await channel.fetch_message(int(snapshot["table_key"]))
+                            await msg.edit(
+                                embed=discord.Embed(
+                                    title="🃏 Poker Table — Closed",
+                                    description=(
+                                        "*The bot restarted while this table was active — "
+                                        "everyone's buy-in has been refunded. Open a new table to keep playing.*"
+                                    ),
+                                    color=discord.Color.dark_grey(),
+                                ),
+                                view=None,
+                            )
+                except Exception:
+                    pass  # best-effort — the refund above already happened either way
+
                 await db_cog.clear_poker_snapshot(snapshot["table_key"])
             if orphaned_tables:
                 print(f"🃏 Refunded {len(orphaned_tables)} orphaned poker table(s) after restart.")
