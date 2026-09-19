@@ -50,12 +50,11 @@ def slots_bet_embed(balance: int) -> discord.Embed:
     )
 
 
-def _spin_embed(reels: list, note: str, balance_line: str | None = None) -> discord.Embed:
+def _spin_embed(reels: list, note: str, balance: int) -> discord.Embed:
     reel_text = "  ".join(f"[ {s} ]" for s in reels)
-    description = f"{reel_text}\n\n*{note}*"
-    if balance_line:
-        description += f"\n\n{balance_line}"
-    return discord.Embed(title="🎰 Slots", description=description, color=discord.Color.gold())
+    embed = discord.Embed(title="🎰 Slots", description=f"{reel_text}\n\n*{note}*", color=discord.Color.gold())
+    embed.set_footer(text=f"💰 Balance: {balance:,} chips")
+    return embed
 
 
 async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
@@ -74,15 +73,18 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
     def random_reels():
         return [random.choice(_DECORATIVE_SYMBOLS) for _ in range(3)]
 
+    # Balance already settled above before any animation plays, so every
+    # frame up to the last shows the post-bet balance; only the final
+    # frame reflects a win's credit, since that's when it actually lands.
     frames = [
-        _spin_embed(random_reels(), "Spinning..."),
-        _spin_embed(random_reels(), "Spinning..."),
+        _spin_embed(random_reels(), "Spinning...", balance_after_bet),
+        _spin_embed(random_reels(), "Spinning...", balance_after_bet),
     ]
     frames.append(_spin_embed(
-        [final_reels[0], *random_reels()[1:]], f"Reel 1 locks: {final_reels[0]}"
+        [final_reels[0], *random_reels()[1:]], f"Reel 1 locks: {final_reels[0]}", balance_after_bet
     ))
     frames.append(_spin_embed(
-        [final_reels[0], final_reels[1], random_reels()[2]], f"Reel 2 locks: {final_reels[1]}"
+        [final_reels[0], final_reels[1], random_reels()[2]], f"Reel 2 locks: {final_reels[1]}", balance_after_bet
     ))
 
     net = credit - bet
@@ -90,7 +92,7 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
         result_note = f"🏆 {multiplier}x — you win {credit:,} chips! (net +{net:,})"
     else:
         result_note = f"No match — you lost {bet:,} chips. Try again!"
-    frames.append(_spin_embed(final_reels, result_note, f"💰 Balance: {final_balance:,} chips"))
+    frames.append(_spin_embed(final_reels, result_note, final_balance))
 
     await interaction.edit_original_response(embed=frames[0], view=None)
     for embed in frames[1:-1]:
