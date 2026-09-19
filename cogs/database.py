@@ -278,6 +278,22 @@ class Database(commands.Cog):
             d["extra"] = json.loads(d["extra"])
         return d
 
+    async def get_all_game_stats(self, user_id: int) -> Dict[str, Dict[str, Any]]:
+        """Every casino_game_stats row this user has, keyed by game_key.
+        Games they haven't played yet simply aren't in the result — kept
+        game-catalog-agnostic here (this doesn't know about CASINO_GAMES);
+        the caller (ProfileView) fills in zeroed defaults for whatever's
+        missing, the same way get_game_stats() already defaults a single
+        missing row."""
+        records = await self.pool.fetch('SELECT * FROM casino_game_stats WHERE user_id = $1', user_id)
+        by_game = {}
+        for record in records:
+            d = self._record_to_dict(record)
+            if isinstance(d.get("extra"), str):
+                d["extra"] = json.loads(d["extra"])
+            by_game[d["game_key"]] = d
+        return by_game
+
     # --- Poker hand history (a recent-activity feed, separate from the per-user stats above) ---
     async def record_poker_hand(self, table_key: str, stake_name: str, pot: int, player_results: List[Dict[str, Any]]) -> None:
         """Updates lifetime stats (via record_game_result) for everyone dealt
