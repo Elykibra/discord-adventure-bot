@@ -920,26 +920,46 @@ class StakePresetButton(discord.ui.Button):
         self.stake = stake
 
     async def callback(self, interaction: discord.Interaction):
-        await create_table(interaction, self.stake)
+        view: StakeSelectView = self.view
+        await create_table(interaction, self.stake, view=view)
 
 
 class CustomStakeModal(discord.ui.Modal, title="Custom Table"):
     buy_in = discord.ui.TextInput(label="Buy-in (chips)", placeholder="e.g. 750", max_length=10)
     small_blind = discord.ui.TextInput(label="Small Blind", placeholder="e.g. 15", max_length=10)
 
+    def __init__(self, stake_view: "StakeSelectView"):
+        super().__init__()
+        self.stake_view = stake_view
+
     async def on_submit(self, interaction: discord.Interaction):
+        view = self.stake_view
+        # Claim the lock synchronously, before any DB round-trip — a modal
+        # bypasses the view's own interaction_check, so without this a
+        # submission could race a preset-button click (or another
+        # submission) past the balance check before either deduction
+        # lands. Same shape already proven correct in this view's own
+        # RaiseModal.
+        if view.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return
+        view.busy = True
+
         try:
             buy_in = int(self.buy_in.value)
             small_blind = int(self.small_blind.value)
         except ValueError:
+            view.busy = False
             return await interaction.response.send_message("Buy-in and Small Blind must be numbers.", ephemeral=True)
 
         if buy_in < MIN_CUSTOM_BUY_IN or small_blind < MIN_CUSTOM_SMALL_BLIND:
+            view.busy = False
             return await interaction.response.send_message(
                 f"Buy-in must be at least {MIN_CUSTOM_BUY_IN} and Small Blind at least {MIN_CUSTOM_SMALL_BLIND}.",
                 ephemeral=True,
             )
         if small_blind * 2 > buy_in:
+            view.busy = False
             return await interaction.response.send_message(
                 "Small Blind is too high relative to the buy-in — you'd barely get a hand in.", ephemeral=True
             )
@@ -948,7 +968,7 @@ class CustomStakeModal(discord.ui.Modal, title="Custom Table"):
             "name": "Custom Table", "buy_in": buy_in,
             "small_blind": small_blind, "big_blind": small_blind * 2,
         }
-        await create_table(interaction, stake)
+        await create_table(interaction, stake, view=view)
 
 
 class CustomStakeButton(discord.ui.Button):
@@ -956,7 +976,9 @@ class CustomStakeButton(discord.ui.Button):
         super().__init__(label="Custom Table", style=discord.ButtonStyle.secondary, emoji="✏️")
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(CustomStakeModal())
+        view: StakeSelectView = self.view
+        view.busy = False  # a modal takes over from here — it manages this same lock itself
+        await interaction.response.send_modal(CustomStakeModal(view))
 
 
 class PokerStatsButton(discord.ui.Button):
@@ -964,6 +986,8 @@ class PokerStatsButton(discord.ui.Button):
         super().__init__(label="My Stats", style=discord.ButtonStyle.secondary, emoji="📊")
 
     async def callback(self, interaction: discord.Interaction):
+        view: StakeSelectView = self.view
+        view.busy = False  # purely informational — never reaches a path that would release it otherwise
         db_cog = interaction.client.get_cog('Database')
         stats = await db_cog.get_poker_stats(interaction.user.id)
         recent = await db_cog.get_recent_poker_hands(5)
@@ -992,16 +1016,26 @@ class PokerStatsButton(discord.ui.Button):
 class StakeSelectView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=120)
+        self.busy = False
         for stake in STAKE_TIERS.values():
             self.add_item(StakePresetButton(stake))
         self.add_item(CustomStakeButton())
         self.add_item(PokerStatsButton())
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
 
-async def create_table(interaction: discord.Interaction, stake: dict):
+
+async def create_table(interaction: discord.Interaction, stake: dict, *, view: "StakeSelectView | None" = None):
     db_cog = interaction.client.get_cog('Database')
     wallet = await db_cog.get_or_create_wallet(interaction.user.id)
     if wallet["balance"] < stake["buy_in"]:
+        if view is not None:
+            view.busy = False
         await interaction.response.send_message(
             f"You need {stake['buy_in']:,} chips to open this table — you have {wallet['balance']:,}.",
             ephemeral=True,

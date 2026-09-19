@@ -116,9 +116,11 @@ class SpinAgainButton(discord.ui.Button):
         self.bet = bet
 
     async def callback(self, interaction: discord.Interaction):
+        view: SlotsResultView = self.view
         db_cog = interaction.client.get_cog('Database')
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < self.bet:
+            view.busy = False
             await interaction.response.send_message(
                 f"You don't have {self.bet:,} chips for another {self.bet:,}-chip spin — "
                 f"balance is {wallet['balance']:,}. Try Change Bet for a smaller amount.",
@@ -188,19 +190,25 @@ class BetPresetButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         view: SlotsBetView = self.view
+        # `spun` is this view's one-shot lock, same role as `busy` elsewhere
+        # in the casino — claim it synchronously, right after the check,
+        # before any DB round-trip. Setting it only after the wallet
+        # lookup left a window where two near-simultaneous clicks could
+        # both pass the balance check before either spin actually starts.
         if view.spun:
             await interaction.response.send_message("This bet's already spinning — open Slots again for another pull.", ephemeral=True)
             return
+        view.spun = True
 
         db_cog = interaction.client.get_cog('Database')
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < self.amount:
+            view.spun = False
             await interaction.response.send_message(
                 f"You don't have {self.amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
             return
 
-        view.spun = True
         await start_spin(interaction, db_cog, self.amount)
 
 
@@ -213,29 +221,36 @@ class CustomBetModal(discord.ui.Modal, title="Pull the Lever"):
 
     async def on_submit(self, interaction: discord.Interaction):
         view = self.bet_view
+        # Same synchronous claim-before-any-await reasoning as
+        # BetPresetButton above — a modal bypasses the view's own
+        # interaction_check entirely, so this is the only thing closing
+        # the race for a custom bet.
         if view.spun:
             await interaction.response.send_message("This bet's already spinning — open Slots again for another pull.", ephemeral=True)
             return
+        view.spun = True
 
         db_cog = interaction.client.get_cog('Database')
         try:
             bet = int(self.amount.value)
         except ValueError:
+            view.spun = False
             await interaction.response.send_message("Bet amount must be a number.", ephemeral=True)
             return
 
         if bet < MIN_BET:
+            view.spun = False
             await interaction.response.send_message(f"Minimum bet is {MIN_BET:,} chips.", ephemeral=True)
             return
 
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if bet > wallet["balance"]:
+            view.spun = False
             await interaction.response.send_message(
                 f"You don't have {bet:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
             return
 
-        view.spun = True
         await start_spin(interaction, db_cog, bet)
 
 
