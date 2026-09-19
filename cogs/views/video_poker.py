@@ -185,24 +185,36 @@ class VideoPokerHandView(discord.ui.View):
         self.add_item(DrawButton())
 
     def build_embed(self, *, result: dict | None = None) -> discord.Embed:
+        embed = discord.Embed(title="🎴 Solo Poker", color=discord.Color.dark_gold())
+
         if result:
             outcome_label = HAND_LABELS[result["category"]]
             if result["multiplier"] > 0:
-                description = f"🏆 **{outcome_label}!** {result['multiplier']}x — you win {result['payout']:,} chips."
+                embed.description = (
+                    f"🏆 **{outcome_label}!** {result['multiplier']}x — you win {result['payout']:,} chips."
+                )
+                embed.color = discord.Color.green()
             else:
-                description = f"❌ {outcome_label}. You lose {self.bet:,} chips."
-            color = discord.Color.green() if result["multiplier"] > 0 else discord.Color.dark_grey()
+                embed.description = f"❌ {outcome_label}. You lose {self.bet:,} chips."
+                embed.color = discord.Color.dark_grey()
+
+            # Spell out exactly what happened — which cards were kept from
+            # the deal vs. freshly drawn — so the final hand and category
+            # aren't left for the player to puzzle out on their own.
+            final_hand = "  ".join(f"`{card_display(c)}`" for c in self.hand)
+            kept = [card_display(self.hand[i]) for i in sorted(self.held)]
+            drawn = [card_display(self.hand[i]) for i in range(5) if i not in self.held]
+            embed.add_field(name="Final Hand", value=final_hand, inline=False)
+            embed.add_field(name="Kept", value="  ".join(f"`{c}`" for c in kept) if kept else "_nothing_", inline=True)
+            embed.add_field(name="Drew", value="  ".join(f"`{c}`" for c in drawn) if drawn else "_nothing_", inline=True)
         else:
-            description = "Pick which cards to **hold**, then hit **Draw**."
-            color = discord.Color.dark_gold()
+            embed.description = "Pick which cards to **hold**, then hit **Draw**."
+            card_lines = [
+                f"`{card_display(card)}{' 🔒' if i in self.held else ''}`"
+                for i, card in enumerate(self.hand)
+            ]
+            embed.add_field(name="Your Hand", value="  ".join(card_lines), inline=False)
 
-        card_lines = []
-        for i, card in enumerate(self.hand):
-            marker = "🔒 HELD" if i in self.held else ""
-            card_lines.append(f"`{card_display(card)}` {marker}".strip())
-
-        embed = discord.Embed(title="🎴 Solo Poker", description=description, color=color)
-        embed.add_field(name="Your Hand", value="   ".join(card_lines), inline=False)
         embed.add_field(name="Bet", value=f"{self.bet:,} chips", inline=True)
         embed.set_footer(text=f"💰 Balance: {self.current_balance:,} chips")
         return embed
