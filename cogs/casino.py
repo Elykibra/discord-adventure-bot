@@ -222,7 +222,9 @@ class BackButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         embed = casino_embed("🎰 Casino", "Pick an option below to get started.")
-        await interaction.response.edit_message(embed=embed, view=CasinoView())
+        view = CasinoView()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.message = interaction.message
 
 
 class ArmoryView(discord.ui.View):
@@ -363,10 +365,35 @@ class StatsView(discord.ui.View):
         return casino_embed(f"{stat['emoji']} {stat['name']}", description)
 
 
+class ExitButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Exit", style=discord.ButtonStyle.secondary, emoji="🚪")
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await interaction.delete_original_response()
+
+
 class CasinoView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=180)
+        self.message: discord.Message | None = None
         self.add_item(CasinoSelect())
+        self.add_item(ExitButton())
+
+    async def on_timeout(self):
+        """Grey out the menu once nobody's left to use it — otherwise the
+        dropdown and Exit button stay up looking live, and touching a
+        dead one just gets Discord's "didn't respond in time" error
+        instead of anything happening."""
+        if not self.message:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except discord.HTTPException:
+            pass
 
 
 class Casino(commands.Cog):
@@ -376,7 +403,9 @@ class Casino(commands.Cog):
     @app_commands.command(name="casino", description="Open the casino menu.")
     async def casino(self, interaction: discord.Interaction):
         embed = casino_embed("🎰 Casino", "Pick an option below to get started.")
-        await interaction.response.send_message(embed=embed, view=CasinoView(), ephemeral=True)
+        view = CasinoView()
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        view.message = await interaction.original_response()
 
 
 async def setup(bot):
