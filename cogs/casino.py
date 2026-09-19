@@ -10,6 +10,7 @@ from .views.blackjack import BlackjackBetView, blackjack_bet_embed
 from .views.poker import StakeSelectView
 from .views.baccarat import create_table as create_baccarat_table
 from .views.slots import SlotsBetView, slots_bet_embed
+from .views.video_poker import VideoPokerBetView, video_poker_bet_embed
 from data.weapons import WEAPON_CATALOG, STARTER_WEAPON, format_damage_range, trait_display, tier_display
 from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_level, format_effect
 
@@ -50,6 +51,8 @@ class CasinoSelect(discord.ui.Select):
                                   description="Bet Player, Banker, or Tie — solo or with others"),
             discord.SelectOption(label="Slots", value="slots", emoji="🎰",
                                   description="Pull the lever, match all three"),
+            discord.SelectOption(label="Solo Poker", value="video_poker", emoji="♦️",
+                                  description="Jacks or Better — choose your hold, then draw"),
         ]
         super().__init__(placeholder="What would you like to do?", options=options)
 
@@ -70,6 +73,12 @@ class CasinoSelect(discord.ui.Select):
             wallet = await db_cog.get_or_create_wallet(interaction.user.id)
             view = SlotsBetView(wallet["balance"])
             await interaction.response.edit_message(embed=slots_bet_embed(wallet["balance"]), view=view)
+            return
+
+        if self.values[0] == "video_poker":
+            wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+            view = VideoPokerBetView(wallet["balance"])
+            await interaction.response.edit_message(embed=video_poker_bet_embed(wallet["balance"]), view=view)
             return
 
         if self.values[0] == "armory":
