@@ -116,7 +116,9 @@ class BackToCasinoButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         from cogs.casino import casino_embed, CasinoView  # local import avoids a circular import
         embed = casino_embed("🎰 Casino", "Pick an option below to get started.")
-        await interaction.response.edit_message(embed=embed, view=CasinoView())
+        view = CasinoView()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.message = interaction.message
 
 
 class VideoPokerBetView(discord.ui.View):
@@ -206,6 +208,7 @@ class VideoPokerHandView(discord.ui.View):
         for i in range(5):
             self.add_item(CardToggleButton(i, self.hand[i], held=i in self.held))
         self.add_item(DrawButton())
+        self.add_item(LeaveGameButton())
 
     def build_embed(self, *, result: dict | None = None) -> discord.Embed:
         embed = discord.Embed(title="🎴 Solo Poker", color=discord.Color.dark_gold())
@@ -242,13 +245,10 @@ class VideoPokerHandView(discord.ui.View):
         embed.set_footer(text=f"💰 Balance: {self.current_balance:,} chips")
         return embed
 
-    async def on_timeout(self):
-        """Auto-draws with whatever was held so far (nothing, if the
-        player never touched a card) rather than leaving the bet
-        deducted with no resolution — same reasoning as Blackjack's
-        auto-stand on inactivity."""
-        if not self.message:
-            return
+    async def _draw_and_resolve(self) -> dict:
+        """Replaces unheld cards from the deck and settles any payout —
+        shared by Draw, the timeout auto-draw, and Leave Game, so all
+        three resolve exactly the same way."""
         for i in range(5):
             if i not in self.held:
                 self.hand[i] = self.deck.pop()
@@ -259,7 +259,16 @@ class VideoPokerHandView(discord.ui.View):
         if payout > 0:
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
 
-        result = {"category": category, "multiplier": multiplier, "payout": payout}
+        return {"category": category, "multiplier": multiplier, "payout": payout}
+
+    async def on_timeout(self):
+        """Auto-draws with whatever was held so far (nothing, if the
+        player never touched a card) rather than leaving the bet
+        deducted with no resolution — same reasoning as Blackjack's
+        auto-stand on inactivity."""
+        if not self.message:
+            return
+        result = await self._draw_and_resolve()
         embed = self.build_embed(result=result)
         embed.description = "⏱️ Auto-drew after inactivity. " + embed.description
         result_view = VideoPokerResultView(self.user_id, self.bet)
@@ -299,18 +308,32 @@ class DrawButton(discord.ui.Button):
         # Defer now, before any DB work — see module docstring.
         await interaction.response.defer()
 
-        for i in range(5):
-            if i not in view.held:
-                view.hand[i] = view.deck.pop()
-
-        category = evaluate_hand(view.hand)
-        multiplier = payout_multiplier(view.hand)
-        payout = view.bet * multiplier
-        if payout > 0:
-            view.current_balance = await view.db_cog.add_chips(view.user_id, payout)
-
+        result = await view._draw_and_resolve()
         view.clear_items()  # hand is resolved — no more buttons on this view
-        result = {"category": category, "multiplier": multiplier, "payout": payout}
+        result_view = VideoPokerResultView(view.user_id, view.bet)
+        message = await interaction.edit_original_response(
+            embed=view.build_embed(result=result),
+            view=result_view,
+        )
+        result_view.message = message
+
+
+class LeaveGameButton(discord.ui.Button):
+    """Mid-hand exit — resolves exactly like Draw (auto-draws whatever
+    wasn't held, payout settles normally) rather than refunding or
+    forfeiting the bet outright. There's no decision left after Draw
+    either way, so leaving and drawing are the same move; this just
+    names the intent for a player who wants to step away."""
+
+    def __init__(self):
+        super().__init__(label="Leave Game", style=discord.ButtonStyle.secondary, emoji="🚪", row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: VideoPokerHandView = self.view
+        await interaction.response.defer()
+
+        result = await view._draw_and_resolve()
+        view.clear_items()
         result_view = VideoPokerResultView(view.user_id, view.bet)
         message = await interaction.edit_original_response(
             embed=view.build_embed(result=result),

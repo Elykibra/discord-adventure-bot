@@ -97,7 +97,9 @@ class BackToCasinoButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         from cogs.casino import casino_embed, CasinoView  # local import avoids a circular import
         embed = casino_embed("🎰 Casino", "Pick an option below to get started.")
-        await interaction.response.edit_message(embed=embed, view=CasinoView())
+        view = CasinoView()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.message = interaction.message
 
 
 class PlayAgainButton(discord.ui.Button):
@@ -281,6 +283,7 @@ class BlackjackHandView(discord.ui.View):
         self.add_item(StandButton())
         if len(self.player_cards) == 2:
             self.add_item(DoubleDownButton())
+        self.add_item(LeaveGameButton())
 
     def build_embed(self) -> discord.Embed:
         player_total, player_soft = hand_value(self.player_cards)
@@ -434,6 +437,22 @@ class HitButton(discord.ui.Button):
 class StandButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="Stand", style=discord.ButtonStyle.secondary, emoji="✋")
+
+    async def callback(self, interaction: discord.Interaction):
+        view: BlackjackHandView = self.view
+        await interaction.response.defer()
+        await view.resolve(interaction, busted=False)
+
+
+class LeaveGameButton(discord.ui.Button):
+    """Mid-hand exit — resolves exactly like Stand (dealer plays out,
+    payout settles normally) rather than refunding or forfeiting the
+    bet outright. Blackjack has no decision after standing anyway, so
+    leaving and standing are the same move; this just names the intent
+    for a player who wants to step away rather than keep playing."""
+
+    def __init__(self):
+        super().__init__(label="Leave Game", style=discord.ButtonStyle.secondary, emoji="🚪", row=1)
 
     async def callback(self, interaction: discord.Interaction):
         view: BlackjackHandView = self.view
