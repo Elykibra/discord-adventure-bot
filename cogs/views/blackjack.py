@@ -135,6 +135,7 @@ class BlackjackResultView(discord.ui.View):
         super().__init__(timeout=180)
         self.user_id = user_id
         self.busy = False
+        self.message: discord.Message | None = None
         self.add_item(PlayAgainButton(bet))
         self.add_item(ChangeBetButton())
         self.add_item(BackToCasinoButton())
@@ -150,6 +151,20 @@ class BlackjackResultView(discord.ui.View):
             return False
         self.busy = True
         return True
+
+    async def on_timeout(self):
+        """Grey out Play Again / Change Bet / Back to Casino once nobody's
+        left to click them — otherwise the buttons stay up looking live,
+        and clicking a dead one just gets Discord's "didn't respond in
+        time" error instead of anything happening."""
+        if not self.message:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except discord.HTTPException:
+            pass
 
 
 class BlackjackBetView(discord.ui.View):
@@ -274,9 +289,9 @@ class BlackjackHandView(discord.ui.View):
         a fresh BlackjackResultView (Play Again / Change Bet) instead of
         this view, which is about to be .stop()'d and can't route
         interactions anymore anyway."""
-        await interaction.edit_original_response(
-            embed=self.build_embed(), view=BlackjackResultView(self.user_id, self.bet)
-        )
+        result_view = BlackjackResultView(self.user_id, self.bet)
+        message = await interaction.edit_original_response(embed=self.build_embed(), view=result_view)
+        result_view.message = message
 
     def _compute_outcome(self) -> tuple:
         """Returns (outcome, payout, result_text) from the current hands. Doesn't touch the DB."""
@@ -346,7 +361,9 @@ class BlackjackHandView(discord.ui.View):
             self.result_text = "❌ Dealer has Blackjack. You lose your bet."
 
         self.rebuild_items()
-        await message.edit(embed=self.build_embed(), view=BlackjackResultView(self.user_id, self.bet))
+        result_view = BlackjackResultView(self.user_id, self.bet)
+        await message.edit(embed=self.build_embed(), view=result_view)
+        result_view.message = message
         self.stop()
 
     async def on_timeout(self):
@@ -363,8 +380,10 @@ class BlackjackHandView(discord.ui.View):
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
 
         self.rebuild_items()
+        result_view = BlackjackResultView(self.user_id, self.bet)
         try:
-            await self.message.edit(embed=self.build_embed(), view=BlackjackResultView(self.user_id, self.bet))
+            await self.message.edit(embed=self.build_embed(), view=result_view)
+            result_view.message = self.message
         except discord.HTTPException:
             pass
 
