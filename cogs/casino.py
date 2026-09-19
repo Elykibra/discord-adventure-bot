@@ -63,8 +63,14 @@ class CasinoSelect(discord.ui.Select):
         db_cog = interaction.client.get_cog('Database')
 
         if self.values[0] == "profile":
+            # Defer first — ProfileView.create() makes three sequential DB
+            # calls before there's anything to show, and left un-acked that
+            # chain can (and, live, did) outlast Discord's 3-second
+            # interaction window. Same lesson as Baccarat's BetModal fix
+            # earlier this session.
+            await interaction.response.defer()
             view = await ProfileView.create(db_cog, interaction.user)
-            await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
             return
 
         if self.values[0] == "poker":
@@ -90,13 +96,17 @@ class CasinoSelect(discord.ui.Select):
             return
 
         if self.values[0] == "armory":
+            # Defer first — two sequential DB calls (wallet + owned
+            # weapons) before responding, same risk class as Profile above.
+            await interaction.response.defer()
             view = await ArmoryView.create(db_cog, interaction.user.id)
-            await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
             return
 
         if self.values[0] == "stats":
+            await interaction.response.defer()
             view = await StatsView.create(db_cog, interaction.user.id)
-            await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
             return
 
         if self.values[0] == "dungeon":
@@ -126,10 +136,14 @@ class CasinoSelect(discord.ui.Select):
         return casino_embed("💰 Balance", f"You have **{wallet['balance']:,} chips**.")
 
     async def _handle_dungeon_entry(self, db_cog, interaction: discord.Interaction):
+        # Defer first — this call plus start_dungeon_run()'s own two DB
+        # calls chain to three sequential round-trips before anything
+        # responds, same risk class as Profile/Armory above.
+        await interaction.response.defer()
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < DUNGEON_ENTRY_FEE:
             self.view.busy = False
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"You need {DUNGEON_ENTRY_FEE:,} chips to enter the dungeon — "
                 f"you have {wallet['balance']:,}.",
                 ephemeral=True,
@@ -398,9 +412,10 @@ class ProfileArmoryButton(discord.ui.Button):
         super().__init__(label="Armory", style=discord.ButtonStyle.secondary, emoji="🔫")
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         db_cog = interaction.client.get_cog('Database')
         view = await ArmoryView.create(db_cog, interaction.user.id)
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
 
 
 class ProfileStatsButton(discord.ui.Button):
@@ -408,9 +423,10 @@ class ProfileStatsButton(discord.ui.Button):
         super().__init__(label="Stats", style=discord.ButtonStyle.secondary, emoji="📈")
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         db_cog = interaction.client.get_cog('Database')
         view = await StatsView.create(db_cog, interaction.user.id)
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
 
 
 class ProfileCosmeticsButton(discord.ui.Button):

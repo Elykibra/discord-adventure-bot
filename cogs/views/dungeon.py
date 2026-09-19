@@ -300,12 +300,18 @@ async def start_run(interaction: discord.Interaction, db_cog, wallet: dict):
     initial /casino entry and Play Again after a previous run ends.
     `wallet` is the caller's already-fetched wallet dict (used for its
     balance-sufficiency check just before calling this), so this
-    doesn't re-fetch it — just needs the equipped_weapon it already has."""
+    doesn't re-fetch it — just needs the equipped_weapon it already has.
+
+    Callers must defer the interaction before calling this — it does
+    two more DB round-trips (the deduction, then stat levels) before
+    there's anything to respond with, which on top of whatever the
+    caller already awaited can outlast Discord's 3-second interaction
+    window if nothing acked it first."""
     await db_cog.add_chips(interaction.user.id, -ENTRY_FEE)
     stat_levels = await db_cog.get_stat_levels(interaction.user.id)
     view = DungeonRunView(db_cog, interaction.user.id, wallet["equipped_weapon"], stat_levels)
-    await interaction.response.edit_message(embed=view.build_embed(), view=view)
-    view.message = await interaction.original_response()
+    message = await interaction.edit_original_response(embed=view.build_embed(), view=view)
+    view.message = message
 
 
 class DungeonPlayAgainButton(discord.ui.Button):
@@ -315,10 +321,15 @@ class DungeonPlayAgainButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         view: DungeonResultView = self.view
         db_cog = interaction.client.get_cog('Database')
+        # Defer first — this callback's own wallet lookup plus start_run()'s
+        # two more DB calls chain to three sequential round-trips before
+        # anything responds, the same risk class fixed live in casino.py's
+        # Profile/Armory/Stats/dungeon-entry paths.
+        await interaction.response.defer()
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < ENTRY_FEE:
             view.busy = False
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"You need {ENTRY_FEE:,} chips to enter the dungeon again — "
                 f"you have {wallet['balance']:,}.",
                 ephemeral=True,
