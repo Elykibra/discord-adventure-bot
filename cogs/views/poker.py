@@ -974,39 +974,6 @@ class CustomStakeButton(discord.ui.Button):
         await interaction.response.send_modal(CustomStakeModal(view))
 
 
-class PokerStatsButton(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="My Stats", style=discord.ButtonStyle.secondary, emoji="📊")
-
-    async def callback(self, interaction: discord.Interaction):
-        view: StakeSelectView = self.view
-        view.busy = False  # purely informational — never reaches a path that would release it otherwise
-        db_cog = interaction.client.get_cog('Database')
-        stats = await db_cog.get_game_stats(interaction.user.id, "poker")
-        recent = await db_cog.get_recent_poker_hands(5)
-
-        played = stats["plays"]
-        win_rate = f"{stats['wins'] / played * 100:.0f}%" if played else "—"
-        net = stats["net_chips"]
-        net_text = f"+{net:,}" if net >= 0 else f"{net:,}"
-        biggest_pot_won = stats["extra"].get("biggest_pot_won", 0)
-
-        description = (
-            f"**Hands played:** {played:,}\n"
-            f"**Hands won:** {stats['wins']:,} ({win_rate})\n"
-            f"**Net chips (lifetime):** {net_text}\n"
-            f"**Biggest pot won:** {biggest_pot_won:,}"
-        )
-        if recent:
-            lines = "\n".join(
-                f"• {h['stake_name']} — pot {h['pot']:,}: {h['winners_summary']}" for h in recent
-            )
-            description += f"\n\n**Recent hands (server-wide):**\n{lines}"
-
-        embed = discord.Embed(title="📊 Your Poker Stats", description=description, color=discord.Color.gold())
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
 class StakeSelectView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=120)
@@ -1014,7 +981,6 @@ class StakeSelectView(discord.ui.View):
         for stake in STAKE_TIERS.values():
             self.add_item(StakePresetButton(stake))
         self.add_item(CustomStakeButton())
-        self.add_item(PokerStatsButton())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if self.busy:
