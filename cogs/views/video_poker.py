@@ -61,6 +61,7 @@ class BetPresetButton(discord.ui.Button):
         self.amount = amount
 
     async def callback(self, interaction: discord.Interaction):
+        view: VideoPokerBetView = self.view
         db_cog = interaction.client.get_cog('Database')
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < self.amount:
@@ -68,11 +69,15 @@ class BetPresetButton(discord.ui.Button):
                 f"You don't have {self.amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
             return
-        await start_hand(interaction, db_cog, self.amount)
+        await start_hand(interaction, db_cog, self.amount, already_public=view.already_public)
 
 
 class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
     amount = discord.ui.TextInput(label="Bet amount", placeholder="e.g. 150", max_length=10)
+
+    def __init__(self, *, already_public: bool = False):
+        super().__init__()
+        self.already_public = already_public
 
     async def on_submit(self, interaction: discord.Interaction):
         db_cog = interaction.client.get_cog('Database')
@@ -92,7 +97,7 @@ class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
             )
             return
 
-        await start_hand(interaction, db_cog, bet)
+        await start_hand(interaction, db_cog, bet, already_public=self.already_public)
 
 
 class CustomBetButton(discord.ui.Button):
@@ -100,7 +105,8 @@ class CustomBetButton(discord.ui.Button):
         super().__init__(label="Custom Bet", style=discord.ButtonStyle.secondary, emoji="✏️")
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(CustomBetModal())
+        view: VideoPokerBetView = self.view
+        await interaction.response.send_modal(CustomBetModal(already_public=view.already_public))
 
 
 class BackToCasinoButton(discord.ui.Button):
@@ -114,8 +120,12 @@ class BackToCasinoButton(discord.ui.Button):
 
 
 class VideoPokerBetView(discord.ui.View):
-    def __init__(self, balance: int):
+    def __init__(self, balance: int, *, already_public: bool = False):
         super().__init__(timeout=BET_VIEW_TIMEOUT_SECONDS)
+        # True when this picker is showing on a message that's already
+        # public (reached via Change Bet from a finished hand), as
+        # opposed to the private /casino picker — see start_hand().
+        self.already_public = already_public
         for amount in BET_PRESETS:
             if amount <= balance:
                 self.add_item(BetPresetButton(amount))
@@ -125,13 +135,25 @@ class VideoPokerBetView(discord.ui.View):
         self.add_item(BackToCasinoButton())
 
 
-async def start_hand(interaction: discord.Interaction, db_cog, bet: int):
+async def start_hand(interaction: discord.Interaction, db_cog, bet: int, *, already_public: bool = False):
     balance = await db_cog.add_chips(interaction.user.id, -bet)
     deck = new_shuffled_deck()
     hand = [deck.pop() for _ in range(5)]
 
     view = VideoPokerHandView(db_cog, interaction.user.id, deck, hand, bet, balance)
 
+    if already_public:
+        # Already a public message (Play Again, or Change Bet followed by
+        # picking a new bet) — turn it straight into the new hand in
+        # place instead of leaving a placeholder behind and posting a
+        # fresh message every time, which would clog the channel on
+        # repeated replays.
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        view.message = interaction.message
+        return
+
+    # First hand from the private /casino picker: Discord can't turn an
+    # ephemeral response public via edit, so close the private picker...
     await interaction.response.edit_message(
         embed=discord.Embed(
             title="🎴 Solo Poker",
@@ -141,6 +163,7 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int):
         view=None,
     )
 
+    # ...then deal the actual hand as a new public message.
     message = await interaction.channel.send(
         content=f"🎴 {interaction.user.mention} is playing Solo Poker!",
         embed=view.build_embed(),
@@ -311,7 +334,7 @@ class PlayAgainButton(discord.ui.Button):
                 ephemeral=True,
             )
             return
-        await start_hand(interaction, db_cog, self.bet)
+        await start_hand(interaction, db_cog, self.bet, already_public=True)
 
 
 class ChangeBetButton(discord.ui.Button):
@@ -322,7 +345,8 @@ class ChangeBetButton(discord.ui.Button):
         db_cog = interaction.client.get_cog('Database')
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         await interaction.response.edit_message(
-            embed=video_poker_bet_embed(wallet["balance"]), view=VideoPokerBetView(wallet["balance"])
+            embed=video_poker_bet_embed(wallet["balance"]),
+            view=VideoPokerBetView(wallet["balance"], already_public=True),
         )
 
 
