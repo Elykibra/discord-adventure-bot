@@ -50,12 +50,11 @@ def slots_bet_embed(balance: int) -> discord.Embed:
     )
 
 
-def _spin_embed(reels: list, note: str, balance_line: str | None = None) -> discord.Embed:
+def _spin_embed(reels: list, note: str, balance: int) -> discord.Embed:
     reel_text = "  ".join(f"[ {s} ]" for s in reels)
-    description = f"{reel_text}\n\n*{note}*"
-    if balance_line:
-        description += f"\n\n{balance_line}"
-    return discord.Embed(title="🎰 Slots", description=description, color=discord.Color.gold())
+    embed = discord.Embed(title="🎰 Slots", description=f"{reel_text}\n\n*{note}*", color=discord.Color.gold())
+    embed.set_footer(text=f"💰 Balance: {balance:,} chips")
+    return embed
 
 
 async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
@@ -74,15 +73,18 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
     def random_reels():
         return [random.choice(_DECORATIVE_SYMBOLS) for _ in range(3)]
 
+    # Balance already settled above before any animation plays, so every
+    # frame up to the last shows the post-bet balance; only the final
+    # frame reflects a win's credit, since that's when it actually lands.
     frames = [
-        _spin_embed(random_reels(), "Spinning..."),
-        _spin_embed(random_reels(), "Spinning..."),
+        _spin_embed(random_reels(), "Spinning...", balance_after_bet),
+        _spin_embed(random_reels(), "Spinning...", balance_after_bet),
     ]
     frames.append(_spin_embed(
-        [final_reels[0], *random_reels()[1:]], f"Reel 1 locks: {final_reels[0]}"
+        [final_reels[0], *random_reels()[1:]], f"Reel 1 locks: {final_reels[0]}", balance_after_bet
     ))
     frames.append(_spin_embed(
-        [final_reels[0], final_reels[1], random_reels()[2]], f"Reel 2 locks: {final_reels[1]}"
+        [final_reels[0], final_reels[1], random_reels()[2]], f"Reel 2 locks: {final_reels[1]}", balance_after_bet
     ))
 
     net = credit - bet
@@ -90,12 +92,72 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
         result_note = f"🏆 {multiplier}x — you win {credit:,} chips! (net +{net:,})"
     else:
         result_note = f"No match — you lost {bet:,} chips. Try again!"
-    frames.append(_spin_embed(final_reels, result_note, f"💰 Balance: {final_balance:,} chips"))
+    frames.append(_spin_embed(final_reels, result_note, final_balance))
 
     await interaction.edit_original_response(embed=frames[0], view=None)
-    for embed in frames[1:]:
+    for embed in frames[1:-1]:
         await asyncio.sleep(REVEAL_DELAY_SECONDS)
         await interaction.edit_original_response(embed=embed, view=None)
+
+    # The last frame gets a fresh result view attached — lets the player
+    # spin again (same bet) or change their bet without re-running the
+    # command. A brand-new SlotsResultView instance each time means there's
+    # nothing to "release" between spins: the old one (and whatever busy
+    # state it ended in) is simply discarded once replaced.
+    await asyncio.sleep(REVEAL_DELAY_SECONDS)
+    await interaction.edit_original_response(embed=frames[-1], view=SlotsResultView(bet))
+
+
+class SpinAgainButton(discord.ui.Button):
+    def __init__(self, bet: int):
+        super().__init__(label=f"Spin Again ({bet:,})", style=discord.ButtonStyle.success, emoji="🎰")
+        self.bet = bet
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+        if wallet["balance"] < self.bet:
+            await interaction.response.send_message(
+                f"You don't have {self.bet:,} chips for another {self.bet:,}-chip spin — "
+                f"balance is {wallet['balance']:,}. Try Change Bet for a smaller amount.",
+                ephemeral=True,
+            )
+            return
+        await start_spin(interaction, db_cog, self.bet)
+
+
+class ChangeBetButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Change Bet", style=discord.ButtonStyle.secondary, emoji="✏️")
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+        await interaction.response.edit_message(embed=slots_bet_embed(wallet["balance"]), view=SlotsBetView(wallet["balance"]))
+
+
+class SlotsResultView(discord.ui.View):
+    """Shown after a spin resolves — lets the player spin again (same bet)
+    or change their bet, without needing to re-run /casino. A fresh
+    instance is created for every spin (see start_spin()), so the
+    busy-guard below only ever needs to protect ONE spin's duration, not
+    a whole reused session — same reasoning as Poker/Baccarat's
+    busy-guard, just scoped to a single-use view instead of a long-lived
+    one."""
+
+    def __init__(self, bet: int):
+        super().__init__(timeout=180)
+        self.busy = False
+        self.add_item(SpinAgainButton(bet))
+        self.add_item(ChangeBetButton())
+        self.add_item(BackToCasinoButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
 
 
 class BetPresetButton(discord.ui.Button):
