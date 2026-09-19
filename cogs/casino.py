@@ -13,6 +13,7 @@ from .views.slots import SlotsBetView, slots_bet_embed
 from .views.video_poker import VideoPokerBetView, video_poker_bet_embed
 from data.weapons import WEAPON_CATALOG, STARTER_WEAPON, format_damage_range, trait_display, tier_display
 from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_level, format_effect
+from data.casino_games import CASINO_GAMES
 
 DAILY_COOLDOWN = timedelta(hours=24)
 DAILY_STREAK_GRACE = timedelta(hours=48)  # reclaim within this window to keep the streak alive
@@ -33,6 +34,8 @@ def casino_embed(title: str, description: str) -> discord.Embed:
 class CasinoSelect(discord.ui.Select):
     def __init__(self):
         options = [
+            discord.SelectOption(label="Profile", value="profile", emoji="👤",
+                                  description="Balance, loadout, stats, and lifetime performance"),
             discord.SelectOption(label="Balance", value="balance", emoji="💰",
                                   description="Check your chip balance"),
             discord.SelectOption(label="Daily Bonus", value="daily", emoji="🎁",
@@ -58,6 +61,11 @@ class CasinoSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         db_cog = interaction.client.get_cog('Database')
+
+        if self.values[0] == "profile":
+            view = await ProfileView.create(db_cog, interaction.user)
+            await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            return
 
         if self.values[0] == "poker":
             view = StakeSelectView()
@@ -383,6 +391,120 @@ class StatsView(discord.ui.View):
             description += "\n\n**This stat is fully maxed.**"
 
         return casino_embed(f"{stat['emoji']} {stat['name']}", description)
+
+
+class ProfileArmoryButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Armory", style=discord.ButtonStyle.secondary, emoji="🔫")
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        view = await ArmoryView.create(db_cog, interaction.user.id)
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class ProfileStatsButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Stats", style=discord.ButtonStyle.secondary, emoji="📈")
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        view = await StatsView.create(db_cog, interaction.user.id)
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class ProfileCosmeticsButton(discord.ui.Button):
+    """Disabled — the reserved slot for the future cosmetics shop. No
+    callback needed since a disabled button can't be clicked."""
+
+    def __init__(self):
+        super().__init__(
+            label="Cosmetics (Coming Soon)", style=discord.ButtonStyle.secondary, emoji="🎨", disabled=True
+        )
+
+
+class ProfileView(discord.ui.View):
+    def __init__(self, db_cog, display_name: str, wallet: dict, stat_levels: dict, game_stats: dict):
+        super().__init__(timeout=180)
+        self.db_cog = db_cog
+        self.display_name = display_name
+        self.wallet = wallet
+        self.stat_levels = stat_levels
+        self.game_stats = game_stats  # game_key -> stats dict, one entry per CASINO_GAMES key
+        self.busy = False
+        self.rebuild_items()
+
+    @classmethod
+    async def create(cls, db_cog, user) -> "ProfileView":
+        wallet = await db_cog.get_or_create_wallet(user.id)
+        stat_levels = await db_cog.get_stat_levels(user.id)
+        raw_stats = await db_cog.get_all_game_stats(user.id)
+
+        game_stats = {}
+        for key in CASINO_GAMES:
+            game_stats[key] = raw_stats.get(key) or {
+                "plays": 0, "wins": 0, "total_wagered": 0, "total_won": 0,
+                "net_chips": 0, "biggest_win": 0, "extra": {},
+            }
+
+        return cls(db_cog, user.display_name, wallet, stat_levels, game_stats)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
+    def rebuild_items(self):
+        self.busy = False  # reaching a new stable item state releases the lock
+        self.clear_items()
+        self.add_item(ProfileArmoryButton())
+        self.add_item(ProfileStatsButton())
+        self.add_item(ProfileCosmeticsButton())
+        self.add_item(BackButton())
+
+    def build_embed(self) -> discord.Embed:
+        wallet = self.wallet
+        weapon = WEAPON_CATALOG[wallet["equipped_weapon"]]
+        streak = wallet["daily_streak"]
+
+        lines = [
+            "**💰 Wallet**",
+            f"Balance: **{wallet['balance']:,} chips**",
+            f"Daily streak: **{streak} day{'s' if streak != 1 else ''}**",
+            "",
+            "**🔫 Loadout**",
+            f"{weapon['emoji']} {weapon['name']}",
+            "",
+            "**📈 Permanent Stats**",
+        ]
+        for key, stat in PERMANENT_STATS.items():
+            level = self.stat_levels.get(key, 0)
+            lines.append(f"{stat['emoji']} {stat['name']}: Level {level}/{MAX_STAT_LEVEL}")
+
+        lines += [
+            "",
+            "**🎨 Cosmetics**",
+            "None yet — the shop is coming soon!",
+            "",
+            "**🎲 Lifetime Performance**",
+        ]
+        for key, info in CASINO_GAMES.items():
+            stats = self.game_stats[key]
+            if stats["plays"] == 0:
+                lines.append(f"{info['emoji']} **{info['label']}** — Not played yet")
+                continue
+            win_rate = stats["wins"] / stats["plays"] * 100
+            net = stats["net_chips"]
+            net_text = f"+{net:,}" if net >= 0 else f"{net:,}"
+            plays_word = "play" if stats["plays"] == 1 else "plays"
+            lines.append(
+                f"{info['emoji']} **{info['label']}** — {stats['plays']:,} {plays_word}, "
+                f"{win_rate:.0f}% win rate, net {net_text}"
+            )
+
+        return casino_embed(f"👤 {self.display_name}'s Casino Profile", "\n".join(lines))
 
 
 class ExitButton(discord.ui.Button):
