@@ -94,6 +94,64 @@ class BackToCasinoButton(discord.ui.Button):
         await interaction.response.edit_message(embed=embed, view=CasinoView())
 
 
+class PlayAgainButton(discord.ui.Button):
+    def __init__(self, bet: int):
+        super().__init__(label=f"Play Again ({bet:,})", style=discord.ButtonStyle.success, emoji="🃏")
+        self.bet = bet
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+        if wallet["balance"] < self.bet:
+            await interaction.response.send_message(
+                f"You don't have {self.bet:,} chips for another {self.bet:,}-chip hand — "
+                f"balance is {wallet['balance']:,}. Try Change Bet for a smaller amount.",
+                ephemeral=True,
+            )
+            return
+        await start_hand(interaction, db_cog, self.bet)
+
+
+class ChangeBetButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Change Bet", style=discord.ButtonStyle.secondary, emoji="✏️")
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+        await interaction.response.edit_message(embed=blackjack_bet_embed(wallet["balance"]), view=BlackjackBetView(wallet["balance"]))
+
+
+class BlackjackResultView(discord.ui.View):
+    """Shown once a hand resolves, replacing BlackjackHandView (which is
+    .stop()'d at that point and can no longer route interactions) — lets
+    the player play another hand at the same bet, or change it, without
+    re-running /casino. A fresh instance every time a hand ends, so
+    there's nothing to release between hands: whatever state the old one
+    ended in is simply discarded once replaced, same reasoning as
+    Slots' SlotsResultView."""
+
+    def __init__(self, user_id: int, bet: int):
+        super().__init__(timeout=180)
+        self.user_id = user_id
+        self.busy = False
+        self.add_item(PlayAgainButton(bet))
+        self.add_item(ChangeBetButton())
+        self.add_item(BackToCasinoButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message(
+                "This isn't your hand — feel free to watch, though!", ephemeral=True
+            )
+            return False
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
+
 class BlackjackBetView(discord.ui.View):
     def __init__(self, balance: int):
         super().__init__(timeout=BET_VIEW_TIMEOUT_SECONDS)
@@ -107,12 +165,12 @@ class BlackjackBetView(discord.ui.View):
 
 
 async def start_hand(interaction: discord.Interaction, db_cog, bet: int):
-    await db_cog.add_chips(interaction.user.id, -bet)
+    balance = await db_cog.add_chips(interaction.user.id, -bet)
     deck = new_shuffled_deck()
     player_cards = [deck.pop(), deck.pop()]
     dealer_cards = [deck.pop(), deck.pop()]
 
-    view = BlackjackHandView(db_cog, interaction.user.id, deck, player_cards, dealer_cards, bet)
+    view = BlackjackHandView(db_cog, interaction.user.id, deck, player_cards, dealer_cards, bet, balance)
 
     # Close out the private bet-picker (keeps balance/bet-sizing private)...
     await interaction.response.edit_message(
@@ -138,7 +196,7 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int):
 
 
 class BlackjackHandView(discord.ui.View):
-    def __init__(self, db_cog, user_id: int, deck: list, player_cards: list, dealer_cards: list, bet: int):
+    def __init__(self, db_cog, user_id: int, deck: list, player_cards: list, dealer_cards: list, bet: int, balance: int):
         super().__init__(timeout=HAND_TIMEOUT_SECONDS)
         self.db_cog = db_cog
         self.user_id = user_id
@@ -147,6 +205,7 @@ class BlackjackHandView(discord.ui.View):
         self.dealer_cards = dealer_cards
         self.bet = bet
         self.total_wagered = bet
+        self.current_balance = balance  # kept in sync with every add_chips() call — shown in the footer
         self.finished = False
         self.reveal_dealer = False
         self.outcome = "pending"
@@ -204,10 +263,20 @@ class BlackjackHandView(discord.ui.View):
         embed.add_field(name=f"Your Hand ({player_label})", value=format_hand(self.player_cards), inline=False)
         embed.add_field(name=f"Dealer's Hand ({dealer_label})", value=dealer_hand_text, inline=False)
         embed.add_field(name="Bet", value=f"{self.total_wagered:,} chips", inline=True)
+        embed.set_footer(text=f"💰 Balance: {self.current_balance:,} chips")
         return embed
 
     async def push_update(self, interaction: discord.Interaction):
         await interaction.edit_original_response(embed=self.build_embed(), view=self)
+
+    async def push_result(self, interaction: discord.Interaction):
+        """Same as push_update(), but for the hand's final state — attaches
+        a fresh BlackjackResultView (Play Again / Change Bet) instead of
+        this view, which is about to be .stop()'d and can't route
+        interactions anymore anyway."""
+        await interaction.edit_original_response(
+            embed=self.build_embed(), view=BlackjackResultView(self.user_id, self.bet)
+        )
 
     def _compute_outcome(self) -> tuple:
         """Returns (outcome, payout, result_text) from the current hands. Doesn't touch the DB."""
@@ -232,7 +301,7 @@ class BlackjackHandView(discord.ui.View):
             self.outcome = "lose"
             self.result_text = f"💥 Bust with {player_total}! You lose {self.total_wagered:,} chips."
             self.rebuild_items()
-            await self.push_update(interaction)
+            await self.push_result(interaction)
             self.stop()
             return
 
@@ -248,9 +317,9 @@ class BlackjackHandView(discord.ui.View):
     async def finalize_payout(self, interaction: discord.Interaction):
         self.outcome, payout, self.result_text = self._compute_outcome()
         if payout > 0:
-            await self.db_cog.add_chips(self.user_id, payout)
+            self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
         self.rebuild_items()
-        await self.push_update(interaction)
+        await self.push_result(interaction)
         self.stop()
 
     async def resolve_naturals(self, message: discord.Message):
@@ -264,12 +333,12 @@ class BlackjackHandView(discord.ui.View):
         dealer_bj = is_blackjack(self.dealer_cards)
 
         if player_bj and dealer_bj:
-            await self.db_cog.add_chips(self.user_id, self.bet)
+            self.current_balance = await self.db_cog.add_chips(self.user_id, self.bet)
             self.outcome = "push"
             self.result_text = "🤝 Both have Blackjack! Push — your bet is returned."
         elif player_bj:
             payout = int(self.bet * (1 + BLACKJACK_PAYOUT_MULTIPLIER))
-            await self.db_cog.add_chips(self.user_id, payout)
+            self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
             self.outcome = "win"
             self.result_text = f"🃏 **BLACKJACK!** You win {payout:,} chips (3:2 payout)."
         else:
@@ -277,7 +346,7 @@ class BlackjackHandView(discord.ui.View):
             self.result_text = "❌ Dealer has Blackjack. You lose your bet."
 
         self.rebuild_items()
-        await message.edit(embed=self.build_embed(), view=self)
+        await message.edit(embed=self.build_embed(), view=BlackjackResultView(self.user_id, self.bet))
         self.stop()
 
     async def on_timeout(self):
@@ -291,11 +360,11 @@ class BlackjackHandView(discord.ui.View):
         self.outcome, payout, result = self._compute_outcome()
         self.result_text = "⏱️ Auto-stood after inactivity. " + result
         if payout > 0:
-            await self.db_cog.add_chips(self.user_id, payout)
+            self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
 
         self.rebuild_items()
         try:
-            await self.message.edit(embed=self.build_embed(), view=self)
+            await self.message.edit(embed=self.build_embed(), view=BlackjackResultView(self.user_id, self.bet))
         except discord.HTTPException:
             pass
 
@@ -343,7 +412,7 @@ class DoubleDownButton(discord.ui.Button):
             )
             return
 
-        await view.db_cog.add_chips(view.user_id, -view.bet)
+        view.current_balance = await view.db_cog.add_chips(view.user_id, -view.bet)
         view.total_wagered += view.bet
         view.player_cards.append(view.deck.pop())
         await view.resolve(interaction, busted=is_bust(view.player_cards))
