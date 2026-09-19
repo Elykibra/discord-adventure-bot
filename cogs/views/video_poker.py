@@ -239,8 +239,10 @@ class VideoPokerHandView(discord.ui.View):
         result = {"category": category, "multiplier": multiplier, "payout": payout}
         embed = self.build_embed(result=result)
         embed.description = "⏱️ Auto-drew after inactivity. " + embed.description
+        result_view = VideoPokerResultView(self.user_id, self.bet)
         try:
-            await self.message.edit(embed=embed, view=VideoPokerResultView(self.user_id, self.bet))
+            await self.message.edit(embed=embed, view=result_view)
+            result_view.message = self.message
         except discord.HTTPException:
             pass
 
@@ -286,10 +288,12 @@ class DrawButton(discord.ui.Button):
 
         view.clear_items()  # hand is resolved — no more buttons on this view
         result = {"category": category, "multiplier": multiplier, "payout": payout}
-        await interaction.edit_original_response(
+        result_view = VideoPokerResultView(view.user_id, view.bet)
+        message = await interaction.edit_original_response(
             embed=view.build_embed(result=result),
-            view=VideoPokerResultView(view.user_id, view.bet),
+            view=result_view,
         )
+        result_view.message = message
 
 
 class PlayAgainButton(discord.ui.Button):
@@ -333,6 +337,7 @@ class VideoPokerResultView(discord.ui.View):
         super().__init__(timeout=180)
         self.user_id = user_id
         self.busy = False
+        self.message: discord.Message | None = None
         self.add_item(PlayAgainButton(bet))
         self.add_item(ChangeBetButton())
         self.add_item(BackToCasinoButton())
@@ -348,3 +353,17 @@ class VideoPokerResultView(discord.ui.View):
             return False
         self.busy = True
         return True
+
+    async def on_timeout(self):
+        """Grey out Play Again / Change Bet / Back to Casino once nobody's
+        left to click them — otherwise the buttons stay up looking live,
+        and clicking a dead one just gets Discord's "didn't respond in
+        time" error instead of anything happening."""
+        if not self.message:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except discord.HTTPException:
+            pass
