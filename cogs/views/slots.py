@@ -105,7 +105,9 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
     # nothing to "release" between spins: the old one (and whatever busy
     # state it ended in) is simply discarded once replaced.
     await asyncio.sleep(REVEAL_DELAY_SECONDS)
-    await interaction.edit_original_response(embed=frames[-1], view=SlotsResultView(bet))
+    result_view = SlotsResultView(bet)
+    message = await interaction.edit_original_response(embed=frames[-1], view=result_view)
+    result_view.message = message
 
 
 class SpinAgainButton(discord.ui.Button):
@@ -148,6 +150,7 @@ class SlotsResultView(discord.ui.View):
     def __init__(self, bet: int):
         super().__init__(timeout=180)
         self.busy = False
+        self.message: discord.Message | None = None
         self.add_item(SpinAgainButton(bet))
         self.add_item(ChangeBetButton())
         self.add_item(BackToCasinoButton())
@@ -158,6 +161,20 @@ class SlotsResultView(discord.ui.View):
             return False
         self.busy = True
         return True
+
+    async def on_timeout(self):
+        """Grey out Spin Again / Change Bet / Back to Casino once nobody's
+        left to click them — otherwise the buttons stay up looking live,
+        and clicking a dead one just gets Discord's "didn't respond in
+        time" error instead of anything happening."""
+        if not self.message:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except discord.HTTPException:
+            pass
 
 
 class BetPresetButton(discord.ui.Button):
