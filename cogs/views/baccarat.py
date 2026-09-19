@@ -321,9 +321,21 @@ class BetModal(discord.ui.Modal, title="Place Bet"):
         if amount < MIN_BET:
             return await interaction.response.send_message(f"Minimum bet is {MIN_BET:,} chips.", ephemeral=True)
 
+        # Defer now, before any slow work — everything from here on can
+        # involve several sequential DB round-trips (wallet lookup, the
+        # bet deduction, and if this bet completes the round, one more
+        # per bettor being paid out in resolve_round()). Left undeferred,
+        # that chain can take longer than Discord's 3-second interaction
+        # ack window, which kills the interaction token outright (seen
+        # live as `discord.errors.NotFound: Unknown interaction`).
+        # Deferring a modal-submit interaction acknowledges immediately
+        # as a "deferred update," which is what lets edit_original_response()
+        # below still work no matter how long the DB work actually takes.
+        await interaction.response.defer()
+
         wallet = await view.db_cog.get_or_create_wallet(interaction.user.id)
         if amount > wallet["balance"]:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"You don't have {amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
 
@@ -340,11 +352,30 @@ class BetModal(discord.ui.Modal, title="Place Bet"):
         if should_resolve:
             await view.resolve_round()
             frames = view._reveal_frames()
-            await interaction.response.edit_message(embed=frames[0], view=view)
+            await interaction.edit_original_response(embed=frames[0], view=view)
             await view.animate_remaining_reveal(frames[1:])
         else:
             view.rebuild_items()
-            await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        """Modals dispatch errors separately from the View's own on_error —
+        without this, discord.py's default handler just logs to stderr and
+        leaves the player with no feedback at all, and (worse) leaves
+        view.busy stuck True forever if the failure happened after it was
+        set, locking the whole table. Same reasoning as Poker's RaiseModal."""
+        print(f"[Baccarat] Error in BetModal (user {interaction.user.id}):")
+        traceback.print_exception(type(error), error, error.__traceback__)
+        self.table_view.busy = False
+        self.table_view.rebuild_items()
+        try:
+            message = "Something went wrong placing that bet — please try again."
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            pass
 
 
 class BetButton(discord.ui.Button):
