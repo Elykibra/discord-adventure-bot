@@ -41,7 +41,7 @@ def _payout_table_text() -> str:
 
 def video_poker_bet_embed(balance: int) -> discord.Embed:
     return discord.Embed(
-        title="🎴 Video Poker",
+        title="🎴 Solo Poker",
         description=(
             f"💰 **Your balance:** {balance:,} chips\n\n"
             f"Pick a bet amount, or set a custom one.\n\n"
@@ -134,7 +134,7 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int):
 
     await interaction.response.edit_message(
         embed=discord.Embed(
-            title="🎴 Video Poker",
+            title="🎴 Solo Poker",
             description="Bet placed — your hand is on the table below for everyone to watch.",
             color=discord.Color.gold(),
         ),
@@ -142,7 +142,7 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int):
     )
 
     message = await interaction.channel.send(
-        content=f"🎴 {interaction.user.mention} is playing Video Poker!",
+        content=f"🎴 {interaction.user.mention} is playing Solo Poker!",
         embed=view.build_embed(),
         view=view,
     )
@@ -201,7 +201,7 @@ class VideoPokerHandView(discord.ui.View):
             marker = "🔒 HELD" if i in self.held else ""
             card_lines.append(f"`{card_display(card)}` {marker}".strip())
 
-        embed = discord.Embed(title="🎴 Video Poker", description=description, color=color)
+        embed = discord.Embed(title="🎴 Solo Poker", description=description, color=color)
         embed.add_field(name="Your Hand", value="   ".join(card_lines), inline=False)
         embed.add_field(name="Bet", value=f"{self.bet:,} chips", inline=True)
         embed.set_footer(text=f"💰 Balance: {self.current_balance:,} chips")

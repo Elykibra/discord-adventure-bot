@@ -51,7 +51,7 @@ class CasinoSelect(discord.ui.Select):
                                   description="Bet Player, Banker, or Tie — solo or with others"),
             discord.SelectOption(label="Slots", value="slots", emoji="🎰",
                                   description="Pull the lever, match all three"),
-            discord.SelectOption(label="Video Poker", value="video_poker", emoji="♦️",
+            discord.SelectOption(label="Solo Poker", value="video_poker", emoji="♦️",
                                   description="Jacks or Better — choose your hold, then draw"),
         ]
         super().__init__(placeholder="What would you like to do?", options=options)
