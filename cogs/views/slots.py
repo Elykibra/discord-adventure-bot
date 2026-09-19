@@ -26,6 +26,7 @@ import random
 import discord
 
 from data.slots import spin_reels, payout_multiplier, TRIPLE_PAYOUT, SYMBOL_WEIGHTS
+from data.casino_badges import format_new_badge_field
 
 MIN_BET = 10
 BET_PRESETS = [50, 100, 250, 500, 1000]
@@ -69,7 +70,7 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
     final_balance = balance_after_bet
     if credit > 0:
         final_balance = await db_cog.add_chips(interaction.user.id, credit)
-    await db_cog.record_game_result(
+    new_badges = await db_cog.record_game_result(
         interaction.user.id, "slots", wagered=bet, won=credit, is_win=(multiplier > 0)
     )
 
@@ -95,7 +96,11 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
         result_note = f"🏆 {multiplier}x — you win {credit:,} chips! (net +{net:,})"
     else:
         result_note = f"No match — you lost {bet:,} chips. Try again!"
-    frames.append(_spin_embed(final_reels, result_note, final_balance))
+    final_frame = _spin_embed(final_reels, result_note, final_balance)
+    badge_field = format_new_badge_field(new_badges)
+    if badge_field:
+        final_frame.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+    frames.append(final_frame)
 
     await interaction.edit_original_response(embed=frames[0], view=None)
     for embed in frames[1:-1]:

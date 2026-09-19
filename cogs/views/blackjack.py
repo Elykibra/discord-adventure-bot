@@ -16,6 +16,7 @@ from data.blackjack import (
     new_shuffled_deck, format_hand, hand_value, is_blackjack, is_bust,
     dealer_should_hit, BLACKJACK_PAYOUT_MULTIPLIER,
 )
+from data.casino_badges import format_new_badge_field
 
 MIN_BET = 10
 BET_PRESETS = [50, 100, 250, 500, 1000]
@@ -347,13 +348,18 @@ class BlackjackHandView(discord.ui.View):
     async def push_update(self, interaction: discord.Interaction):
         await interaction.edit_original_response(embed=self.build_embed(), view=self)
 
-    async def push_result(self, interaction: discord.Interaction):
+    async def push_result(self, interaction: discord.Interaction, new_badges: list[str] | None = None):
         """Same as push_update(), but for the hand's final state — attaches
         a fresh BlackjackResultView (Play Again / Change Bet) instead of
         this view, which is about to be .stop()'d and can't route
-        interactions anymore anyway."""
+        interactions anymore anyway. `new_badges` (from record_game_result)
+        gets appended as an extra field when this resolution earned any."""
+        embed = self.build_embed()
+        badge_field = format_new_badge_field(new_badges)
+        if badge_field:
+            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
         result_view = BlackjackResultView(self.user_id, self.bet)
-        message = await interaction.edit_original_response(embed=self.build_embed(), view=result_view)
+        message = await interaction.edit_original_response(embed=embed, view=result_view)
         result_view.message = message
 
     def _compute_outcome(self) -> tuple:
@@ -396,11 +402,11 @@ class BlackjackHandView(discord.ui.View):
         self.outcome, payout, self.result_text = self._compute_outcome()
         if payout > 0:
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
-        await self.db_cog.record_game_result(
+        new_badges = await self.db_cog.record_game_result(
             self.user_id, "blackjack", wagered=self.total_wagered, won=payout, is_win=(self.outcome == "win")
         )
         self.rebuild_items()
-        await self.push_result(interaction)
+        await self.push_result(interaction, new_badges)
         self.stop()
 
     async def resolve_naturals(self, message: discord.Message):
@@ -428,12 +434,16 @@ class BlackjackHandView(discord.ui.View):
             self.outcome = "lose"
             self.result_text = "❌ Dealer has Blackjack. You lose your bet."
 
-        await self.db_cog.record_game_result(
+        new_badges = await self.db_cog.record_game_result(
             self.user_id, "blackjack", wagered=self.bet, won=payout, is_win=(self.outcome == "win")
         )
         self.rebuild_items()
+        embed = self.build_embed()
+        badge_field = format_new_badge_field(new_badges)
+        if badge_field:
+            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
         result_view = BlackjackResultView(self.user_id, self.bet)
-        await message.edit(embed=self.build_embed(), view=result_view)
+        await message.edit(embed=embed, view=result_view)
         result_view.message = message
         self.stop()
 
@@ -449,14 +459,18 @@ class BlackjackHandView(discord.ui.View):
         self.result_text = "⏱️ Auto-stood after inactivity. " + result
         if payout > 0:
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
-        await self.db_cog.record_game_result(
+        new_badges = await self.db_cog.record_game_result(
             self.user_id, "blackjack", wagered=self.total_wagered, won=payout, is_win=(self.outcome == "win")
         )
 
         self.rebuild_items()
+        embed = self.build_embed()
+        badge_field = format_new_badge_field(new_badges)
+        if badge_field:
+            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
         result_view = BlackjackResultView(self.user_id, self.bet)
         try:
-            await self.message.edit(embed=self.build_embed(), view=result_view)
+            await self.message.edit(embed=embed, view=result_view)
             result_view.message = self.message
         except discord.HTTPException:
             pass

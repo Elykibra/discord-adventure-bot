@@ -27,6 +27,7 @@ import discord
 
 from data.poker import new_shuffled_deck, card_display
 from data.video_poker import evaluate_hand, payout_multiplier, PAYOUTS, HAND_LABELS
+from data.casino_badges import format_new_badge_field
 
 MIN_BET = 10
 BET_PRESETS = [50, 100, 250, 500, 1000]
@@ -259,6 +260,9 @@ class VideoPokerHandView(discord.ui.View):
             embed.add_field(name="Final Hand", value=final_hand, inline=False)
             embed.add_field(name="Kept", value="  ".join(f"`{c}`" for c in kept) if kept else "_nothing_", inline=True)
             embed.add_field(name="Drew", value="  ".join(f"`{c}`" for c in drawn) if drawn else "_nothing_", inline=True)
+            badge_field = format_new_badge_field(result.get("new_badges"))
+            if badge_field:
+                embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
         else:
             embed.description = "Pick which cards to **hold**, then hit **Draw**."
             card_lines = [
@@ -284,11 +288,11 @@ class VideoPokerHandView(discord.ui.View):
         payout = self.bet * multiplier
         if payout > 0:
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
-        await self.db_cog.record_game_result(
+        new_badges = await self.db_cog.record_game_result(
             self.user_id, "video_poker", wagered=self.bet, won=payout, is_win=(multiplier > 0)
         )
 
-        return {"category": category, "multiplier": multiplier, "payout": payout}
+        return {"category": category, "multiplier": multiplier, "payout": payout, "new_badges": new_badges}
 
     async def on_timeout(self):
         """Auto-draws with whatever was held so far (nothing, if the
