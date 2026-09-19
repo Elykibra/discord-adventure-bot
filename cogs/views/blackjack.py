@@ -97,7 +97,9 @@ class BackToCasinoButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         from cogs.casino import casino_embed, CasinoView  # local import avoids a circular import
         embed = casino_embed("🎰 Casino", "Pick an option below to get started.")
-        await interaction.response.edit_message(embed=embed, view=CasinoView())
+        view = CasinoView()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.message = interaction.message
 
 
 class PlayAgainButton(discord.ui.Button):
