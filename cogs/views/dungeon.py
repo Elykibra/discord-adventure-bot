@@ -26,6 +26,7 @@ from data.dungeon_floors import (
 from data.weapons import WEAPON_CATALOG
 from data.dungeon_skills import SKILL_POOL, draw_skill_choices, DODGE_CAP
 from data.permanent_stats import PERMANENT_STATS
+from data.casino_badges import format_new_badge_field
 
 ENTRY_FEE = 100
 STARTING_HP = 100
@@ -256,7 +257,7 @@ class DungeonRunView(discord.ui.View):
         await self.db_cog.log_dungeon_run(
             self.user_id, self.floor, "died" if died else "cashed_out", payout, self.weapon_key
         )
-        await self.db_cog.record_game_result(
+        new_badges = await self.db_cog.record_game_result(
             self.user_id, "dungeon", wagered=ENTRY_FEE, won=payout, is_win=(not died)
         )
 
@@ -269,8 +270,12 @@ class DungeonRunView(discord.ui.View):
             self.last_event += f"\n\n✅ **Cashed out on Floor {self.floor}.** {payout:,} chips added to your wallet."
 
         self.rebuild_items()
+        embed = self.build_embed()
+        badge_field = format_new_badge_field(new_badges)
+        if badge_field:
+            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
         result_view = DungeonResultView(self.user_id)
-        message = await interaction.edit_original_response(embed=self.build_embed(), view=result_view)
+        message = await interaction.edit_original_response(embed=embed, view=result_view)
         result_view.message = message
         self.stop()
 
@@ -282,14 +287,18 @@ class DungeonRunView(discord.ui.View):
         if payout > 0:
             await self.db_cog.add_chips(self.user_id, payout)
         await self.db_cog.log_dungeon_run(self.user_id, self.floor, "cashed_out", payout, self.weapon_key)
-        await self.db_cog.record_game_result(
+        new_badges = await self.db_cog.record_game_result(
             self.user_id, "dungeon", wagered=ENTRY_FEE, won=payout, is_win=True
         )
         self.last_event += f"\n\n⏱️ **Auto-cashed out after inactivity.** {payout:,} chips added to your wallet."
         self.rebuild_items()
+        embed = self.build_embed()
+        badge_field = format_new_badge_field(new_badges)
+        if badge_field:
+            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
         result_view = DungeonResultView(self.user_id)
         try:
-            await self.message.edit(embed=self.build_embed(), view=result_view)
+            await self.message.edit(embed=embed, view=result_view)
             result_view.message = self.message
         except discord.HTTPException:
             pass

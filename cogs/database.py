@@ -12,6 +12,7 @@ from core import config
 from data.items import ITEMS
 from core.pet_system import Pet
 from data.pets import PET_DATABASE, get_pet_data
+from data.casino_badges import CASINO_BADGES
 
 
 class Database(commands.Cog):
@@ -220,7 +221,7 @@ class Database(commands.Cog):
     # --- Casino game stats (shared across every casino game — see migrations/022) ---
     async def record_game_result(self, user_id: int, game_key: str, *, wagered: int, won: int,
                                   is_win: bool, extra_increment: Optional[Dict[str, int]] = None,
-                                  extra_max: Optional[Dict[str, int]] = None) -> None:
+                                  extra_max: Optional[Dict[str, int]] = None) -> List[str]:
         """Upserts one resolution into casino_game_stats. `wagered`/`won` are
         this single play's numbers (won=0 on a clean loss; a push/refund sets
         won==wagered, netting to 0 with no special-casing needed here — see
@@ -233,7 +234,10 @@ class Database(commands.Cog):
         the schemaless `extra` JSONB bucket, atomically (computed server-side
         in a single statement — no read-modify-write race). Key names are
         always our own fixed literals, never user input, so building them
-        into the query text is safe."""
+        into the query text is safe.
+
+        Returns any badge_keys newly earned by this result (usually empty)
+        — see check_and_award_badges."""
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(
@@ -265,6 +269,8 @@ class Database(commands.Cog):
                         user_id, game_key, value
                     )
 
+        return await self.check_and_award_badges(user_id)
+
     async def get_game_stats(self, user_id: int, game_key: str) -> Dict[str, Any]:
         record = await self.pool.fetchrow(
             'SELECT * FROM casino_game_stats WHERE user_id = $1 AND game_key = $2', user_id, game_key
@@ -293,6 +299,34 @@ class Database(commands.Cog):
                 d["extra"] = json.loads(d["extra"])
             by_game[d["game_key"]] = d
         return by_game
+
+    # --- Casino badges (milestone achievements — see data/casino_badges.py) ---
+    async def get_earned_badges(self, user_id: int) -> List[str]:
+        records = await self.pool.fetch('SELECT badge_key FROM casino_badges WHERE user_id = $1', user_id)
+        return [r['badge_key'] for r in records]
+
+    async def check_and_award_badges(self, user_id: int) -> List[str]:
+        """Evaluates every not-yet-earned CASINO_BADGES condition against
+        this user's current wallet + lifetime stats, and awards (inserts)
+        any that newly qualify. Called after every casino_game_stats write
+        (via record_game_result) and directly after a daily-bonus claim,
+        since streak badges aren't tied to a game result. Returns the
+        badge_keys newly earned this call — usually empty."""
+        already_earned = set(await self.get_earned_badges(user_id))
+        pending = {key: badge for key, badge in CASINO_BADGES.items() if key not in already_earned}
+        if not pending:
+            return []
+
+        wallet = await self.get_or_create_wallet(user_id)
+        all_stats = await self.get_all_game_stats(user_id)
+
+        newly_earned = [key for key, badge in pending.items() if badge["condition"](wallet, all_stats)]
+        if newly_earned:
+            await self.pool.executemany(
+                'INSERT INTO casino_badges (user_id, badge_key) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [(user_id, key) for key in newly_earned]
+            )
+        return newly_earned
 
     # --- Poker hand history (a recent-activity feed, separate from the per-user stats above) ---
     async def record_poker_hand(self, table_key: str, stake_name: str, pot: int, player_results: List[Dict[str, Any]]) -> None:

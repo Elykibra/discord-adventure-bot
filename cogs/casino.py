@@ -14,6 +14,7 @@ from .views.video_poker import VideoPokerBetView, video_poker_bet_embed
 from data.weapons import WEAPON_CATALOG, STARTER_WEAPON, format_damage_range, trait_display, tier_display
 from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_level, format_effect
 from data.casino_games import CASINO_GAMES
+from data.casino_badges import CASINO_BADGES, format_new_badge_field
 
 DAILY_COOLDOWN = timedelta(hours=24)
 DAILY_STREAK_GRACE = timedelta(hours=48)  # reclaim within this window to keep the streak alive
@@ -173,13 +174,21 @@ class CasinoSelect(discord.ui.Select):
 
         amount = daily_amount_for_streak(streak)
         new_balance = await db_cog.set_daily_claim(user_id, amount, streak)
+        # Streak badges (Daily Grinder, Casino Royalty) trigger off the streak
+        # itself, not a game result, so they're checked directly here rather
+        # than via record_game_result.
+        new_badges = await db_cog.check_and_award_badges(user_id)
 
         day_word = "day" if streak == 1 else "days"
-        return casino_embed(
+        embed = casino_embed(
             "🎁 Daily Bonus Claimed!",
             f"You received **{amount:,} chips** (streak: {streak} {day_word}).\n"
             f"New balance: **{new_balance:,} chips**.",
         )
+        badge_field = format_new_badge_field(new_badges)
+        if badge_field:
+            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+        return embed
 
 
 class WeaponSelect(discord.ui.Select):
@@ -440,13 +449,15 @@ class ProfileCosmeticsButton(discord.ui.Button):
 
 
 class ProfileView(discord.ui.View):
-    def __init__(self, db_cog, display_name: str, wallet: dict, stat_levels: dict, game_stats: dict):
+    def __init__(self, db_cog, display_name: str, wallet: dict, stat_levels: dict, game_stats: dict,
+                 earned_badges: list[str]):
         super().__init__(timeout=180)
         self.db_cog = db_cog
         self.display_name = display_name
         self.wallet = wallet
         self.stat_levels = stat_levels
         self.game_stats = game_stats  # game_key -> stats dict, one entry per CASINO_GAMES key
+        self.earned_badges = earned_badges
         self.busy = False
         self.rebuild_items()
 
@@ -455,6 +466,7 @@ class ProfileView(discord.ui.View):
         wallet = await db_cog.get_or_create_wallet(user.id)
         stat_levels = await db_cog.get_stat_levels(user.id)
         raw_stats = await db_cog.get_all_game_stats(user.id)
+        earned_badges = await db_cog.get_earned_badges(user.id)
 
         game_stats = {}
         for key in CASINO_GAMES:
@@ -463,7 +475,7 @@ class ProfileView(discord.ui.View):
                 "net_chips": 0, "biggest_win": 0, "extra": {},
             }
 
-        return cls(db_cog, user.display_name, wallet, stat_levels, game_stats)
+        return cls(db_cog, user.display_name, wallet, stat_levels, game_stats, earned_badges)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if self.busy:
@@ -493,6 +505,21 @@ class ProfileView(discord.ui.View):
             "**🔫 Loadout**",
             f"{weapon['emoji']} {weapon['name']}",
             "",
+            "**🎖️ Badges**",
+        ]
+        earned_set = set(self.earned_badges)
+        if not earned_set:
+            lines.append("No badges earned yet — keep playing to unlock some!")
+        else:
+            for key, badge in CASINO_BADGES.items():
+                if key in earned_set:
+                    lines.append(f"{badge['emoji']} **{badge['name']}** — {badge['description']}")
+        locked_count = len(CASINO_BADGES) - len(earned_set)
+        if locked_count > 0:
+            lines.append(f"🔒 {locked_count} more to discover")
+
+        lines += [
+            "",
             "**📈 Permanent Stats**",
         ]
         for key, stat in PERMANENT_STATS.items():
@@ -503,6 +530,13 @@ class ProfileView(discord.ui.View):
             "",
             "**🎨 Cosmetics**",
             "None yet — the shop is coming soon!",
+            "",
+            "**📊 Career Highlights**",
+        ]
+        lines.append(self._career_highlight_line())
+        lines.append(self._favorite_game_line())
+
+        lines += [
             "",
             "**🎲 Lifetime Performance**",
         ]
@@ -521,6 +555,27 @@ class ProfileView(discord.ui.View):
             )
 
         return casino_embed(f"👤 {self.display_name}'s Casino Profile", "\n".join(lines))
+
+    def _career_highlight_line(self) -> str:
+        best_key, best_win = None, 0
+        for key, stats in self.game_stats.items():
+            if stats["biggest_win"] > best_win:
+                best_key, best_win = key, stats["biggest_win"]
+        if best_key is None:
+            return "🏆 Biggest win ever: None yet — go get your first big win!"
+        label = CASINO_GAMES[best_key]["label"]
+        return f"🏆 Biggest win ever: **{best_win:,} chips** ({label})"
+
+    def _favorite_game_line(self) -> str:
+        best_key, best_plays = None, 0
+        for key, stats in self.game_stats.items():
+            if stats["plays"] > best_plays:
+                best_key, best_plays = key, stats["plays"]
+        if best_key is None:
+            return "❤️ Favorite game: Haven't picked one yet"
+        info = CASINO_GAMES[best_key]
+        plays_word = "play" if best_plays == 1 else "plays"
+        return f"❤️ Favorite game: {info['emoji']} {info['label']} ({best_plays:,} {plays_word})"
 
 
 class ExitButton(discord.ui.Button):
