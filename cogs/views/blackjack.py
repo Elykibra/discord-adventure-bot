@@ -322,7 +322,12 @@ class BlackjackHandView(discord.ui.View):
             dealer_hand_text = format_hand(self.dealer_cards)
             dealer_label = f"{dealer_total}" + (" (soft)" if dealer_soft else "")
         else:
-            dealer_hand_text = f"{format_hand([self.dealer_cards[0]])} 🎴"
+            # 🂠 is the real Unicode "playing card back" glyph — a plain
+            # white card with a dot/lattice pattern, the actual default
+            # look for a face-down card (unlike 🎴's colorful illustrated
+            # flower-card design). Already proven safe as embed text
+            # elsewhere in this codebase (Poker's showdown reveal).
+            dealer_hand_text = f"{format_hand([self.dealer_cards[0]])} 🂠"
             dealer_label = "?"
 
         color = {
