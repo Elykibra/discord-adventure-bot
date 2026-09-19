@@ -15,6 +15,7 @@ from data.weapons import WEAPON_CATALOG, STARTER_WEAPON, format_damage_range, tr
 from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_level, format_effect
 from data.casino_games import CASINO_GAMES
 from data.casino_badges import CASINO_BADGES, format_new_badge_field
+from data.casino_cosmetics import COSMETIC_CATEGORIES, TITLES, WEAPON_SKINS
 
 DAILY_COOLDOWN = timedelta(hours=24)
 DAILY_STREAK_GRACE = timedelta(hours=48)  # reclaim within this window to keep the streak alive
@@ -87,7 +88,9 @@ class CasinoSelect(discord.ui.Select):
         if self.values[0] == "slots":
             wallet = await db_cog.get_or_create_wallet(interaction.user.id)
             view = SlotsBetView(wallet["balance"])
-            await interaction.response.edit_message(embed=slots_bet_embed(wallet["balance"]), view=view)
+            await interaction.response.edit_message(
+                embed=slots_bet_embed(wallet["balance"], wallet.get("equipped_slot_theme")), view=view
+            )
             return
 
         if self.values[0] == "video_poker":
@@ -416,6 +419,202 @@ class StatsView(discord.ui.View):
         return casino_embed(f"{stat['emoji']} {stat['name']}", description)
 
 
+class CosmeticItemSelect(discord.ui.Select):
+    def __init__(self, cat_view: "CosmeticCategoryView"):
+        options = []
+        for key, item in cat_view.items.items():
+            if key == cat_view.equipped:
+                status = "Equipped"
+            elif key in cat_view.owned:
+                status = "Owned"
+            else:
+                status = f"{item['price']:,} chips"
+            options.append(discord.SelectOption(
+                label=item["name"], value=key, emoji=item.get("emoji"), description=status,
+                default=(key == cat_view.selected),
+            ))
+        super().__init__(placeholder="Choose an item to view", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: CosmeticCategoryView = self.view
+        view.selected = self.values[0]
+        view.rebuild_items()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class CosmeticBuyButton(discord.ui.Button):
+    def __init__(self, cost: int):
+        super().__init__(label=f"Buy for {cost:,} chips", style=discord.ButtonStyle.success, emoji="🛒")
+        self.cost = cost
+
+    async def callback(self, interaction: discord.Interaction):
+        view: CosmeticCategoryView = self.view
+        # Defer first — new code, applies this session's interaction-timeout
+        # lesson from the start rather than repeating the older Armory
+        # BuyButton's un-deferred shape (get_or_create_wallet then, on the
+        # happy path, a second DB call before ever responding).
+        await interaction.response.defer()
+        wallet = await view.db_cog.get_or_create_wallet(interaction.user.id)
+        if wallet["balance"] < self.cost:
+            view.busy = False
+            await interaction.followup.send(
+                f"You need {self.cost:,} chips for this — you have {wallet['balance']:,}.",
+                ephemeral=True,
+            )
+            return
+
+        await view.db_cog.buy_cosmetic(interaction.user.id, view.selected, self.cost)
+        view.owned.add(view.selected)
+        view.rebuild_items()
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
+
+
+class CosmeticEquipButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Equip", style=discord.ButtonStyle.primary, emoji="✅")
+
+    async def callback(self, interaction: discord.Interaction):
+        view: CosmeticCategoryView = self.view
+        await interaction.response.defer()
+        await view.db_cog.set_equipped_cosmetic(interaction.user.id, view.wallet_column, view.selected)
+        view.equipped = view.selected
+        view.rebuild_items()
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
+
+
+class ShopBackButton(discord.ui.Button):
+    """Back from a category view to the Shop's own category list — distinct
+    from BackButton (Casino) and ProfileView's Back (Profile)."""
+
+    def __init__(self):
+        super().__init__(label="Back to Shop", style=discord.ButtonStyle.secondary, emoji="↩️")
+
+    async def callback(self, interaction: discord.Interaction):
+        view = ShopView()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class CosmeticCategoryView(discord.ui.View):
+    """Generic across every cosmetic category — one class, not one per
+    category, parameterized by category_key. Mirrors ArmoryView's exact
+    shape (create/interaction_check/rebuild_items/build_embed)."""
+
+    def __init__(self, db_cog, category_key: str, owned: set, equipped: str | None):
+        super().__init__(timeout=180)
+        self.db_cog = db_cog
+        self.category_key = category_key
+        category = COSMETIC_CATEGORIES[category_key]
+        self.items = category["items"]
+        self.wallet_column = category["wallet_column"]
+        self.label = category["label"]
+        self.owned = owned
+        self.equipped = equipped
+        self.selected = None
+        self.rebuild_items()
+
+    @classmethod
+    async def create(cls, db_cog, user_id: int, category_key: str) -> "CosmeticCategoryView":
+        wallet = await db_cog.get_or_create_wallet(user_id)
+        owned = await db_cog.get_owned_cosmetics(user_id)
+        wallet_column = COSMETIC_CATEGORIES[category_key]["wallet_column"]
+        return cls(db_cog, category_key, owned, wallet.get(wallet_column))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
+    def rebuild_items(self):
+        self.busy = False  # reaching a new stable item state releases the lock
+        self.clear_items()
+        self.add_item(CosmeticItemSelect(self))
+        if self.selected:
+            if self.selected == self.equipped:
+                pass  # already equipped, nothing to do
+            elif self.selected in self.owned:
+                self.add_item(CosmeticEquipButton())
+            else:
+                self.add_item(CosmeticBuyButton(self.items[self.selected]["price"]))
+        self.add_item(ShopBackButton())
+
+    def build_embed(self) -> discord.Embed:
+        category_emoji = COSMETIC_CATEGORIES[self.category_key]["emoji"]
+
+        if not self.selected:
+            lines = []
+            for key, item in self.items.items():
+                tag = " (Equipped)" if key == self.equipped else " (Owned)" if key in self.owned else ""
+                emoji = item.get("emoji", "")
+                applies_to = f" — for {WEAPON_CATALOG[item['weapon_key']]['name']}" if "weapon_key" in item else ""
+                lines.append(f"{emoji} **{item['name']}** — {item['price']:,} chips{tag}{applies_to}")
+            return casino_embed(
+                f"{category_emoji} {self.label}", "Pick an item below to see details.\n\n" + "\n".join(lines)
+            )
+
+        item = self.items[self.selected]
+        status = "Equipped" if self.selected == self.equipped else "Owned" if self.selected in self.owned else "Not owned"
+        emoji = item.get("emoji", "")
+        description = f"{item['description']}\n\n**Price:** {item['price']:,} chips\n**Status:** {status}"
+        if "weapon_key" in item:
+            description += f"\n**Applies to:** {WEAPON_CATALOG[item['weapon_key']]['name']} (only while that weapon is equipped)"
+        return casino_embed(f"{emoji} {item['name']}", description)
+
+
+class ShopCategorySelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label=category["label"], value=key, emoji=category["emoji"])
+            for key, category in COSMETIC_CATEGORIES.items()
+        ]
+        super().__init__(placeholder="Choose a category to browse", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        db_cog = interaction.client.get_cog('Database')
+        cat_view = await CosmeticCategoryView.create(db_cog, interaction.user.id, self.values[0])
+        await interaction.edit_original_response(embed=cat_view.build_embed(), view=cat_view)
+
+
+class ShopBackToProfileButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Back to Profile", style=discord.ButtonStyle.secondary, emoji="↩️")
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        db_cog = interaction.client.get_cog('Database')
+        view = await ProfileView.create(db_cog, interaction.user)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
+
+
+class ShopView(discord.ui.View):
+    """The cosmetics shop's top-level category picker — reached from
+    Profile's Cosmetics button."""
+
+    def __init__(self):
+        super().__init__(timeout=180)
+        self.busy = False
+        self.rebuild_items()
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
+    def rebuild_items(self):
+        self.busy = False
+        self.clear_items()
+        self.add_item(ShopCategorySelect())
+        self.add_item(ShopBackToProfileButton())
+
+    def build_embed(self) -> discord.Embed:
+        lines = [f"{category['emoji']} **{category['label']}**" for category in COSMETIC_CATEGORIES.values()]
+        return casino_embed("🎨 Cosmetics Shop", "Pick a category below to browse.\n\n" + "\n".join(lines))
+
+
 class ProfileArmoryButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="Armory", style=discord.ButtonStyle.secondary, emoji="🔫")
@@ -439,13 +638,12 @@ class ProfileStatsButton(discord.ui.Button):
 
 
 class ProfileCosmeticsButton(discord.ui.Button):
-    """Disabled — the reserved slot for the future cosmetics shop. No
-    callback needed since a disabled button can't be clicked."""
-
     def __init__(self):
-        super().__init__(
-            label="Cosmetics (Coming Soon)", style=discord.ButtonStyle.secondary, emoji="🎨", disabled=True
-        )
+        super().__init__(label="Cosmetics", style=discord.ButtonStyle.secondary, emoji="🎨")
+
+    async def callback(self, interaction: discord.Interaction):
+        view = ShopView()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
 
 class ProfileView(discord.ui.View):
@@ -497,13 +695,25 @@ class ProfileView(discord.ui.View):
         weapon = WEAPON_CATALOG[wallet["equipped_weapon"]]
         streak = wallet["daily_streak"]
 
-        lines = [
+        lines = []
+        title_key = wallet.get("equipped_title")
+        if title_key:
+            lines += [f"*{TITLES[title_key]['name']}*", ""]
+
+        weapon_skin_key = wallet.get("equipped_weapon_skin")
+        if weapon_skin_key and WEAPON_SKINS[weapon_skin_key]["weapon_key"] == wallet["equipped_weapon"]:
+            skin = WEAPON_SKINS[weapon_skin_key]
+            loadout_line = f"{skin['emoji']} {skin['name']}"
+        else:
+            loadout_line = f"{weapon['emoji']} {weapon['name']}"
+
+        lines += [
             "**💰 Wallet**",
             f"Balance: **{wallet['balance']:,} chips**",
             f"Daily streak: **{streak} day{'s' if streak != 1 else ''}**",
             "",
             "**🔫 Loadout**",
-            f"{weapon['emoji']} {weapon['name']}",
+            loadout_line,
             "",
             "**🎖️ Badges**",
         ]
@@ -529,7 +739,10 @@ class ProfileView(discord.ui.View):
         lines += [
             "",
             "**🎨 Cosmetics**",
-            "None yet — the shop is coming soon!",
+        ]
+        lines += self._equipped_cosmetics_lines()
+
+        lines += [
             "",
             "**📊 Career Highlights**",
         ]
@@ -555,6 +768,19 @@ class ProfileView(discord.ui.View):
             )
 
         return casino_embed(f"👤 {self.display_name}'s Casino Profile", "\n".join(lines))
+
+    def _equipped_cosmetics_lines(self) -> list[str]:
+        lines = []
+        for category in COSMETIC_CATEGORIES.values():
+            cosmetic_key = self.wallet.get(category["wallet_column"])
+            if not cosmetic_key:
+                continue
+            item = category["items"][cosmetic_key]
+            emoji = item.get("emoji", "")
+            lines.append(f"{category['emoji']} {category['label']}: {emoji} {item['name']}".replace("  ", " "))
+        if not lines:
+            return ["Nothing equipped yet — visit the shop!"]
+        return lines
 
     def _career_highlight_line(self) -> str:
         best_key, best_win = None, 0

@@ -13,6 +13,7 @@ from data.items import ITEMS
 from core.pet_system import Pet
 from data.pets import PET_DATABASE, get_pet_data
 from data.casino_badges import CASINO_BADGES
+from data.casino_cosmetics import VALID_WALLET_COLUMNS
 
 
 class Database(commands.Cog):
@@ -243,14 +244,14 @@ class Database(commands.Cog):
                 await conn.execute(
                     '''INSERT INTO casino_game_stats
                            (user_id, game_key, plays, wins, total_wagered, total_won, net_chips, biggest_win, last_played_at)
-                       VALUES ($1, $2, 1, $3, $4, $5, $5 - $4, $5, NOW())
+                       VALUES ($1, $2, 1, $3, $4::BIGINT, $5::BIGINT, $5::BIGINT - $4::BIGINT, $5::BIGINT, NOW())
                        ON CONFLICT (user_id, game_key) DO UPDATE SET
                            plays = casino_game_stats.plays + 1,
                            wins = casino_game_stats.wins + $3,
-                           total_wagered = casino_game_stats.total_wagered + $4,
-                           total_won = casino_game_stats.total_won + $5,
-                           net_chips = casino_game_stats.net_chips + ($5 - $4),
-                           biggest_win = GREATEST(casino_game_stats.biggest_win, $5),
+                           total_wagered = casino_game_stats.total_wagered + $4::BIGINT,
+                           total_won = casino_game_stats.total_won + $5::BIGINT,
+                           net_chips = casino_game_stats.net_chips + ($5::BIGINT - $4::BIGINT),
+                           biggest_win = GREATEST(casino_game_stats.biggest_win, $5::BIGINT),
                            last_played_at = NOW()''',
                     user_id, game_key, 1 if is_win else 0, wagered, won
                 )
@@ -693,6 +694,39 @@ class Database(commands.Cog):
         await self.pool.execute(
             'UPDATE casino_wallets SET equipped_weapon = $1 WHERE user_id = $2',
             weapon_key, user_id
+        )
+
+    # --- Casino Cosmetics Shop (see data/casino_cosmetics.py for the catalog) ---
+    async def get_owned_cosmetics(self, user_id: int) -> set:
+        records = await self.pool.fetch(
+            'SELECT cosmetic_key FROM casino_cosmetics WHERE user_id = $1', user_id
+        )
+        return {r['cosmetic_key'] for r in records}
+
+    async def buy_cosmetic(self, user_id: int, cosmetic_key: str, cost: int) -> None:
+        """Deducts the cost and records ownership, atomically — same shape as buy_weapon."""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    'UPDATE casino_wallets SET balance = balance - $1 WHERE user_id = $2',
+                    cost, user_id
+                )
+                await conn.execute(
+                    'INSERT INTO casino_cosmetics (user_id, cosmetic_key) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                    user_id, cosmetic_key
+                )
+
+    async def set_equipped_cosmetic(self, user_id: int, wallet_column: str, cosmetic_key: str) -> None:
+        """Equips one cosmetic in its category's wallet column. `wallet_column`
+        is always one of our own fixed literals from COSMETIC_CATEGORIES,
+        never user input, but validated anyway before going into the query
+        text — asyncpg can't parameterize a column name."""
+        if wallet_column not in VALID_WALLET_COLUMNS:
+            raise ValueError(f"Not a valid cosmetics wallet column: {wallet_column!r}")
+        await self.get_or_create_wallet(user_id)
+        await self.pool.execute(
+            f'UPDATE casino_wallets SET {wallet_column} = $1 WHERE user_id = $2',
+            cosmetic_key, user_id
         )
 
     # --- Dungeon ---

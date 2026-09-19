@@ -27,6 +27,7 @@ import discord
 
 from data.slots import spin_reels, payout_multiplier, TRIPLE_PAYOUT, SYMBOL_WEIGHTS
 from data.casino_badges import format_new_badge_field
+from data.casino_cosmetics import SLOT_THEMES, TAUNTS
 
 MIN_BET = 10
 BET_PRESETS = [50, 100, 250, 500, 1000]
@@ -36,9 +37,19 @@ BET_VIEW_TIMEOUT_SECONDS = 120
 _DECORATIVE_SYMBOLS = list(SYMBOL_WEIGHTS.keys())  # unweighted — these frames are cosmetic, the real outcome is already decided
 
 
-def slots_bet_embed(balance: int) -> discord.Embed:
+def _themed_symbol(symbol: str, theme_key: str | None) -> str:
+    """Translates a canonical symbol (from data/slots.py) to its equipped
+    Slot Theme's glyph for display — SYMBOL_WEIGHTS/TRIPLE_PAYOUT always
+    operate on the canonical symbols; only what's drawn on screen changes."""
+    if not theme_key:
+        return symbol
+    return SLOT_THEMES[theme_key]["symbols"].get(symbol, symbol)
+
+
+def slots_bet_embed(balance: int, theme_key: str | None = None) -> discord.Embed:
     payout_lines = "\n".join(
-        f"{symbol}{symbol}{symbol} — {mult}x" for symbol, mult in sorted(TRIPLE_PAYOUT.items(), key=lambda kv: kv[1])
+        f"{_themed_symbol(symbol, theme_key) * 3} — {mult}x"
+        for symbol, mult in sorted(TRIPLE_PAYOUT.items(), key=lambda kv: kv[1])
     )
     return discord.Embed(
         title="🎰 Slots",
@@ -51,16 +62,19 @@ def slots_bet_embed(balance: int) -> discord.Embed:
     )
 
 
-def _spin_embed(reels: list, note: str, balance: int) -> discord.Embed:
-    reel_text = "  ".join(f"[ {s} ]" for s in reels)
+def _spin_embed(reels: list, note: str, balance: int, theme_key: str | None = None) -> discord.Embed:
+    reel_text = "  ".join(f"[ {_themed_symbol(s, theme_key)} ]" for s in reels)
     embed = discord.Embed(title="🎰 Slots", description=f"{reel_text}\n\n*{note}*", color=discord.Color.gold())
     embed.set_footer(text=f"💰 Balance: {balance:,} chips")
     return embed
 
 
-async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
+async def start_spin(interaction: discord.Interaction, db_cog, bet: int, wallet: dict):
     # Defer now, before any DB work — see module docstring.
     await interaction.response.defer()
+
+    theme_key = wallet.get("equipped_slot_theme")
+    taunt_key = wallet.get("equipped_taunt")
 
     balance_after_bet = await db_cog.add_chips(interaction.user.id, -bet)
 
@@ -81,14 +95,16 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
     # frame up to the last shows the post-bet balance; only the final
     # frame reflects a win's credit, since that's when it actually lands.
     frames = [
-        _spin_embed(random_reels(), "Spinning...", balance_after_bet),
-        _spin_embed(random_reels(), "Spinning...", balance_after_bet),
+        _spin_embed(random_reels(), "Spinning...", balance_after_bet, theme_key),
+        _spin_embed(random_reels(), "Spinning...", balance_after_bet, theme_key),
     ]
     frames.append(_spin_embed(
-        [final_reels[0], *random_reels()[1:]], f"Reel 1 locks: {final_reels[0]}", balance_after_bet
+        [final_reels[0], *random_reels()[1:]],
+        f"Reel 1 locks: {_themed_symbol(final_reels[0], theme_key)}", balance_after_bet, theme_key,
     ))
     frames.append(_spin_embed(
-        [final_reels[0], final_reels[1], random_reels()[2]], f"Reel 2 locks: {final_reels[1]}", balance_after_bet
+        [final_reels[0], final_reels[1], random_reels()[2]],
+        f"Reel 2 locks: {_themed_symbol(final_reels[1], theme_key)}", balance_after_bet, theme_key,
     ))
 
     net = credit - bet
@@ -96,10 +112,12 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
         result_note = f"🏆 {multiplier}x — you win {credit:,} chips! (net +{net:,})"
     else:
         result_note = f"No match — you lost {bet:,} chips. Try again!"
-    final_frame = _spin_embed(final_reels, result_note, final_balance)
+    final_frame = _spin_embed(final_reels, result_note, final_balance, theme_key)
     badge_field = format_new_badge_field(new_badges)
     if badge_field:
         final_frame.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+    if taunt_key:
+        final_frame.add_field(name="💬 Taunt", value=TAUNTS[taunt_key]["text"], inline=False)
     frames.append(final_frame)
 
     await interaction.edit_original_response(embed=frames[0], view=None)
@@ -135,7 +153,7 @@ class SpinAgainButton(discord.ui.Button):
                 ephemeral=True,
             )
             return
-        await start_spin(interaction, db_cog, self.bet)
+        await start_spin(interaction, db_cog, self.bet, wallet)
 
 
 class ChangeBetButton(discord.ui.Button):
@@ -145,7 +163,10 @@ class ChangeBetButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         db_cog = interaction.client.get_cog('Database')
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
-        await interaction.response.edit_message(embed=slots_bet_embed(wallet["balance"]), view=SlotsBetView(wallet["balance"]))
+        await interaction.response.edit_message(
+            embed=slots_bet_embed(wallet["balance"], wallet.get("equipped_slot_theme")),
+            view=SlotsBetView(wallet["balance"]),
+        )
 
 
 class SlotsResultView(discord.ui.View):
@@ -217,7 +238,7 @@ class BetPresetButton(discord.ui.Button):
             )
             return
 
-        await start_spin(interaction, db_cog, self.amount)
+        await start_spin(interaction, db_cog, self.amount, wallet)
 
 
 class CustomBetModal(discord.ui.Modal, title="Pull the Lever"):
@@ -259,7 +280,7 @@ class CustomBetModal(discord.ui.Modal, title="Pull the Lever"):
             )
             return
 
-        await start_spin(interaction, db_cog, bet)
+        await start_spin(interaction, db_cog, bet, wallet)
 
 
 class CustomBetButton(discord.ui.Button):

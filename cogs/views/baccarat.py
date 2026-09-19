@@ -32,6 +32,7 @@ import discord
 
 from data.baccarat import play_round, resolve_bet_amount, hand_value, PAYOUTS
 from data.poker import new_shuffled_deck, format_cards
+from data.casino_cosmetics import TABLE_FLAIR
 
 MIN_BET = 10
 MAX_PLAYERS = 10
@@ -43,17 +44,18 @@ SIDE_EMOJI = {"player": "🔵", "banker": "🔴", "tie": "🟢"}
 
 
 class BaccaratPlayer:
-    def __init__(self, user_id: int, name: str):
+    def __init__(self, user_id: int, name: str, flair_key: str | None = None):
         self.user_id = user_id
         self.name = name
+        self.flair_key = flair_key  # fetched once at seat time, not per-render
 
 
 class BaccaratTableView(discord.ui.View):
-    def __init__(self, db_cog, host: discord.Member):
+    def __init__(self, db_cog, host: discord.Member, *, host_flair_key: str | None = None):
         super().__init__(timeout=None)  # a table can sit open a while between rounds
         self.db_cog = db_cog
         self.host_id = host.id
-        self.players: list[BaccaratPlayer] = [BaccaratPlayer(host.id, host.display_name)]
+        self.players: list[BaccaratPlayer] = [BaccaratPlayer(host.id, host.display_name, host_flair_key)]
         self.bets: dict[int, dict] = {}  # user_id -> {"side": ..., "amount": ...} for the round in progress
         self.expected_bettors: set = set()  # snapshotted when the first bet of a round lands
         self.last_result: dict | None = None
@@ -172,7 +174,11 @@ class BaccaratTableView(discord.ui.View):
         final step after this sequence finishes, so the result lands a
         beat after the last card rather than all at once."""
         r = self.last_result
-        header = [f"🪑 {p.name}{' 👑' if p.user_id == self.host_id else ''}" for p in self.players]
+        header = [
+            f"🪑{' ' + TABLE_FLAIR[p.flair_key]['emoji'] if p.flair_key else ''} {p.name}"
+            f"{' 👑' if p.user_id == self.host_id else ''}"
+            for p in self.players
+        ]
 
         def hand_line(label, cards):
             if not cards:
@@ -272,12 +278,13 @@ class BaccaratTableView(discord.ui.View):
         player_lines = []
         for p in self.players:
             crown = " 👑" if p.user_id == self.host_id else ""
+            flair = f" {TABLE_FLAIR[p.flair_key]['emoji']}" if p.flair_key else ""
             bet = self.bets.get(p.user_id)
             if bet:
                 bet_text = f"{SIDE_EMOJI[bet['side']]} {SIDE_LABELS[bet['side']]} — {bet['amount']:,} chips"
             else:
                 bet_text = "*no bet yet*"
-            player_lines.append(f"🪑 **{p.name}**{crown} — {bet_text}")
+            player_lines.append(f"🪑{flair} **{p.name}**{crown} — {bet_text}")
         embed.add_field(name=f"Players ({len(self.players)})", value="\n".join(player_lines), inline=False)
 
         if self.last_result:
@@ -420,7 +427,10 @@ class JoinTableButton(discord.ui.Button):
             view.busy = False
             return await interaction.response.send_message("Table is full.", ephemeral=True)
 
-        view.players.append(BaccaratPlayer(interaction.user.id, interaction.user.display_name))
+        wallet = await view.db_cog.get_or_create_wallet(interaction.user.id)
+        view.players.append(BaccaratPlayer(
+            interaction.user.id, interaction.user.display_name, wallet.get("equipped_table_flair")
+        ))
         view.rebuild_items()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
@@ -464,7 +474,8 @@ async def create_table(interaction: discord.Interaction):
     the wallet per round rather than sitting in a table-held stack, so
     there's nothing to collect before the table can open."""
     db_cog = interaction.client.get_cog('Database')
-    view = BaccaratTableView(db_cog, interaction.user)
+    wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+    view = BaccaratTableView(db_cog, interaction.user, host_flair_key=wallet.get("equipped_table_flair"))
 
     await interaction.response.edit_message(
         embed=discord.Embed(
