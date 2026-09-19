@@ -266,7 +266,9 @@ class DungeonRunView(discord.ui.View):
             self.last_event += f"\n\n✅ **Cashed out on Floor {self.floor}.** {payout:,} chips added to your wallet."
 
         self.rebuild_items()
-        await self.push_update(interaction)
+        result_view = DungeonResultView(self.user_id)
+        message = await interaction.edit_original_response(embed=self.build_embed(), view=result_view)
+        result_view.message = message
         self.stop()
 
     async def on_timeout(self):
@@ -279,8 +281,90 @@ class DungeonRunView(discord.ui.View):
         await self.db_cog.log_dungeon_run(self.user_id, self.floor, "cashed_out", payout, self.weapon_key)
         self.last_event += f"\n\n⏱️ **Auto-cashed out after inactivity.** {payout:,} chips added to your wallet."
         self.rebuild_items()
+        result_view = DungeonResultView(self.user_id)
         try:
-            await self.message.edit(embed=self.build_embed(), view=self)
+            await self.message.edit(embed=self.build_embed(), view=result_view)
+            result_view.message = self.message
+        except discord.HTTPException:
+            pass
+
+
+async def start_run(interaction: discord.Interaction, db_cog, wallet: dict):
+    """Deducts the entry fee and starts a fresh run — shared by the
+    initial /casino entry and Play Again after a previous run ends.
+    `wallet` is the caller's already-fetched wallet dict (used for its
+    balance-sufficiency check just before calling this), so this
+    doesn't re-fetch it — just needs the equipped_weapon it already has."""
+    await db_cog.add_chips(interaction.user.id, -ENTRY_FEE)
+    stat_levels = await db_cog.get_stat_levels(interaction.user.id)
+    view = DungeonRunView(db_cog, interaction.user.id, wallet["equipped_weapon"], stat_levels)
+    await interaction.response.edit_message(embed=view.build_embed(), view=view)
+    view.message = await interaction.original_response()
+
+
+class DungeonPlayAgainButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label=f"Play Again ({ENTRY_FEE:,})", style=discord.ButtonStyle.success, emoji="🗝️")
+
+    async def callback(self, interaction: discord.Interaction):
+        view: DungeonResultView = self.view
+        db_cog = interaction.client.get_cog('Database')
+        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+        if wallet["balance"] < ENTRY_FEE:
+            view.busy = False
+            await interaction.response.send_message(
+                f"You need {ENTRY_FEE:,} chips to enter the dungeon again — "
+                f"you have {wallet['balance']:,}.",
+                ephemeral=True,
+            )
+            return
+        await start_run(interaction, db_cog, wallet)
+
+
+class DungeonBackToCasinoButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Back to Casino", style=discord.ButtonStyle.secondary, emoji="↩️")
+
+    async def callback(self, interaction: discord.Interaction):
+        from cogs.casino import casino_embed, CasinoView  # local import avoids a circular import
+        embed = casino_embed("🎰 Casino", "Pick an option below to get started.")
+        view = CasinoView()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.message = interaction.message
+
+
+class DungeonResultView(discord.ui.View):
+    """Shown once a run ends (died, cashed out, or auto-cashed-out on
+    timeout) — lets the player start a fresh run or head back to the
+    casino, same Play Again / Back to Casino pattern as every other
+    solo game. No ownership check needed: this message is the same
+    ephemeral one the player used to enter /casino in the first place,
+    so nobody else can ever see or click it."""
+
+    def __init__(self, user_id: int):
+        super().__init__(timeout=180)
+        self.user_id = user_id
+        self.busy = False
+        self.message: discord.Message | None = None
+        self.add_item(DungeonPlayAgainButton())
+        self.add_item(DungeonBackToCasinoButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
+    async def on_timeout(self):
+        """Grey out Play Again / Back to Casino once nobody's left to
+        click them — same close pattern as every other result view."""
+        if not self.message:
+            return
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
         except discord.HTTPException:
             pass
 
