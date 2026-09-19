@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timedelta, timezone
 
-from .views.dungeon import DungeonRunView, ENTRY_FEE as DUNGEON_ENTRY_FEE
+from .views.dungeon import start_run as start_dungeon_run, ENTRY_FEE as DUNGEON_ENTRY_FEE
 from .views.blackjack import BlackjackBetView, blackjack_bet_embed
 from .views.poker import StakeSelectView
 from .views.baccarat import create_table as create_baccarat_table
@@ -128,11 +128,7 @@ class CasinoSelect(discord.ui.Select):
             )
             return
 
-        await db_cog.add_chips(interaction.user.id, -DUNGEON_ENTRY_FEE)
-        stat_levels = await db_cog.get_stat_levels(interaction.user.id)
-        view = DungeonRunView(db_cog, interaction.user.id, wallet["equipped_weapon"], stat_levels)
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
-        view.message = await interaction.original_response()
+        await start_dungeon_run(interaction, db_cog, wallet)
 
     async def _handle_daily(self, db_cog, user_id: int) -> discord.Embed:
         wallet = await db_cog.get_or_create_wallet(user_id)

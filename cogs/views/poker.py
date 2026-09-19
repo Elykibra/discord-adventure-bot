@@ -238,17 +238,10 @@ class PokerTableView(discord.ui.View):
         auto-close when the table's dwindled below playable — refunds
         everyone still seated/pending, closes the view, and stops the
         timer/snapshot from lingering after nobody can act on them again.
-        Can run mid-hand (nothing currently stops someone from leaving
-        while a hand's in progress), so any chips already bet into
-        self.pot this hand get split among whoever's still seated first —
-        otherwise that money would just vanish, credited to nobody."""
-        if self.pot > 0 and self.players:
-            share = self.pot // len(self.players)
-            leftover = self.pot - share * len(self.players)
-            for i, p in enumerate(self.players):
-                p.stack += share + (leftover if i == 0 else 0)
-            self.pot = 0
-
+        Only ever reachable between hands or before the first deal
+        (Leave Table isn't offered while stage < 4 — see rebuild_items()),
+        so self.pot is always already 0 here; there's nothing mid-hand to
+        split up."""
         for p in self.players + self.pending:
             await self.db_cog.add_chips(p.user_id, p.stack)
         self.players.clear()
