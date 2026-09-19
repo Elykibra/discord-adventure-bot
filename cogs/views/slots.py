@@ -93,9 +93,69 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
     frames.append(_spin_embed(final_reels, result_note, f"💰 Balance: {final_balance:,} chips"))
 
     await interaction.edit_original_response(embed=frames[0], view=None)
-    for embed in frames[1:]:
+    for embed in frames[1:-1]:
         await asyncio.sleep(REVEAL_DELAY_SECONDS)
         await interaction.edit_original_response(embed=embed, view=None)
+
+    # The last frame gets a fresh result view attached — lets the player
+    # spin again (same bet) or change their bet without re-running the
+    # command. A brand-new SlotsResultView instance each time means there's
+    # nothing to "release" between spins: the old one (and whatever busy
+    # state it ended in) is simply discarded once replaced.
+    await asyncio.sleep(REVEAL_DELAY_SECONDS)
+    await interaction.edit_original_response(embed=frames[-1], view=SlotsResultView(bet))
+
+
+class SpinAgainButton(discord.ui.Button):
+    def __init__(self, bet: int):
+        super().__init__(label=f"Spin Again ({bet:,})", style=discord.ButtonStyle.success, emoji="🎰")
+        self.bet = bet
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+        if wallet["balance"] < self.bet:
+            await interaction.response.send_message(
+                f"You don't have {self.bet:,} chips for another {self.bet:,}-chip spin — "
+                f"balance is {wallet['balance']:,}. Try Change Bet for a smaller amount.",
+                ephemeral=True,
+            )
+            return
+        await start_spin(interaction, db_cog, self.bet)
+
+
+class ChangeBetButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Change Bet", style=discord.ButtonStyle.secondary, emoji="✏️")
+
+    async def callback(self, interaction: discord.Interaction):
+        db_cog = interaction.client.get_cog('Database')
+        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+        await interaction.response.edit_message(embed=slots_bet_embed(wallet["balance"]), view=SlotsBetView(wallet["balance"]))
+
+
+class SlotsResultView(discord.ui.View):
+    """Shown after a spin resolves — lets the player spin again (same bet)
+    or change their bet, without needing to re-run /casino. A fresh
+    instance is created for every spin (see start_spin()), so the
+    busy-guard below only ever needs to protect ONE spin's duration, not
+    a whole reused session — same reasoning as Poker/Baccarat's
+    busy-guard, just scoped to a single-use view instead of a long-lived
+    one."""
+
+    def __init__(self, bet: int):
+        super().__init__(timeout=180)
+        self.busy = False
+        self.add_item(SpinAgainButton(bet))
+        self.add_item(ChangeBetButton())
+        self.add_item(BackToCasinoButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
 
 
 class BetPresetButton(discord.ui.Button):
