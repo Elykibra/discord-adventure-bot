@@ -65,6 +65,7 @@ class BetPresetButton(discord.ui.Button):
         db_cog = interaction.client.get_cog('Database')
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < self.amount:
+            view.busy = False
             await interaction.response.send_message(
                 f"You don't have {self.amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
@@ -75,23 +76,39 @@ class BetPresetButton(discord.ui.Button):
 class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
     amount = discord.ui.TextInput(label="Bet amount", placeholder="e.g. 150", max_length=10)
 
-    def __init__(self, *, already_public: bool = False):
+    def __init__(self, bet_view: "VideoPokerBetView", *, already_public: bool = False):
         super().__init__()
+        self.bet_view = bet_view
         self.already_public = already_public
 
     async def on_submit(self, interaction: discord.Interaction):
+        view = self.bet_view
+        # Claim the lock synchronously, before any DB round-trip — a modal
+        # bypasses the view's own interaction_check, so without this two
+        # submissions (or a submission racing a preset-button click) could
+        # both pass the balance check before either deduction lands. Same
+        # fix as Blackjack's CustomBetModal and Baccarat's BetModal, and
+        # the same shape already proven correct in Poker's RaiseModal.
+        if view.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return
+        view.busy = True
+
         db_cog = interaction.client.get_cog('Database')
         try:
             bet = int(self.amount.value)
         except ValueError:
+            view.busy = False
             await interaction.response.send_message("Bet amount must be a number.", ephemeral=True)
             return
 
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if bet < MIN_BET:
+            view.busy = False
             await interaction.response.send_message(f"Minimum bet is {MIN_BET:,} chips.", ephemeral=True)
             return
         if bet > wallet["balance"]:
+            view.busy = False
             await interaction.response.send_message(
                 f"You don't have {bet:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
@@ -106,7 +123,8 @@ class CustomBetButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         view: VideoPokerBetView = self.view
-        await interaction.response.send_modal(CustomBetModal(already_public=view.already_public))
+        view.busy = False  # a modal takes over from here — it manages this same lock itself
+        await interaction.response.send_modal(CustomBetModal(view, already_public=view.already_public))
 
 
 class BackToCasinoButton(discord.ui.Button):
@@ -128,6 +146,7 @@ class VideoPokerBetView(discord.ui.View):
         # public (reached via Change Bet from a finished hand), as
         # opposed to the private /casino picker — see start_hand().
         self.already_public = already_public
+        self.busy = False
         for amount in BET_PRESETS:
             if amount <= balance:
                 self.add_item(BetPresetButton(amount))
@@ -135,6 +154,13 @@ class VideoPokerBetView(discord.ui.View):
             self.add_item(BetPresetButton(balance, label=f"All In ({balance:,})", all_in=True))
         self.add_item(CustomBetButton())
         self.add_item(BackToCasinoButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
 
 
 async def start_hand(interaction: discord.Interaction, db_cog, bet: int, *, already_public: bool = False):
@@ -348,9 +374,11 @@ class PlayAgainButton(discord.ui.Button):
         self.bet = bet
 
     async def callback(self, interaction: discord.Interaction):
+        view: VideoPokerResultView = self.view
         db_cog = interaction.client.get_cog('Database')
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < self.bet:
+            view.busy = False
             await interaction.response.send_message(
                 f"You don't have {self.bet:,} chips for another {self.bet:,}-chip hand — "
                 f"balance is {wallet['balance']:,}. Try Change Bet for a smaller amount.",

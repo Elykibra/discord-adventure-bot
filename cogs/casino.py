@@ -106,6 +106,11 @@ class CasinoSelect(discord.ui.Select):
         else:
             embed = await self._handle_daily(db_cog, interaction.user.id)
 
+        # Both of these branches stay on this SAME CasinoView instance
+        # (self.view) rather than handing off to a new one, so — unlike
+        # every branch above — the lock needs releasing here for the menu
+        # to stay usable afterward.
+        self.view.busy = False
         await interaction.response.edit_message(embed=embed, view=self.view)
 
     async def _handle_balance(self, db_cog, user_id: int) -> discord.Embed:
@@ -115,6 +120,7 @@ class CasinoSelect(discord.ui.Select):
     async def _handle_dungeon_entry(self, db_cog, interaction: discord.Interaction):
         wallet = await db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < DUNGEON_ENTRY_FEE:
+            self.view.busy = False
             await interaction.response.send_message(
                 f"You need {DUNGEON_ENTRY_FEE:,} chips to enter the dungeon — "
                 f"you have {wallet['balance']:,}.",
@@ -192,6 +198,7 @@ class BuyButton(discord.ui.Button):
         view: ArmoryView = self.view
         wallet = await view.db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < self.cost:
+            view.busy = False
             await interaction.response.send_message(
                 f"You need {self.cost:,} chips for this — you have {wallet['balance']:,}.",
                 ephemeral=True,
@@ -242,7 +249,15 @@ class ArmoryView(discord.ui.View):
         owned = set(await db_cog.get_owned_weapons(user_id)) | {STARTER_WEAPON}
         return cls(db_cog, owned, wallet["equipped_weapon"])
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
     def rebuild_items(self):
+        self.busy = False  # reaching a new stable item state releases the lock
         self.clear_items()
         self.add_item(WeaponSelect(self))
         if self.selected:
@@ -306,6 +321,7 @@ class UpgradeStatButton(discord.ui.Button):
         view: StatsView = self.view
         wallet = await view.db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < self.cost:
+            view.busy = False
             await interaction.response.send_message(
                 f"You need {self.cost:,} chips for this — you have {wallet['balance']:,}.",
                 ephemeral=True,
@@ -331,7 +347,15 @@ class StatsView(discord.ui.View):
         levels = await db_cog.get_stat_levels(user_id)
         return cls(db_cog, levels)
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
     def rebuild_items(self):
+        self.busy = False  # reaching a new stable item state releases the lock
         self.clear_items()
         self.add_item(StatSelect(self))
         if self.selected:
@@ -378,8 +402,16 @@ class CasinoView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=180)
         self.message: discord.Message | None = None
+        self.busy = False
         self.add_item(CasinoSelect())
         self.add_item(ExitButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
 
     async def on_timeout(self):
         """Grey out the menu once nobody's left to use it — otherwise the

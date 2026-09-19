@@ -307,18 +307,29 @@ class BetModal(discord.ui.Modal, title="Place Bet"):
 
     async def on_submit(self, interaction: discord.Interaction):
         view = self.table_view
+        # Claim the lock synchronously, before any await — a modal bypasses
+        # the view's own interaction_check, and the DB round-trips below
+        # (wallet lookup, the deduction, and potentially a full
+        # resolve_round()) previously ran before busy was ever set, leaving
+        # a window where two near-simultaneous bets could both pass the
+        # balance check before either deduction landed. Same shape already
+        # proven correct in Poker's RaiseModal.
         if view.busy:
             return await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+        view.busy = True
 
         player = view.find_player(interaction.user.id)
         if not player:
+            view.busy = False
             return await interaction.response.send_message("You're not seated at this table — join first.", ephemeral=True)
 
         try:
             amount = int(self.amount.value)
         except ValueError:
+            view.busy = False
             return await interaction.response.send_message("Bet amount must be a number.", ephemeral=True)
         if amount < MIN_BET:
+            view.busy = False
             return await interaction.response.send_message(f"Minimum bet is {MIN_BET:,} chips.", ephemeral=True)
 
         # Defer now, before any slow work — everything from here on can
@@ -335,11 +346,10 @@ class BetModal(discord.ui.Modal, title="Place Bet"):
 
         wallet = await view.db_cog.get_or_create_wallet(interaction.user.id)
         if amount > wallet["balance"]:
+            view.busy = False
             return await interaction.followup.send(
                 f"You don't have {amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
-
-        view.busy = True
 
         # Changing an existing bet this round refunds the old amount first —
         # nothing's deducted twice, and nothing needs to track a "diff."
@@ -434,6 +444,14 @@ class LeaveTableButton(discord.ui.Button):
             await view.db_cog.add_chips(interaction.user.id, existing["amount"])
         view.expected_bettors.discard(interaction.user.id)
         view.players.remove(player)
+        if not view.bets:
+            # The round they were part of has no live bets left riding on
+            # it — clear the stale countdown instead of leaving "Round
+            # deals in X" ticking down to a round that will never deal
+            # (the timeout watcher itself already no-ops on an empty
+            # self.bets, it just never told the embed).
+            view.cancel_betting_timer()
+            view.betting_deadline = None
         view.rebuild_items()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
