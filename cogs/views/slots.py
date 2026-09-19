@@ -69,6 +69,9 @@ async def start_spin(interaction: discord.Interaction, db_cog, bet: int):
     final_balance = balance_after_bet
     if credit > 0:
         final_balance = await db_cog.add_chips(interaction.user.id, credit)
+    await db_cog.record_game_result(
+        interaction.user.id, "slots", wagered=bet, won=credit, is_win=(multiplier > 0)
+    )
 
     def random_reels():
         return [random.choice(_DECORATIVE_SYMBOLS) for _ in range(3)]

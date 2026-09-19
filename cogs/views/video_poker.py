@@ -284,6 +284,9 @@ class VideoPokerHandView(discord.ui.View):
         payout = self.bet * multiplier
         if payout > 0:
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
+        await self.db_cog.record_game_result(
+            self.user_id, "video_poker", wagered=self.bet, won=payout, is_win=(multiplier > 0)
+        )
 
         return {"category": category, "multiplier": multiplier, "payout": payout}
 

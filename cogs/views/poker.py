@@ -982,19 +982,20 @@ class PokerStatsButton(discord.ui.Button):
         view: StakeSelectView = self.view
         view.busy = False  # purely informational — never reaches a path that would release it otherwise
         db_cog = interaction.client.get_cog('Database')
-        stats = await db_cog.get_poker_stats(interaction.user.id)
+        stats = await db_cog.get_game_stats(interaction.user.id, "poker")
         recent = await db_cog.get_recent_poker_hands(5)
 
-        played = stats["hands_played"]
-        win_rate = f"{stats['hands_won'] / played * 100:.0f}%" if played else "—"
+        played = stats["plays"]
+        win_rate = f"{stats['wins'] / played * 100:.0f}%" if played else "—"
         net = stats["net_chips"]
         net_text = f"+{net:,}" if net >= 0 else f"{net:,}"
+        biggest_pot_won = stats["extra"].get("biggest_pot_won", 0)
 
         description = (
             f"**Hands played:** {played:,}\n"
-            f"**Hands won:** {stats['hands_won']:,} ({win_rate})\n"
+            f"**Hands won:** {stats['wins']:,} ({win_rate})\n"
             f"**Net chips (lifetime):** {net_text}\n"
-            f"**Biggest pot won:** {stats['biggest_pot_won']:,}"
+            f"**Biggest pot won:** {biggest_pot_won:,}"
         )
         if recent:
             lines = "\n".join(
