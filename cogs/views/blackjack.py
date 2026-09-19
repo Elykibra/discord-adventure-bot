@@ -391,6 +391,9 @@ class BlackjackHandView(discord.ui.View):
         self.outcome, payout, self.result_text = self._compute_outcome()
         if payout > 0:
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
+        await self.db_cog.record_game_result(
+            self.user_id, "blackjack", wagered=self.total_wagered, won=payout, is_win=(self.outcome == "win")
+        )
         self.rebuild_items()
         await self.push_result(interaction)
         self.stop()
@@ -406,7 +409,8 @@ class BlackjackHandView(discord.ui.View):
         dealer_bj = is_blackjack(self.dealer_cards)
 
         if player_bj and dealer_bj:
-            self.current_balance = await self.db_cog.add_chips(self.user_id, self.bet)
+            payout = self.bet
+            self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
             self.outcome = "push"
             self.result_text = "🤝 Both have Blackjack! Push — your bet is returned."
         elif player_bj:
@@ -415,9 +419,13 @@ class BlackjackHandView(discord.ui.View):
             self.outcome = "win"
             self.result_text = f"🃏 **BLACKJACK!** You win {payout:,} chips (3:2 payout)."
         else:
+            payout = 0
             self.outcome = "lose"
             self.result_text = "❌ Dealer has Blackjack. You lose your bet."
 
+        await self.db_cog.record_game_result(
+            self.user_id, "blackjack", wagered=self.bet, won=payout, is_win=(self.outcome == "win")
+        )
         self.rebuild_items()
         result_view = BlackjackResultView(self.user_id, self.bet)
         await message.edit(embed=self.build_embed(), view=result_view)
@@ -436,6 +444,9 @@ class BlackjackHandView(discord.ui.View):
         self.result_text = "⏱️ Auto-stood after inactivity. " + result
         if payout > 0:
             self.current_balance = await self.db_cog.add_chips(self.user_id, payout)
+        await self.db_cog.record_game_result(
+            self.user_id, "blackjack", wagered=self.total_wagered, won=payout, is_win=(self.outcome == "win")
+        )
 
         self.rebuild_items()
         result_view = BlackjackResultView(self.user_id, self.bet)

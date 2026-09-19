@@ -256,6 +256,9 @@ class DungeonRunView(discord.ui.View):
         await self.db_cog.log_dungeon_run(
             self.user_id, self.floor, "died" if died else "cashed_out", payout, self.weapon_key
         )
+        await self.db_cog.record_game_result(
+            self.user_id, "dungeon", wagered=ENTRY_FEE, won=payout, is_win=(not died)
+        )
 
         if died:
             self.last_event += (
@@ -279,6 +282,9 @@ class DungeonRunView(discord.ui.View):
         if payout > 0:
             await self.db_cog.add_chips(self.user_id, payout)
         await self.db_cog.log_dungeon_run(self.user_id, self.floor, "cashed_out", payout, self.weapon_key)
+        await self.db_cog.record_game_result(
+            self.user_id, "dungeon", wagered=ENTRY_FEE, won=payout, is_win=True
+        )
         self.last_event += f"\n\n⏱️ **Auto-cashed out after inactivity.** {payout:,} chips added to your wallet."
         self.rebuild_items()
         result_view = DungeonResultView(self.user_id)

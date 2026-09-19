@@ -151,6 +151,9 @@ class BaccaratTableView(discord.ui.View):
             credit = resolve_bet_amount(bet["side"], bet["amount"], outcome)
             if credit > 0:
                 await self.db_cog.add_chips(user_id, credit)
+            await self.db_cog.record_game_result(
+                user_id, "baccarat", wagered=bet["amount"], won=credit, is_win=(credit > bet["amount"])
+            )
             net = credit - bet["amount"]
             net_text = f"+{net:,}" if net > 0 else (f"{net:,}" if net < 0 else "push")
             payout_lines.append(f"{name} bet {SIDE_LABELS[bet['side']]} {bet['amount']:,} — {net_text}")

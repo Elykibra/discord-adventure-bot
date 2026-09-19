@@ -217,41 +217,88 @@ class Database(commands.Cog):
             result.append(d)
         return result
 
-    # --- Poker stats & history ---
-    async def record_poker_hand(self, table_key: str, stake_name: str, pot: int, player_results: List[Dict[str, Any]]) -> None:
-        """Updates lifetime stats for everyone dealt into a just-resolved hand and
-        logs a short summary of it. `player_results` is one dict per seated player
-        (winners and losers, folded or not): {user_id, name, contributed, won}."""
+    # --- Casino game stats (shared across every casino game — see migrations/022) ---
+    async def record_game_result(self, user_id: int, game_key: str, *, wagered: int, won: int,
+                                  is_win: bool, extra_increment: Optional[Dict[str, int]] = None,
+                                  extra_max: Optional[Dict[str, int]] = None) -> None:
+        """Upserts one resolution into casino_game_stats. `wagered`/`won` are
+        this single play's numbers (won=0 on a clean loss; a push/refund sets
+        won==wagered, netting to 0 with no special-casing needed here — see
+        `is_win`). `is_win` is the caller's own win/loss/push call, not
+        inferred from the amounts: games differ on what counts as a "win"
+        (a Blackjack push isn't one; Video Poker's 1x Jacks-or-Better payout
+        is, since the game's own embed already calls it a win).
+
+        `extra_increment`/`extra_max` each add or max-update one key inside
+        the schemaless `extra` JSONB bucket, atomically (computed server-side
+        in a single statement — no read-modify-write race). Key names are
+        always our own fixed literals, never user input, so building them
+        into the query text is safe."""
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                for r in player_results:
-                    net = r["won"] - r["contributed"]
-                    won_flag = 1 if r["won"] > 0 else 0
+                await conn.execute(
+                    '''INSERT INTO casino_game_stats
+                           (user_id, game_key, plays, wins, total_wagered, total_won, net_chips, biggest_win, last_played_at)
+                       VALUES ($1, $2, 1, $3, $4, $5, $5 - $4, $5, NOW())
+                       ON CONFLICT (user_id, game_key) DO UPDATE SET
+                           plays = casino_game_stats.plays + 1,
+                           wins = casino_game_stats.wins + $3,
+                           total_wagered = casino_game_stats.total_wagered + $4,
+                           total_won = casino_game_stats.total_won + $5,
+                           net_chips = casino_game_stats.net_chips + ($5 - $4),
+                           biggest_win = GREATEST(casino_game_stats.biggest_win, $5),
+                           last_played_at = NOW()''',
+                    user_id, game_key, 1 if is_win else 0, wagered, won
+                )
+                for key, delta in (extra_increment or {}).items():
                     await conn.execute(
-                        '''INSERT INTO poker_stats (user_id, hands_played, hands_won, net_chips, biggest_pot_won)
-                           VALUES ($1, 1, $2, $3, $4)
-                           ON CONFLICT (user_id) DO UPDATE SET
-                               hands_played = poker_stats.hands_played + 1,
-                               hands_won = poker_stats.hands_won + $2,
-                               net_chips = poker_stats.net_chips + $3,
-                               biggest_pot_won = GREATEST(poker_stats.biggest_pot_won, $4)''',
-                        r["user_id"], won_flag, net, r["won"]
+                        f'''UPDATE casino_game_stats
+                            SET extra = jsonb_set(extra, '{{{key}}}', to_jsonb(COALESCE((extra->>'{key}')::bigint, 0) + $3))
+                            WHERE user_id = $1 AND game_key = $2''',
+                        user_id, game_key, delta
+                    )
+                for key, value in (extra_max or {}).items():
+                    await conn.execute(
+                        f'''UPDATE casino_game_stats
+                            SET extra = jsonb_set(extra, '{{{key}}}', to_jsonb(GREATEST(COALESCE((extra->>'{key}')::bigint, 0), $3)))
+                            WHERE user_id = $1 AND game_key = $2''',
+                        user_id, game_key, value
                     )
 
-                winners_summary = ", ".join(
-                    f"{r['name']} (+{r['won']:,})" for r in player_results if r["won"] > 0
-                ) or "no winner recorded"
-                await conn.execute(
-                    '''INSERT INTO poker_hand_history (table_key, stake_name, pot, winners_summary)
-                       VALUES ($1, $2, $3, $4)''',
-                    table_key, stake_name, pot, winners_summary
-                )
-
-    async def get_poker_stats(self, user_id: int) -> Dict[str, Any]:
-        record = await self.pool.fetchrow('SELECT * FROM poker_stats WHERE user_id = $1', user_id)
-        return self._record_to_dict(record) or {
-            "user_id": user_id, "hands_played": 0, "hands_won": 0, "net_chips": 0, "biggest_pot_won": 0
+    async def get_game_stats(self, user_id: int, game_key: str) -> Dict[str, Any]:
+        record = await self.pool.fetchrow(
+            'SELECT * FROM casino_game_stats WHERE user_id = $1 AND game_key = $2', user_id, game_key
+        )
+        d = self._record_to_dict(record) or {
+            "user_id": user_id, "game_key": game_key, "plays": 0, "wins": 0,
+            "total_wagered": 0, "total_won": 0, "net_chips": 0, "biggest_win": 0,
+            "last_played_at": None, "extra": {},
         }
+        if isinstance(d.get("extra"), str):
+            d["extra"] = json.loads(d["extra"])
+        return d
+
+    # --- Poker hand history (a recent-activity feed, separate from the per-user stats above) ---
+    async def record_poker_hand(self, table_key: str, stake_name: str, pot: int, player_results: List[Dict[str, Any]]) -> None:
+        """Updates lifetime stats (via record_game_result) for everyone dealt
+        into a just-resolved hand and logs a short summary of it.
+        `player_results` is one dict per seated player (winners and losers,
+        folded or not): {user_id, name, contributed, won}."""
+        for r in player_results:
+            await self.record_game_result(
+                r["user_id"], "poker",
+                wagered=r["contributed"], won=r["won"], is_win=r["won"] > 0,
+                extra_max={"biggest_pot_won": pot},
+            )
+
+        winners_summary = ", ".join(
+            f"{r['name']} (+{r['won']:,})" for r in player_results if r["won"] > 0
+        ) or "no winner recorded"
+        await self.pool.execute(
+            '''INSERT INTO poker_hand_history (table_key, stake_name, pot, winners_summary)
+               VALUES ($1, $2, $3, $4)''',
+            table_key, stake_name, pot, winners_summary
+        )
 
     async def get_recent_poker_hands(self, limit: int = 5) -> List[Dict[str, Any]]:
         """Most recent resolved hands, server-wide (not filtered per-user) — a
