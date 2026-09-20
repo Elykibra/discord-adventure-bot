@@ -243,14 +243,14 @@ class Database(commands.Cog):
                 await conn.execute(
                     '''INSERT INTO casino_game_stats
                            (user_id, game_key, plays, wins, total_wagered, total_won, net_chips, biggest_win, last_played_at)
-                       VALUES ($1, $2, 1, $3, $4, $5, $5 - $4, $5, NOW())
+                       VALUES ($1, $2, 1, $3, $4::BIGINT, $5::BIGINT, $5::BIGINT - $4::BIGINT, $5::BIGINT, NOW())
                        ON CONFLICT (user_id, game_key) DO UPDATE SET
                            plays = casino_game_stats.plays + 1,
                            wins = casino_game_stats.wins + $3,
-                           total_wagered = casino_game_stats.total_wagered + $4,
-                           total_won = casino_game_stats.total_won + $5,
-                           net_chips = casino_game_stats.net_chips + ($5 - $4),
-                           biggest_win = GREATEST(casino_game_stats.biggest_win, $5),
+                           total_wagered = casino_game_stats.total_wagered + $4::BIGINT,
+                           total_won = casino_game_stats.total_won + $5::BIGINT,
+                           net_chips = casino_game_stats.net_chips + ($5::BIGINT - $4::BIGINT),
+                           biggest_win = GREATEST(casino_game_stats.biggest_win, $5::BIGINT),
                            last_played_at = NOW()''',
                     user_id, game_key, 1 if is_win else 0, wagered, won
                 )
