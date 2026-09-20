@@ -448,9 +448,14 @@ class LeaveTableButton(discord.ui.Button):
 
         if player.user_id == view.host_id:
             # No host-succession concept — the host leaving closes the table
-            # outright, same as Poker. Any live bet this round is refunded.
+            # outright, same as Poker. Any live bet this round is refunded —
+            # one add_chips call per bettor still in the round, which with
+            # more than one live bettor chains to 2+ sequential DB calls
+            # before ever responding, so defer first.
+            await interaction.response.defer()
             await view.close_table()
-            return await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
+            return
 
         existing = view.bets.pop(interaction.user.id, None)
         if existing:

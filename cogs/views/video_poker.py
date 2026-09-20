@@ -166,6 +166,13 @@ class VideoPokerBetView(discord.ui.View):
 
 
 async def start_hand(interaction: discord.Interaction, db_cog, bet: int, wallet: dict, *, already_public: bool = False):
+    # Defer first — before any DB work. This function's own add_chips
+    # call, on top of whatever the caller already awaited for its own
+    # balance check, chains to 2+ sequential DB round-trips before ever
+    # responding — the same live-confirmed risk fixed at Blackjack's
+    # identical start_hand chokepoint.
+    await interaction.response.defer()
+
     balance = await db_cog.add_chips(interaction.user.id, -bet)
     deck = new_shuffled_deck()
     hand = [deck.pop() for _ in range(5)]
@@ -178,13 +185,13 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int, wallet:
         # place instead of leaving a placeholder behind and posting a
         # fresh message every time, which would clog the channel on
         # repeated replays.
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
-        view.message = interaction.message
+        message = await interaction.edit_original_response(embed=view.build_embed(), view=view)
+        view.message = message
         return
 
     # First hand from the private /casino picker: Discord can't turn an
     # ephemeral response public via edit, so close the private picker...
-    await interaction.response.edit_message(
+    await interaction.edit_original_response(
         embed=discord.Embed(
             title="🎴 Solo Poker",
             description="Bet placed — your hand is on the table below for everyone to watch.",

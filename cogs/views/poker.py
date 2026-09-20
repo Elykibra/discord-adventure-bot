@@ -584,10 +584,16 @@ class JoinTableButton(discord.ui.Button):
             view.busy = False
             return await interaction.response.send_message("Table is full.", ephemeral=True)
 
+        # Defer first — before any DB work. The happy path chains three
+        # sequential DB calls (wallet fetch, buy-in deduction, snapshot
+        # save) before ever responding, the same risk class fixed at
+        # every other multi-call chokepoint this session.
+        await interaction.response.defer()
+
         wallet = await view.db_cog.get_or_create_wallet(interaction.user.id)
         if wallet["balance"] < view.stake["buy_in"]:
             view.busy = False
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"You need {view.stake['buy_in']:,} chips to buy in — you have {wallet['balance']:,}.",
                 ephemeral=True,
             )
@@ -605,7 +611,7 @@ class JoinTableButton(discord.ui.Button):
 
         view.rebuild_items()
         await view.save_snapshot()
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
 
 
 class LeaveTableButton(discord.ui.Button):
@@ -623,6 +629,14 @@ class LeaveTableButton(discord.ui.Button):
             if not pending_player:
                 view.busy = False
                 return await interaction.response.send_message("You're not seated at this table.", ephemeral=True)
+
+            # Defer first — every path below does at least one add_chips
+            # refund plus a snapshot save (and, if the table closes, one
+            # more add_chips per remaining player/pending via
+            # close_and_refund's own loop) before ever responding, the
+            # same risk class fixed at every other multi-call chokepoint
+            # this session.
+            await interaction.response.defer()
             await view.db_cog.add_chips(interaction.user.id, pending_player.stack)
             view.pending.remove(pending_player)
 
@@ -633,29 +647,36 @@ class LeaveTableButton(discord.ui.Button):
             # normal (still waiting for people to join) and stays open.
             if view.started and len(view.players) + len(view.pending) < MIN_PLAYERS_TO_START:
                 await view.close_and_refund()
-                return await interaction.response.edit_message(embed=view.build_embed(), view=view)
+                await interaction.edit_original_response(embed=view.build_embed(), view=view)
+                return
 
             view.rebuild_items()
             await view.save_snapshot()
-            return await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
+            return
 
         if player.user_id == view.host_id:
             # No host-succession concept yet — the host leaving closes the
             # table outright and everyone (seated or still pending) gets
-            # their buy-in back.
+            # their buy-in back. close_and_refund() loops add_chips over
+            # every one of them, so defer first.
+            await interaction.response.defer()
             await view.close_and_refund()
-            return await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
+            return
 
+        await interaction.response.defer()
         await view.db_cog.add_chips(interaction.user.id, player.stack)
         view.players.remove(player)
 
         if view.started and len(view.players) + len(view.pending) < MIN_PLAYERS_TO_START:
             await view.close_and_refund()
-            return await interaction.response.edit_message(embed=view.build_embed(), view=view)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
+            return
 
         view.rebuild_items()
         await view.save_snapshot()
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
 
 
 class StartTableButton(discord.ui.Button):
@@ -751,6 +772,15 @@ class FoldButton(discord.ui.Button):
             view.busy = False
             return await interaction.response.send_message(error, ephemeral=True)
 
+        # Defer first — a hand ending here (fold_win/showdown) triggers a
+        # snapshot save plus record_hand_stats, which itself writes one
+        # full record_game_result (upsert + badge check) per dealt-in
+        # player. With more than a couple of players that chain of DB
+        # round-trips can easily outlast Discord's 3-second interaction
+        # window, the same risk class fixed at every other multi-call
+        # chokepoint this session.
+        await interaction.response.defer()
+
         player = view.find_player(interaction.user.id)
         player.folded = True
         player.acted = True
@@ -759,7 +789,7 @@ class FoldButton(discord.ui.Button):
         if result in ("fold_win", "showdown"):
             await view.save_snapshot()
             await view.record_hand_stats()
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
 
 
 class CheckCallButton(discord.ui.Button):
@@ -781,6 +811,9 @@ class CheckCallButton(discord.ui.Button):
             view.busy = False
             return await interaction.response.send_message(error, ephemeral=True)
 
+        # Defer first — same "hand-ending DB chain" risk as FoldButton.
+        await interaction.response.defer()
+
         player = view.find_player(interaction.user.id)
         call_amount = min(view.current_bet - player.bet, player.stack)
         if call_amount > 0:
@@ -795,7 +828,7 @@ class CheckCallButton(discord.ui.Button):
         if result in ("fold_win", "showdown"):
             await view.save_snapshot()
             await view.record_hand_stats()
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
 
 
 class RaiseModal(discord.ui.Modal, title="Raise"):
@@ -848,6 +881,10 @@ class RaiseModal(discord.ui.Modal, title="Raise"):
         raise_increment = target - view.current_bet
 
         view.busy = True
+        # Defer first — same "hand-ending DB chain" risk as FoldButton/
+        # CheckCallButton (save_snapshot + one record_game_result per
+        # dealt-in player when this raise ends the hand).
+        await interaction.response.defer()
         added = target - player.bet
         player.stack -= added
         player.bet = target
@@ -867,7 +904,7 @@ class RaiseModal(discord.ui.Modal, title="Raise"):
         if result in ("fold_win", "showdown"):
             await view.save_snapshot()
             await view.record_hand_stats()
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
         """Same reasoning as PokerTableView.on_error — a raise is the
@@ -997,12 +1034,19 @@ class StakeSelectView(discord.ui.View):
 
 
 async def create_table(interaction: discord.Interaction, stake: dict, *, view: "StakeSelectView | None" = None):
+    # Defer first — before any DB work. get_or_create_wallet then, on the
+    # happy path, add_chips chains to 2 sequential DB round-trips before
+    # ever responding — the same live-confirmed risk fixed at
+    # Blackjack's/Video Poker's/Chess's identical start_hand/start_game
+    # chokepoints.
+    await interaction.response.defer()
+
     db_cog = interaction.client.get_cog('Database')
     wallet = await db_cog.get_or_create_wallet(interaction.user.id)
     if wallet["balance"] < stake["buy_in"]:
         if view is not None:
             view.busy = False
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"You need {stake['buy_in']:,} chips to open this table — you have {wallet['balance']:,}.",
             ephemeral=True,
         )
@@ -1011,7 +1055,7 @@ async def create_table(interaction: discord.Interaction, stake: dict, *, view: "
     await db_cog.add_chips(interaction.user.id, -stake["buy_in"])
     view = PokerTableView(db_cog, interaction.user, stake, host_flair_key=wallet.get("equipped_table_flair"))
 
-    await interaction.response.edit_message(
+    await interaction.edit_original_response(
         embed=discord.Embed(
             title="🃏 Table Created!",
             description="Your table is live in the channel below — invite others to Join!",
