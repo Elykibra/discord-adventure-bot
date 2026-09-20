@@ -216,6 +216,10 @@ class VideoPokerHandView(discord.ui.View):
         self.taunt_key = taunt_key
         self.message: discord.Message | None = None
         self.busy = False
+        # Guards against this view's own 3-minute discord.py timeout firing
+        # a second, stale auto-draw after the hand has already resolved via
+        # Draw/Leave Game — see _draw_and_resolve()/on_timeout() below.
+        self.finished = False
         self.rebuild_items()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -283,7 +287,12 @@ class VideoPokerHandView(discord.ui.View):
     async def _draw_and_resolve(self) -> dict:
         """Replaces unheld cards from the deck and settles any payout —
         shared by Draw, the timeout auto-draw, and Leave Game, so all
-        three resolve exactly the same way."""
+        three resolve exactly the same way. Marks the hand finished so a
+        stale timeout firing after an earlier resolution (e.g. once the
+        player has already clicked Draw and moved on to a new hand via
+        Play Again) can't re-draw and double-pay the same hand — see
+        on_timeout()."""
+        self.finished = True
         for i in range(5):
             if i not in self.held:
                 self.hand[i] = self.deck.pop()
@@ -304,7 +313,7 @@ class VideoPokerHandView(discord.ui.View):
         player never touched a card) rather than leaving the bet
         deducted with no resolution — same reasoning as Blackjack's
         auto-stand on inactivity."""
-        if not self.message:
+        if self.finished or not self.message:
             return
         result = await self._draw_and_resolve()
         embed = self.build_embed(result=result)
@@ -354,6 +363,11 @@ class DrawButton(discord.ui.Button):
             view=result_view,
         )
         result_view.message = message
+        # Cancels this view's own pending 3-minute timeout outright —
+        # without this it kept running in the background and could fire a
+        # stale second auto-draw on a hand the player had already moved on
+        # from (e.g. after Play Again dealt a new one on the same message).
+        view.stop()
 
 
 class LeaveGameButton(discord.ui.Button):
@@ -378,6 +392,7 @@ class LeaveGameButton(discord.ui.Button):
             view=result_view,
         )
         result_view.message = message
+        view.stop()  # see DrawButton's identical call for why
 
 
 class PlayAgainButton(discord.ui.Button):
