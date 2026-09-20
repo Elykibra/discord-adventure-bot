@@ -135,6 +135,15 @@ class CasinoSelect(discord.ui.Select):
             await interaction.response.edit_message(embed=blackjack_bet_embed(wallet["balance"]), view=view)
             return
 
+        # Defer first — _handle_daily's successful-claim path chains
+        # three sequential DB calls (wallet + set_daily_claim + badge
+        # check, added after this branch was first written) before
+        # there's anything to respond with, which live outlasted
+        # Discord's 3-second interaction window and killed it outright —
+        # same lesson as every other multi-call branch above. Deferred
+        # uniformly here since Balance and Daily Bonus share this
+        # response tail.
+        await interaction.response.defer()
         if self.values[0] == "balance":
             embed = await self._handle_balance(db_cog, interaction.user.id)
         else:
@@ -145,7 +154,7 @@ class CasinoSelect(discord.ui.Select):
         # every branch above — the lock needs releasing here for the menu
         # to stay usable afterward.
         self.view.busy = False
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        await interaction.edit_original_response(embed=embed, view=self.view)
 
     async def _handle_balance(self, db_cog, user_id: int) -> discord.Embed:
         wallet = await db_cog.get_or_create_wallet(user_id)
