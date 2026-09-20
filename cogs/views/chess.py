@@ -182,17 +182,24 @@ class ChessBetView(discord.ui.View):
 
 
 async def start_game(interaction: discord.Interaction, db_cog, bet: int, *, already_public: bool = False):
+    # Defer first — before any DB work. This does two sequential calls
+    # (add_chips, then create_chess_game) on top of whatever the caller
+    # already awaited for its own balance check — the same live-confirmed
+    # risk fixed at Blackjack's and Video Poker's identical start_hand
+    # chokepoints.
+    await interaction.response.defer()
+
     await db_cog.add_chips(interaction.user.id, -bet)
     board = chess.Board()
     await db_cog.create_chess_game(interaction.user.id, board.fen(), bet)
     view = ChessGameView(db_cog, interaction.user.id, board, bet, "")
 
     if already_public:
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
-        view.message = interaction.message
+        message = await interaction.edit_original_response(embed=view.build_embed(), view=view)
+        view.message = message
         return
 
-    await interaction.response.edit_message(
+    await interaction.edit_original_response(
         embed=discord.Embed(
             title="⚔️ Chess",
             description="Bet placed — your game is on the table below for everyone to watch.",

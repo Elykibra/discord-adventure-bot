@@ -227,6 +227,15 @@ class BlackjackBetView(discord.ui.View):
 
 
 async def start_hand(interaction: discord.Interaction, db_cog, bet: int, wallet: dict, *, already_public: bool = False):
+    # Defer first — before any DB work. This function's own add_chips
+    # call, on top of whatever the caller (BetPresetButton/CustomBetModal/
+    # PlayAgainButton) already awaited for its own balance check, chains
+    # to 2+ sequential DB round-trips before ever responding — live, that
+    # outlasted Discord's 3-second interaction window and killed it
+    # outright. Fixed at this one shared chokepoint rather than in each
+    # of the three callers separately.
+    await interaction.response.defer()
+
     balance = await db_cog.add_chips(interaction.user.id, -bet)
     deck = new_shuffled_deck()
     player_cards = [deck.pop(), deck.pop()]
@@ -244,15 +253,15 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int, wallet:
         # fresh message every time, which would clog the channel on
         # repeated replays.
         if is_blackjack(player_cards) or is_blackjack(dealer_cards):
-            await interaction.response.edit_message(embed=view.build_embed(), view=None)
+            await interaction.edit_original_response(embed=view.build_embed(), view=None)
             await view.resolve_naturals(interaction.message)
             return
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
-        view.message = interaction.message
+        message = await interaction.edit_original_response(embed=view.build_embed(), view=view)
+        view.message = message
         return
 
     # Close out the private bet-picker (keeps balance/bet-sizing private)...
-    await interaction.response.edit_message(
+    await interaction.edit_original_response(
         embed=discord.Embed(
             title="🃏 Blackjack",
             description="Bet placed — your hand is on the table below for everyone to watch.",
