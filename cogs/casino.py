@@ -16,6 +16,7 @@ from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_
 from data.casino_games import CASINO_GAMES
 from data.casino_badges import CASINO_BADGES, format_new_badge_field
 from data.casino_cosmetics import COSMETIC_CATEGORIES, TITLES, WEAPON_SKINS
+from data.casino_leaderboards import LEADERBOARD_CATEGORIES
 
 DAILY_COOLDOWN = timedelta(hours=24)
 DAILY_STREAK_GRACE = timedelta(hours=48)  # reclaim within this window to keep the streak alive
@@ -46,6 +47,8 @@ class CasinoSelect(discord.ui.Select):
                                   description="Buy and equip weapons"),
             discord.SelectOption(label="Stats", value="stats", emoji="📈",
                                   description="Permanent dungeon upgrades"),
+            discord.SelectOption(label="Leaderboard", value="leaderboard", emoji="🏆",
+                                  description="See how you stack up against everyone else"),
             discord.SelectOption(label="Dungeon", value="dungeon", emoji="🗝️",
                                   description=f"Enter a run for {DUNGEON_ENTRY_FEE} chips"),
             discord.SelectOption(label="Blackjack", value="blackjack", emoji="🃏",
@@ -110,6 +113,15 @@ class CasinoSelect(discord.ui.Select):
         if self.values[0] == "stats":
             await interaction.response.defer()
             view = await StatsView.create(db_cog, interaction.user.id)
+            await interaction.edit_original_response(embed=view.build_embed(), view=view)
+            return
+
+        if self.values[0] == "leaderboard":
+            # Defer first — the default category's top-10 query plus the
+            # requester's rank query chain to two sequential DB calls
+            # before responding, same risk class as Profile/Armory/Stats.
+            await interaction.response.defer()
+            view = await LeaderboardView.create(db_cog, interaction.user.id)
             await interaction.edit_original_response(embed=view.build_embed(), view=view)
             return
 
@@ -417,6 +429,106 @@ class StatsView(discord.ui.View):
             description += "\n\n**This stat is fully maxed.**"
 
         return casino_embed(f"{stat['emoji']} {stat['name']}", description)
+
+
+def _format_leaderboard_value(category: dict, row: dict) -> str:
+    value = int(row["value"] or 0)  # SUM(bigint) comes back as Decimal via asyncpg — normalize to int
+    noun = category["noun"]
+
+    if category["unit"] == "chips_with_game":
+        game_label = CASINO_GAMES.get(row.get("game_key"), {}).get("label", "a game")
+        return f"{value:,} {noun} ({game_label})"
+    if category["unit"] == "count":
+        plural = noun if value == 1 else noun + "s"
+        return f"{value:,} {plural}"
+    if category["signed"]:
+        sign = "+" if value >= 0 else ""
+        return f"{sign}{value:,} {noun}"
+    return f"{value:,} {noun}"
+
+
+class LeaderboardSelect(discord.ui.Select):
+    def __init__(self, lb_view: "LeaderboardView"):
+        options = [
+            discord.SelectOption(
+                label=category["label"], value=key, emoji=category["emoji"],
+                default=(key == lb_view.category_key),
+            )
+            for key, category in LEADERBOARD_CATEGORIES.items()
+        ]
+        super().__init__(placeholder="Choose a leaderboard", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: LeaderboardView = self.view
+        # Defer first — switching categories re-runs both the top-10 query
+        # and the requester's rank query (two sequential DB calls) before
+        # there's anything to show, the same risk class as every other
+        # 2+-call casino navigation path.
+        await interaction.response.defer()
+        await view.load_category(self.values[0])
+        view.rebuild_items()
+        await interaction.edit_original_response(embed=view.build_embed(), view=view)
+
+
+class LeaderboardView(discord.ui.View):
+    """One view for every leaderboard category (mirrors ArmoryView/
+    StatsView's single-view-rebuilds-its-own-embed shape) — picking a
+    category from the dropdown re-queries and redraws in place, no
+    drill-down step like the Cosmetics Shop needs."""
+
+    def __init__(self, db_cog, user_id: int, category_key: str, rows: list, user_rank: int):
+        super().__init__(timeout=180)
+        self.db_cog = db_cog
+        self.user_id = user_id
+        self.category_key = category_key
+        self.rows = rows
+        self.user_rank = user_rank
+        self.busy = False
+        self.rebuild_items()
+
+    @staticmethod
+    async def _load(db_cog, user_id: int, category_key: str):
+        category = LEADERBOARD_CATEGORIES[category_key]
+        rows = await getattr(db_cog, category["list_method"])(limit=10)
+        rank = await getattr(db_cog, category["rank_method"])(user_id)
+        return rows, rank
+
+    @classmethod
+    async def create(cls, db_cog, user_id: int, category_key: str = "richest") -> "LeaderboardView":
+        rows, rank = await cls._load(db_cog, user_id, category_key)
+        return cls(db_cog, user_id, category_key, rows, rank)
+
+    async def load_category(self, category_key: str):
+        self.category_key = category_key
+        self.rows, self.user_rank = await self._load(self.db_cog, self.user_id, category_key)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.busy:
+            await interaction.response.send_message("Still processing — try again in a second.", ephemeral=True)
+            return False
+        self.busy = True
+        return True
+
+    def rebuild_items(self):
+        self.busy = False
+        self.clear_items()
+        self.add_item(LeaderboardSelect(self))
+        self.add_item(BackButton())
+
+    def build_embed(self) -> discord.Embed:
+        category = LEADERBOARD_CATEGORIES[self.category_key]
+        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+        lines = [
+            f"{medals.get(i, f'{i}.')} <@{row['user_id']}> — {_format_leaderboard_value(category, row)}"
+            for i, row in enumerate(self.rows, start=1)
+        ]
+        if not lines:
+            lines.append("Nobody's on the board yet — be the first!")
+
+        rank_line = "You're #1! 🎉" if self.user_rank == 1 else f"Your rank: **#{self.user_rank}**"
+        description = "\n".join(lines) + "\n\n" + rank_line
+        return casino_embed(f"{category['emoji']} {category['label']}", description)
 
 
 class CosmeticItemSelect(discord.ui.Select):
