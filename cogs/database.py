@@ -329,6 +329,123 @@ class Database(commands.Cog):
             )
         return newly_earned
 
+    # --- Casino leaderboards (see data/casino_leaderboards.py for the registry) ---
+    # Each category is a list_method + rank_method pair, same explicit
+    # one-query-per-method style as the rest of this file — no shared
+    # query-builder/dispatcher. Every rank query treats a player with no
+    # row yet as having the category's zero value (COALESCE), so someone
+    # who's never played still gets a sensible (last-place) rank instead
+    # of an error.
+    async def get_richest_players(self, limit: int = 10) -> List[Dict[str, Any]]:
+        records = await self.pool.fetch(
+            'SELECT user_id, balance AS value FROM casino_wallets ORDER BY balance DESC LIMIT $1', limit
+        )
+        return [dict(r) for r in records]
+
+    async def get_richest_players_rank(self, user_id: int) -> int:
+        return 1 + await self.pool.fetchval(
+            '''SELECT COUNT(*) FROM casino_wallets
+               WHERE balance > COALESCE((SELECT balance FROM casino_wallets WHERE user_id = $1), 0)''',
+            user_id
+        )
+
+    async def get_most_wagered_players(self, limit: int = 10) -> List[Dict[str, Any]]:
+        records = await self.pool.fetch(
+            '''SELECT user_id, SUM(total_wagered) AS value FROM casino_game_stats
+               GROUP BY user_id ORDER BY value DESC LIMIT $1''',
+            limit
+        )
+        return [dict(r) for r in records]
+
+    async def get_most_wagered_players_rank(self, user_id: int) -> int:
+        return 1 + await self.pool.fetchval(
+            '''SELECT COUNT(*) FROM (
+                   SELECT user_id, SUM(total_wagered) AS value FROM casino_game_stats GROUP BY user_id
+               ) totals
+               WHERE value > COALESCE(
+                   (SELECT SUM(total_wagered) FROM casino_game_stats WHERE user_id = $1), 0
+               )''',
+            user_id
+        )
+
+    async def get_biggest_win_players(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """One row per user (their single biggest win across every game,
+        and which game_key it happened in), ranked by that win."""
+        records = await self.pool.fetch(
+            '''SELECT user_id, game_key, value FROM (
+                   SELECT DISTINCT ON (user_id) user_id, game_key, biggest_win AS value
+                   FROM casino_game_stats
+                   ORDER BY user_id, biggest_win DESC
+               ) per_user
+               ORDER BY value DESC
+               LIMIT $1''',
+            limit
+        )
+        return [dict(r) for r in records]
+
+    async def get_biggest_win_players_rank(self, user_id: int) -> int:
+        return 1 + await self.pool.fetchval(
+            '''SELECT COUNT(*) FROM (
+                   SELECT user_id, MAX(biggest_win) AS value FROM casino_game_stats GROUP BY user_id
+               ) totals
+               WHERE value > COALESCE(
+                   (SELECT MAX(biggest_win) FROM casino_game_stats WHERE user_id = $1), 0
+               )''',
+            user_id
+        )
+
+    async def get_most_badges_players(self, limit: int = 10) -> List[Dict[str, Any]]:
+        records = await self.pool.fetch(
+            '''SELECT user_id, COUNT(*) AS value FROM casino_badges
+               GROUP BY user_id ORDER BY value DESC LIMIT $1''',
+            limit
+        )
+        return [dict(r) for r in records]
+
+    async def get_most_badges_players_rank(self, user_id: int) -> int:
+        return 1 + await self.pool.fetchval(
+            '''SELECT COUNT(*) FROM (
+                   SELECT user_id, COUNT(*) AS value FROM casino_badges GROUP BY user_id
+               ) totals
+               WHERE value > COALESCE(
+                   (SELECT COUNT(*) FROM casino_badges WHERE user_id = $1), 0
+               )''',
+            user_id
+        )
+
+    async def get_best_net_profit_players(self, limit: int = 10) -> List[Dict[str, Any]]:
+        records = await self.pool.fetch(
+            '''SELECT user_id, SUM(net_chips) AS value FROM casino_game_stats
+               GROUP BY user_id ORDER BY value DESC LIMIT $1''',
+            limit
+        )
+        return [dict(r) for r in records]
+
+    async def get_best_net_profit_players_rank(self, user_id: int) -> int:
+        return 1 + await self.pool.fetchval(
+            '''SELECT COUNT(*) FROM (
+                   SELECT user_id, SUM(net_chips) AS value FROM casino_game_stats GROUP BY user_id
+               ) totals
+               WHERE value > COALESCE(
+                   (SELECT SUM(net_chips) FROM casino_game_stats WHERE user_id = $1), 0
+               )''',
+            user_id
+        )
+
+    async def get_longest_streak_players(self, limit: int = 10) -> List[Dict[str, Any]]:
+        records = await self.pool.fetch(
+            'SELECT user_id, daily_streak AS value FROM casino_wallets ORDER BY daily_streak DESC LIMIT $1',
+            limit
+        )
+        return [dict(r) for r in records]
+
+    async def get_longest_streak_players_rank(self, user_id: int) -> int:
+        return 1 + await self.pool.fetchval(
+            '''SELECT COUNT(*) FROM casino_wallets
+               WHERE daily_streak > COALESCE((SELECT daily_streak FROM casino_wallets WHERE user_id = $1), 0)''',
+            user_id
+        )
+
     # --- Poker hand history (a recent-activity feed, separate from the per-user stats above) ---
     async def record_poker_hand(self, table_key: str, stake_name: str, pot: int, player_results: List[Dict[str, Any]]) -> None:
         """Updates lifetime stats (via record_game_result) for everyone dealt
