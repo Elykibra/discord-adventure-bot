@@ -184,6 +184,18 @@ class Admin(commands.Cog):
         await interaction.followup.send(
             f"Successfully added {amount} coins. Your new balance is {player_data['coins']}.", ephemeral=True)
 
+    @app_commands.command(name='addchips', description='(Admin Only) Adds casino chips to a player\'s wallet.')
+    @commands.is_owner()
+    async def add_chips_cmd(self, interaction: discord.Interaction, amount: int, user: discord.User = None):
+        """Adds a specified amount of chips to a player's casino wallet (defaults to yourself)."""
+        await interaction.response.defer(ephemeral=True)
+        target = user or interaction.user
+        db_cog = self.bot.get_cog('Database')
+        new_balance = await db_cog.add_chips(target.id, amount)
+        await interaction.followup.send(
+            f"Successfully added {amount:,} chips to {target.mention}. New balance: {new_balance:,} chips.",
+            ephemeral=True)
+
     @app_commands.command(name='setlevel', description='(Admin Only) Sets your main pet to a specific level.')
     @commands.is_owner()
     async def set_level(self, interaction: discord.Interaction, level: int):
