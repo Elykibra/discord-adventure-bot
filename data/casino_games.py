@@ -15,4 +15,5 @@ CASINO_GAMES = {
     "baccarat": {"label": "Baccarat", "emoji": "🎴"},
     "poker": {"label": "Poker", "emoji": "♠️"},
     "dungeon": {"label": "Dungeon", "emoji": "🗝️"},
+    "chess": {"label": "Chess", "emoji": "⚔️"},
 }
