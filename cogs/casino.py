@@ -11,6 +11,7 @@ from .views.poker import StakeSelectView
 from .views.baccarat import create_table as create_baccarat_table
 from .views.slots import SlotsBetView, slots_bet_embed
 from .views.video_poker import VideoPokerBetView, video_poker_bet_embed
+from .views.chess import ChessBetView, chess_bet_embed, resume_game as resume_chess_game
 from data.weapons import WEAPON_CATALOG, STARTER_WEAPON, format_damage_range, trait_display, tier_display
 from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_level, format_effect
 from data.casino_games import CASINO_GAMES
@@ -61,6 +62,8 @@ class CasinoSelect(discord.ui.Select):
                                   description="Pull the lever, match all three"),
             discord.SelectOption(label="Solo Poker", value="video_poker", emoji="♦️",
                                   description="Jacks or Better — choose your hold, then draw"),
+            discord.SelectOption(label="Chess", value="chess", emoji="⚔️",
+                                  description="Play the house AI — you're White, it thinks ahead"),
         ]
         super().__init__(placeholder="What would you like to do?", options=options)
 
@@ -102,6 +105,26 @@ class CasinoSelect(discord.ui.Select):
             await interaction.response.edit_message(embed=video_poker_bet_embed(wallet["balance"]), view=view)
             return
 
+        if self.values[0] == "chess":
+            # Defer first — checking for an in-progress game, then (if
+            # there isn't one) fetching the wallet for the bet-picker,
+            # chains to two sequential DB calls before there's anything
+            # to respond with, same risk class as every other multi-call
+            # branch above.
+            await interaction.response.defer()
+            existing_game = await db_cog.get_chess_game(interaction.user.id)
+            if existing_game:
+                # A deploy or a long think can outlast the old game
+                # view's lifetime — the game itself never stopped
+                # existing, so pick it back up instead of re-opening
+                # the bet picker (which would double-charge the bet).
+                await resume_chess_game(interaction, db_cog, existing_game)
+                return
+            wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+            view = ChessBetView(wallet["balance"])
+            await interaction.edit_original_response(embed=chess_bet_embed(wallet["balance"]), view=view)
+            return
+
         if self.values[0] == "armory":
             # Defer first — two sequential DB calls (wallet + owned
             # weapons) before responding, same risk class as Profile above.
@@ -135,6 +158,15 @@ class CasinoSelect(discord.ui.Select):
             await interaction.response.edit_message(embed=blackjack_bet_embed(wallet["balance"]), view=view)
             return
 
+        # Defer first — _handle_daily's successful-claim path chains
+        # three sequential DB calls (wallet + set_daily_claim + badge
+        # check, added after this branch was first written) before
+        # there's anything to respond with, which live outlasted
+        # Discord's 3-second interaction window and killed it outright —
+        # same lesson as every other multi-call branch above. Deferred
+        # uniformly here since Balance and Daily Bonus share this
+        # response tail.
+        await interaction.response.defer()
         if self.values[0] == "balance":
             embed = await self._handle_balance(db_cog, interaction.user.id)
         else:
@@ -145,7 +177,7 @@ class CasinoSelect(discord.ui.Select):
         # every branch above — the lock needs releasing here for the menu
         # to stay usable afterward.
         self.view.busy = False
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        await interaction.edit_original_response(embed=embed, view=self.view)
 
     async def _handle_balance(self, db_cog, user_id: int) -> discord.Embed:
         wallet = await db_cog.get_or_create_wallet(user_id)

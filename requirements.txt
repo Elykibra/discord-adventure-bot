@@ -12,3 +12,6 @@ asyncpg
 
 # Async HTTP (used internally)
 aiohttp
+
+# Chess rules/move-generation for the casino's Chess vs. AI game
+chess

@@ -446,6 +446,28 @@ class Database(commands.Cog):
             user_id
         )
 
+    # --- Chess vs. AI (persisted, unlike every other casino game — see migrations/025) ---
+    async def get_chess_game(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """The player's in-progress game, if any — the resume check."""
+        record = await self.pool.fetchrow('SELECT * FROM chess_games WHERE user_id = $1', user_id)
+        return self._record_to_dict(record)
+
+    async def create_chess_game(self, user_id: int, fen: str, bet: int) -> None:
+        query = (
+            "INSERT INTO chess_games (user_id, fen, bet, move_history) VALUES ($1, $2, $3, '') "
+            "ON CONFLICT (user_id) DO UPDATE SET fen = $2, bet = $3, move_history = ''"
+        )
+        await self.pool.execute(query, user_id, fen, bet)
+
+    async def update_chess_game(self, user_id: int, fen: str, move_history: str) -> None:
+        await self.pool.execute(
+            'UPDATE chess_games SET fen = $1, move_history = $2 WHERE user_id = $3',
+            fen, move_history, user_id
+        )
+
+    async def delete_chess_game(self, user_id: int) -> None:
+        await self.pool.execute('DELETE FROM chess_games WHERE user_id = $1', user_id)
+
     # --- Poker hand history (a recent-activity feed, separate from the per-user stats above) ---
     async def record_poker_hand(self, table_key: str, stake_name: str, pot: int, player_results: List[Dict[str, Any]]) -> None:
         """Updates lifetime stats (via record_game_result) for everyone dealt
