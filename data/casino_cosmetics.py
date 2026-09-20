@@ -68,7 +68,14 @@ TAUNTS = {
 
 COSMETIC_CATEGORIES = {
     "card_back": {
-        "label": "Card Backs", "emoji": "🂠", "items": CARD_BACKS, "wallet_column": "equipped_card_back",
+        # NOT 🂠 — that's the real "playing card back" glyph used as plain
+        # embed TEXT elsewhere (Blackjack's hidden card, proven safe there),
+        # but it's not an Emoji-Data-qualified codepoint, so Discord's
+        # component API rejects it in a SelectOption's `emoji=` field with
+        # "Invalid emoji" (confirmed live). 🃏 is a certified emoji from the
+        # same Playing Cards Unicode block and already proven safe as a
+        # component emoji (CasinoSelect's Blackjack option).
+        "label": "Card Backs", "emoji": "🃏", "items": CARD_BACKS, "wallet_column": "equipped_card_back",
     },
     "title": {
         "label": "Titles", "emoji": "📛", "items": TITLES, "wallet_column": "equipped_title",
