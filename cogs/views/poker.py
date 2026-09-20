@@ -20,6 +20,7 @@ import traceback
 import discord
 
 from data.poker import STAKE_TIERS, new_shuffled_deck, format_cards, best_hand_from_7, hand_name
+from data.casino_cosmetics import TABLE_FLAIR
 
 MIN_PLAYERS_TO_START = 2
 MAX_PLAYERS = 6
@@ -31,10 +32,11 @@ STAGE_NAMES = ["Pre-Flop", "Flop", "Turn", "River", "Showdown"]
 
 
 class PokerPlayer:
-    def __init__(self, user_id: int, name: str, stack: int):
+    def __init__(self, user_id: int, name: str, stack: int, flair_key: str | None = None):
         self.user_id = user_id
         self.name = name
         self.stack = stack
+        self.flair_key = flair_key  # fetched once at seat time, not per-render
         self.hole: list = []
         self.folded = False
         self.bet = 0          # this betting round's contribution so far
@@ -43,12 +45,12 @@ class PokerPlayer:
 
 
 class PokerTableView(discord.ui.View):
-    def __init__(self, db_cog, host: discord.Member, stake: dict):
+    def __init__(self, db_cog, host: discord.Member, stake: dict, *, host_flair_key: str | None = None):
         super().__init__(timeout=None)  # a lobby can sit open for a while waiting on players
         self.db_cog = db_cog
         self.host_id = host.id
         self.stake = stake
-        self.players: list[PokerPlayer] = [PokerPlayer(host.id, host.display_name, stake["buy_in"])]
+        self.players: list[PokerPlayer] = [PokerPlayer(host.id, host.display_name, stake["buy_in"], host_flair_key)]
         self.pending: list[PokerPlayer] = []  # joined mid-session — seated in at the next deal, not this one
         self.started = False
         self.closed = False
@@ -495,7 +497,8 @@ class PokerTableView(discord.ui.View):
             lines = []
             for p in self.players:
                 tag = " 👑" if p.user_id == self.host_id else ""
-                lines.append(f"🪑 {p.name}{tag} — {p.stack:,} chips")
+                flair = f" {TABLE_FLAIR[p.flair_key]['emoji']}" if p.flair_key else ""
+                lines.append(f"🪑{flair} {p.name}{tag} — {p.stack:,} chips")
 
             embed = discord.Embed(
                 title=f"🃏 Poker Table — {self.stake['name']}",
@@ -533,7 +536,8 @@ class PokerTableView(discord.ui.View):
             elif p.bet > 0:
                 status = f" — bet {p.bet:,}"
 
-            lines.append(f"🪑 {p.name}{tag_text} — {p.stack:,} chips{status}")
+            flair = f" {TABLE_FLAIR[p.flair_key]['emoji']}" if p.flair_key else ""
+            lines.append(f"🪑{flair} {p.name}{tag_text} — {p.stack:,} chips{status}")
 
         community_text = format_cards(self.community) if self.community else "*(none yet)*"
 
@@ -589,7 +593,9 @@ class JoinTableButton(discord.ui.Button):
             )
 
         await view.db_cog.add_chips(interaction.user.id, -view.stake["buy_in"])
-        new_player = PokerPlayer(interaction.user.id, interaction.user.display_name, view.stake["buy_in"])
+        new_player = PokerPlayer(
+            interaction.user.id, interaction.user.display_name, view.stake["buy_in"], wallet.get("equipped_table_flair")
+        )
 
         if view.started:
             # A hand may be in progress — new arrivals wait for the next deal.
@@ -1003,7 +1009,7 @@ async def create_table(interaction: discord.Interaction, stake: dict, *, view: "
         return
 
     await db_cog.add_chips(interaction.user.id, -stake["buy_in"])
-    view = PokerTableView(db_cog, interaction.user, stake)
+    view = PokerTableView(db_cog, interaction.user, stake, host_flair_key=wallet.get("equipped_table_flair"))
 
     await interaction.response.edit_message(
         embed=discord.Embed(

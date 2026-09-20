@@ -28,6 +28,7 @@ import discord
 from data.poker import new_shuffled_deck, card_display
 from data.video_poker import evaluate_hand, payout_multiplier, PAYOUTS, HAND_LABELS
 from data.casino_badges import format_new_badge_field
+from data.casino_cosmetics import TAUNTS
 
 MIN_BET = 10
 BET_PRESETS = [50, 100, 250, 500, 1000]
@@ -71,7 +72,7 @@ class BetPresetButton(discord.ui.Button):
                 f"You don't have {self.amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
             return
-        await start_hand(interaction, db_cog, self.amount, already_public=view.already_public)
+        await start_hand(interaction, db_cog, self.amount, wallet, already_public=view.already_public)
 
 
 class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
@@ -115,7 +116,7 @@ class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
             )
             return
 
-        await start_hand(interaction, db_cog, bet, already_public=self.already_public)
+        await start_hand(interaction, db_cog, bet, wallet, already_public=self.already_public)
 
 
 class CustomBetButton(discord.ui.Button):
@@ -164,12 +165,12 @@ class VideoPokerBetView(discord.ui.View):
         return True
 
 
-async def start_hand(interaction: discord.Interaction, db_cog, bet: int, *, already_public: bool = False):
+async def start_hand(interaction: discord.Interaction, db_cog, bet: int, wallet: dict, *, already_public: bool = False):
     balance = await db_cog.add_chips(interaction.user.id, -bet)
     deck = new_shuffled_deck()
     hand = [deck.pop() for _ in range(5)]
 
-    view = VideoPokerHandView(db_cog, interaction.user.id, deck, hand, bet, balance)
+    view = VideoPokerHandView(db_cog, interaction.user.id, deck, hand, bet, balance, taunt_key=wallet.get("equipped_taunt"))
 
     if already_public:
         # Already a public message (Play Again, or Change Bet followed by
@@ -202,7 +203,8 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int, *, alre
 
 
 class VideoPokerHandView(discord.ui.View):
-    def __init__(self, db_cog, user_id: int, deck: list, hand: list, bet: int, balance: int):
+    def __init__(self, db_cog, user_id: int, deck: list, hand: list, bet: int, balance: int,
+                 *, taunt_key: str | None = None):
         super().__init__(timeout=HAND_VIEW_TIMEOUT_SECONDS)
         self.db_cog = db_cog
         self.user_id = user_id
@@ -211,6 +213,7 @@ class VideoPokerHandView(discord.ui.View):
         self.held: set = set()  # indices into self.hand currently marked to keep
         self.bet = bet
         self.current_balance = balance
+        self.taunt_key = taunt_key
         self.message: discord.Message | None = None
         self.busy = False
         self.rebuild_items()
@@ -263,6 +266,8 @@ class VideoPokerHandView(discord.ui.View):
             badge_field = format_new_badge_field(result.get("new_badges"))
             if badge_field:
                 embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+            if self.taunt_key:
+                embed.add_field(name="💬 Taunt", value=TAUNTS[self.taunt_key]["text"], inline=False)
         else:
             embed.description = "Pick which cards to **hold**, then hit **Draw**."
             card_lines = [
@@ -392,7 +397,7 @@ class PlayAgainButton(discord.ui.Button):
                 ephemeral=True,
             )
             return
-        await start_hand(interaction, db_cog, self.bet, already_public=True)
+        await start_hand(interaction, db_cog, self.bet, wallet, already_public=True)
 
 
 class ChangeBetButton(discord.ui.Button):

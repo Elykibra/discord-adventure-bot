@@ -17,6 +17,9 @@ from data.blackjack import (
     dealer_should_hit, BLACKJACK_PAYOUT_MULTIPLIER,
 )
 from data.casino_badges import format_new_badge_field
+from data.casino_cosmetics import CARD_BACKS, TAUNTS
+
+DEFAULT_CARD_BACK_EMOJI = "🂠"
 
 MIN_BET = 10
 BET_PRESETS = [50, 100, 250, 500, 1000]
@@ -52,7 +55,7 @@ class BetPresetButton(discord.ui.Button):
                 f"You don't have {self.amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
             return
-        await start_hand(interaction, db_cog, self.amount, already_public=view.already_public)
+        await start_hand(interaction, db_cog, self.amount, wallet, already_public=view.already_public)
 
 
 class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
@@ -96,7 +99,7 @@ class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
             )
             return
 
-        await start_hand(interaction, db_cog, bet, already_public=self.already_public)
+        await start_hand(interaction, db_cog, bet, wallet, already_public=self.already_public)
 
 
 class CustomBetButton(discord.ui.Button):
@@ -138,7 +141,7 @@ class PlayAgainButton(discord.ui.Button):
                 ephemeral=True,
             )
             return
-        await start_hand(interaction, db_cog, self.bet, already_public=True)
+        await start_hand(interaction, db_cog, self.bet, wallet, already_public=True)
 
 
 class ChangeBetButton(discord.ui.Button):
@@ -223,13 +226,16 @@ class BlackjackBetView(discord.ui.View):
         return True
 
 
-async def start_hand(interaction: discord.Interaction, db_cog, bet: int, *, already_public: bool = False):
+async def start_hand(interaction: discord.Interaction, db_cog, bet: int, wallet: dict, *, already_public: bool = False):
     balance = await db_cog.add_chips(interaction.user.id, -bet)
     deck = new_shuffled_deck()
     player_cards = [deck.pop(), deck.pop()]
     dealer_cards = [deck.pop(), deck.pop()]
 
-    view = BlackjackHandView(db_cog, interaction.user.id, deck, player_cards, dealer_cards, bet, balance)
+    view = BlackjackHandView(
+        db_cog, interaction.user.id, deck, player_cards, dealer_cards, bet, balance,
+        card_back_key=wallet.get("equipped_card_back"), taunt_key=wallet.get("equipped_taunt"),
+    )
 
     if already_public:
         # Already a public message (Play Again, or Change Bet followed by
@@ -269,7 +275,8 @@ async def start_hand(interaction: discord.Interaction, db_cog, bet: int, *, alre
 
 
 class BlackjackHandView(discord.ui.View):
-    def __init__(self, db_cog, user_id: int, deck: list, player_cards: list, dealer_cards: list, bet: int, balance: int):
+    def __init__(self, db_cog, user_id: int, deck: list, player_cards: list, dealer_cards: list, bet: int, balance: int,
+                 *, card_back_key: str | None = None, taunt_key: str | None = None):
         super().__init__(timeout=HAND_TIMEOUT_SECONDS)
         self.db_cog = db_cog
         self.user_id = user_id
@@ -284,6 +291,11 @@ class BlackjackHandView(discord.ui.View):
         self.outcome = "pending"
         self.result_text = "Your move."
         self.message: discord.Message | None = None
+        # Cosmetics shop — card_back_key/taunt_key are whatever's equipped
+        # in the player's wallet (see cogs/database.py's equipped_card_back/
+        # equipped_taunt columns), or None for the default look.
+        self.card_back_emoji = CARD_BACKS[card_back_key]["emoji"] if card_back_key else DEFAULT_CARD_BACK_EMOJI
+        self.taunt_key = taunt_key
         # Guards against double-clicking a button before the previous click's
         # response has landed — see the same fix in cogs/views/dungeon.py.
         self.busy = False
@@ -323,12 +335,13 @@ class BlackjackHandView(discord.ui.View):
             dealer_hand_text = format_hand(self.dealer_cards)
             dealer_label = f"{dealer_total}" + (" (soft)" if dealer_soft else "")
         else:
-            # 🂠 is the real Unicode "playing card back" glyph — a plain
-            # white card with a dot/lattice pattern, the actual default
-            # look for a face-down card (unlike 🎴's colorful illustrated
-            # flower-card design). Already proven safe as embed text
-            # elsewhere in this codebase (Poker's showdown reveal).
-            dealer_hand_text = f"{format_hand([self.dealer_cards[0]])} 🂠"
+            # self.card_back_emoji defaults to 🂠, the real Unicode "playing
+            # card back" glyph — a plain white card with a dot/lattice
+            # pattern, the actual default look for a face-down card (unlike
+            # 🎴's colorful illustrated flower-card design). Already proven
+            # safe as embed text elsewhere in this codebase (Poker's
+            # showdown reveal). A purchased Card Back skin swaps it.
+            dealer_hand_text = f"{format_hand([self.dealer_cards[0]])} {self.card_back_emoji}"
             dealer_label = "?"
 
         color = {
@@ -348,6 +361,17 @@ class BlackjackHandView(discord.ui.View):
     async def push_update(self, interaction: discord.Interaction):
         await interaction.edit_original_response(embed=self.build_embed(), view=self)
 
+    def _add_cosmetic_result_fields(self, embed: discord.Embed, new_badges: list[str] | None = None):
+        """Appends the New Badge field (if any were just earned) and the
+        player's equipped Taunt Line (if any) — shared by every path that
+        builds a final result embed (push_result, resolve_naturals,
+        on_timeout)."""
+        badge_field = format_new_badge_field(new_badges)
+        if badge_field:
+            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+        if self.taunt_key:
+            embed.add_field(name="💬 Taunt", value=TAUNTS[self.taunt_key]["text"], inline=False)
+
     async def push_result(self, interaction: discord.Interaction, new_badges: list[str] | None = None):
         """Same as push_update(), but for the hand's final state — attaches
         a fresh BlackjackResultView (Play Again / Change Bet) instead of
@@ -355,9 +379,7 @@ class BlackjackHandView(discord.ui.View):
         interactions anymore anyway. `new_badges` (from record_game_result)
         gets appended as an extra field when this resolution earned any."""
         embed = self.build_embed()
-        badge_field = format_new_badge_field(new_badges)
-        if badge_field:
-            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+        self._add_cosmetic_result_fields(embed, new_badges)
         result_view = BlackjackResultView(self.user_id, self.bet)
         message = await interaction.edit_original_response(embed=embed, view=result_view)
         result_view.message = message
@@ -439,9 +461,7 @@ class BlackjackHandView(discord.ui.View):
         )
         self.rebuild_items()
         embed = self.build_embed()
-        badge_field = format_new_badge_field(new_badges)
-        if badge_field:
-            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+        self._add_cosmetic_result_fields(embed, new_badges)
         result_view = BlackjackResultView(self.user_id, self.bet)
         await message.edit(embed=embed, view=result_view)
         result_view.message = message
@@ -465,9 +485,7 @@ class BlackjackHandView(discord.ui.View):
 
         self.rebuild_items()
         embed = self.build_embed()
-        badge_field = format_new_badge_field(new_badges)
-        if badge_field:
-            embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+        self._add_cosmetic_result_fields(embed, new_badges)
         result_view = BlackjackResultView(self.user_id, self.bet)
         try:
             await self.message.edit(embed=embed, view=result_view)

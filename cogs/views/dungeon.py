@@ -27,6 +27,7 @@ from data.weapons import WEAPON_CATALOG
 from data.dungeon_skills import SKILL_POOL, draw_skill_choices, DODGE_CAP
 from data.permanent_stats import PERMANENT_STATS
 from data.casino_badges import format_new_badge_field
+from data.casino_cosmetics import TAUNTS
 
 ENTRY_FEE = 100
 STARTING_HP = 100
@@ -48,11 +49,13 @@ CURSE_TICK_DAMAGE = 3            # "cursed": guaranteed extra damage each round,
 
 
 class DungeonRunView(discord.ui.View):
-    def __init__(self, db_cog, user_id: int, weapon_key: str, stat_levels: dict | None = None):
+    def __init__(self, db_cog, user_id: int, weapon_key: str, stat_levels: dict | None = None,
+                 *, taunt_key: str | None = None):
         super().__init__(timeout=RUN_TIMEOUT_SECONDS)
         self.db_cog = db_cog
         self.user_id = user_id
         self.weapon_key = weapon_key
+        self.taunt_key = taunt_key
         stat_levels = stat_levels or {}
 
         vitality = stat_levels.get("vitality", 0) * PERMANENT_STATS["vitality"]["value_per_level"]
@@ -274,6 +277,8 @@ class DungeonRunView(discord.ui.View):
         badge_field = format_new_badge_field(new_badges)
         if badge_field:
             embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+        if self.taunt_key:
+            embed.add_field(name="💬 Taunt", value=TAUNTS[self.taunt_key]["text"], inline=False)
         result_view = DungeonResultView(self.user_id)
         message = await interaction.edit_original_response(embed=embed, view=result_view)
         result_view.message = message
@@ -296,6 +301,8 @@ class DungeonRunView(discord.ui.View):
         badge_field = format_new_badge_field(new_badges)
         if badge_field:
             embed.add_field(name=badge_field[0], value=badge_field[1], inline=False)
+        if self.taunt_key:
+            embed.add_field(name="💬 Taunt", value=TAUNTS[self.taunt_key]["text"], inline=False)
         result_view = DungeonResultView(self.user_id)
         try:
             await self.message.edit(embed=embed, view=result_view)
@@ -318,7 +325,10 @@ async def start_run(interaction: discord.Interaction, db_cog, wallet: dict):
     window if nothing acked it first."""
     await db_cog.add_chips(interaction.user.id, -ENTRY_FEE)
     stat_levels = await db_cog.get_stat_levels(interaction.user.id)
-    view = DungeonRunView(db_cog, interaction.user.id, wallet["equipped_weapon"], stat_levels)
+    view = DungeonRunView(
+        db_cog, interaction.user.id, wallet["equipped_weapon"], stat_levels,
+        taunt_key=wallet.get("equipped_taunt"),
+    )
     message = await interaction.edit_original_response(embed=view.build_embed(), view=view)
     view.message = message
 
