@@ -24,7 +24,7 @@ import discord
 import chess
 
 from data.chess_ai import choose_move
-from data.chess_display import render_board
+from data.chess_display import render_board, format_captured
 from data.casino_badges import format_new_badge_field
 
 MIN_BET = 10
@@ -182,14 +182,15 @@ class ChessBetView(discord.ui.View):
 
 
 async def start_game(interaction: discord.Interaction, db_cog, bet: int, *, already_public: bool = False):
-    # Defer first — before any DB work. This does two sequential calls
-    # (add_chips, then create_chess_game) on top of whatever the caller
-    # already awaited for its own balance check — the same live-confirmed
-    # risk fixed at Blackjack's and Video Poker's identical start_hand
-    # chokepoints.
+    # Defer first — before any DB work. On top of whatever the caller
+    # already awaited for its own balance check, this can still chain
+    # into two sequential calls (add_chips, then create_chess_game) —
+    # the same live-confirmed risk fixed at Blackjack's and Video
+    # Poker's identical start_hand chokepoints.
     await interaction.response.defer()
 
-    await db_cog.add_chips(interaction.user.id, -bet)
+    if bet:
+        await db_cog.add_chips(interaction.user.id, -bet)
     board = chess.Board()
     await db_cog.create_chess_game(interaction.user.id, board.fen(), bet)
     view = ChessGameView(db_cog, interaction.user.id, board, bet, "")
@@ -328,7 +329,7 @@ class ChessGameView(discord.ui.View):
 
     def build_embed(self, *, extra_note: str | None = None) -> discord.Embed:
         board_text = render_board(self.board)
-        lines = [f"```\n{board_text}\n```"]
+        lines = [f"```\n{board_text}\n```", format_captured(self.move_history)]
         if extra_note:
             lines.append(extra_note)
         elif self.board.is_check():
@@ -338,7 +339,8 @@ class ChessGameView(discord.ui.View):
         lines.append(_format_move_log(self.move_history))
 
         embed = discord.Embed(title="⚔️ Chess vs. the House", description="\n\n".join(lines), color=discord.Color.gold())
-        embed.set_footer(text=f"Bet: {self.bet:,} chips · type moves like e4, Nf3, O-O")
+        bet_text = f"Bet: {self.bet:,} chips" if self.bet else "Free game — no chips at stake"
+        embed.set_footer(text=f"{bet_text} · type moves like e4, Nf3, O-O")
         return embed
 
     async def finish_game(self, interaction: discord.Interaction, *, resigned: bool = False):
@@ -382,21 +384,23 @@ class ChessGameView(discord.ui.View):
 
 class PlayAgainButton(discord.ui.Button):
     def __init__(self, bet: int):
-        super().__init__(label=f"Play Again ({bet:,})", style=discord.ButtonStyle.success, emoji="⚔️")
+        label = "Play Again" if not bet else f"Play Again ({bet:,})"
+        super().__init__(label=label, style=discord.ButtonStyle.success, emoji="⚔️")
         self.bet = bet
 
     async def callback(self, interaction: discord.Interaction):
-        view: ChessResultView = self.view
         db_cog = interaction.client.get_cog('Database')
-        wallet = await db_cog.get_or_create_wallet(interaction.user.id)
-        if wallet["balance"] < self.bet:
-            view.busy = False
-            await interaction.response.send_message(
-                f"You don't have {self.bet:,} chips for another {self.bet:,}-chip game — "
-                f"balance is {wallet['balance']:,}. Try Change Bet for a smaller amount.",
-                ephemeral=True,
-            )
-            return
+        if self.bet:
+            wallet = await db_cog.get_or_create_wallet(interaction.user.id)
+            if wallet["balance"] < self.bet:
+                view: ChessResultView = self.view
+                view.busy = False
+                await interaction.response.send_message(
+                    f"You don't have {self.bet:,} chips for another {self.bet:,}-chip game — "
+                    f"balance is {wallet['balance']:,}. Try Change Bet for a smaller amount.",
+                    ephemeral=True,
+                )
+                return
         await start_game(interaction, db_cog, self.bet, already_public=True)
 
 
@@ -420,7 +424,8 @@ class ChessResultView(discord.ui.View):
         self.busy = False
         self.message: discord.Message | None = None
         self.add_item(PlayAgainButton(bet))
-        self.add_item(ChangeBetButton())
+        if bet:
+            self.add_item(ChangeBetButton())  # nothing to change on a free game
         self.add_item(BackToCasinoButton())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
