@@ -8,7 +8,6 @@
 import chess
 
 _PIECE_VALUE = {chess.QUEEN: 9, chess.ROOK: 5, chess.BISHOP: 3, chess.KNIGHT: 3, chess.PAWN: 1}
-_PIECE_LETTER = {chess.QUEEN: "Q", chess.ROOK: "R", chess.BISHOP: "B", chess.KNIGHT: "N", chess.PAWN: "P"}
 
 
 def render_board(board: chess.Board) -> str:
@@ -62,6 +61,20 @@ def _replay_captures(move_history: str) -> tuple:
     return white_captured, black_captured
 
 
+def _captured_tray(piece_types: list, original_color: chess.Color) -> str:
+    """Renders captured piece types as the actual Unicode chess glyphs
+    (♛♜♝♞♟ / ♕♖♗♘♙) — unlike the board, this is a flat inline list with
+    nothing to column-align against, so the glyphs' wider rendering
+    (the reason the board uses plain letters instead) isn't a problem
+    here. `original_color` is the color these pieces were BEFORE being
+    captured (e.g. the pieces White captured were Black's, so pass
+    chess.BLACK) — a captured tray conventionally shows the pieces in
+    the color they were taken from, not the capturing side's own."""
+    if not piece_types:
+        return "*(none)*"
+    return " ".join(chess.Piece(pt, original_color).unicode_symbol() for pt in piece_types)
+
+
 def format_captured(move_history: str) -> str:
     """A two-line captured-material summary, from White's perspective
     (the human always plays White, see cogs/views/chess.py). The side
@@ -70,8 +83,8 @@ def format_captured(move_history: str) -> str:
     white_captured, black_captured = _replay_captures(move_history)
     material_lead = sum(_PIECE_VALUE[pt] for pt in white_captured) - sum(_PIECE_VALUE[pt] for pt in black_captured)
 
-    white_text = " ".join(_PIECE_LETTER[pt] for pt in white_captured) if white_captured else "*(none)*"
-    black_text = " ".join(_PIECE_LETTER[pt] for pt in black_captured) if black_captured else "*(none)*"
+    white_text = _captured_tray(white_captured, chess.BLACK)
+    black_text = _captured_tray(black_captured, chess.WHITE)
     if material_lead > 0:
         white_text += f"  (+{material_lead})"
     elif material_lead < 0:
