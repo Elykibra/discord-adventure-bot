@@ -46,6 +46,22 @@ def chess_bet_embed(balance: int) -> discord.Embed:
     )
 
 
+HELP_TEXT = (
+    "**How to enter a move**\n"
+    "Type the move in standard chess notation — the same shorthand real chess games are written down in.\n\n"
+    "• **Pawns** — just the destination square: `e4`, `d5`\n"
+    "• **Pieces** — the piece's letter + destination: `Nf3` (Knight to f3), `Bb5` (Bishop to b5), "
+    "`Qh5` (Queen to h5), `Rd1` (Rook to d1), `Kf1` (King to f1)\n"
+    "• **Captures** — add an `x` before the destination: `Bxb4` (Bishop captures on b4), "
+    "`exd5` (the pawn on the e-file captures on d5), `Nxe5` (Knight captures on e5)\n"
+    "• **Castling** — `O-O` (kingside) or `O-O-O` (queenside)\n"
+    "• **Promotion** — add `=` and the piece when a pawn reaches the last rank: `e8=Q`\n\n"
+    "**Piece letters:** K = King, Q = Queen, R = Rook, B = Bishop, N = Knight (pawns have no letter)\n\n"
+    "Squares are named file-then-rank — the letters a–h along the bottom of the board, then the numbers "
+    "1–8 down the left side. So `e4` means the e-file, 4th rank."
+)
+
+
 def _format_move_log(move_history: str) -> str:
     tokens = move_history.split()
     if not tokens:
@@ -243,8 +259,18 @@ class MakeMoveButton(discord.ui.Button):
         await interaction.response.send_modal(MoveModal(view))
 
 
+class HelpButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="How to Move", style=discord.ButtonStyle.secondary, emoji="❓", row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: ChessGameView = self.view
+        view.busy = False  # purely informational — never touches game state or rebuild_items()
+        await interaction.response.send_message(HELP_TEXT, ephemeral=True)
+
+
 class MoveModal(discord.ui.Modal, title="Make Your Move"):
-    move = discord.ui.TextInput(label="Move (standard notation)", placeholder="e.g. e4, Nf3, O-O", max_length=10)
+    move = discord.ui.TextInput(label="Move (standard notation)", placeholder="e.g. e4, Nf3, Bxb4, O-O", max_length=10)
 
     def __init__(self, game_view: "ChessGameView"):
         super().__init__()
@@ -334,6 +360,7 @@ class ChessGameView(discord.ui.View):
         self.busy = False
         self.clear_items()
         self.add_item(MakeMoveButton())
+        self.add_item(HelpButton())
         self.add_item(ResignButton())
 
     def build_embed(self, *, extra_note: str | None = None) -> discord.Embed:
@@ -349,7 +376,7 @@ class ChessGameView(discord.ui.View):
 
         embed = discord.Embed(title="⚔️ Chess vs. the House", description="\n\n".join(lines), color=discord.Color.gold())
         bet_text = f"Bet: {self.bet:,} chips" if self.bet else "Free game — no chips at stake"
-        embed.set_footer(text=f"{bet_text} · type moves like e4, Nf3, O-O")
+        embed.set_footer(text=f"{bet_text} · type moves like e4, Nf3, O-O · tap How to Move for help")
         return embed
 
     async def finish_game(self, interaction: discord.Interaction, *, resigned: bool = False):
