@@ -24,7 +24,7 @@ import discord
 import chess
 
 from data.chess_ai import choose_move
-from data.chess_display import render_board
+from data.chess_display import render_board, format_captured
 from data.casino_badges import format_new_badge_field
 
 MIN_BET = 10
@@ -329,7 +329,7 @@ class ChessGameView(discord.ui.View):
 
     def build_embed(self, *, extra_note: str | None = None) -> discord.Embed:
         board_text = render_board(self.board)
-        lines = [f"```\n{board_text}\n```"]
+        lines = [f"```\n{board_text}\n```", format_captured(self.move_history)]
         if extra_note:
             lines.append(extra_note)
         elif self.board.is_check():
