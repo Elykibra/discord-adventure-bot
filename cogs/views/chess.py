@@ -97,6 +97,9 @@ class BetPresetButton(discord.ui.Button):
                 f"You don't have {self.amount:,} chips — balance is {wallet['balance']:,}.", ephemeral=True
             )
             return
+        # Defer here (not inside start_game — see its docstring) since
+        # this is the first response-touching call on this interaction.
+        await interaction.response.defer()
         await start_game(interaction, db_cog, self.amount, already_public=view.already_public)
 
 
@@ -135,6 +138,9 @@ class CustomBetModal(discord.ui.Modal, title="Custom Bet"):
             )
             return
 
+        # Defer here (not inside start_game — see its docstring) since
+        # this is the first response-touching call on this interaction.
+        await interaction.response.defer()
         await start_game(interaction, db_cog, bet, already_public=self.already_public)
 
 
@@ -182,13 +188,16 @@ class ChessBetView(discord.ui.View):
 
 
 async def start_game(interaction: discord.Interaction, db_cog, bet: int, *, already_public: bool = False):
-    # Defer first — before any DB work. On top of whatever the caller
-    # already awaited for its own balance check, this can still chain
-    # into two sequential calls (add_chips, then create_chess_game) —
-    # the same live-confirmed risk fixed at Blackjack's and Video
-    # Poker's identical start_hand chokepoints.
-    await interaction.response.defer()
-
+    """Callers must defer (or otherwise respond to) the interaction
+    before calling this — same contract as resume_game() below and
+    dungeon.py's start_run(). This can chain into two DB round-trips
+    (add_chips, then create_chess_game) on top of whatever the caller
+    already awaited for its own balance check, which live-confirmed can
+    outlast Discord's 3-second interaction window if nothing acked it
+    first — but unlike Blackjack's/Video Poker's start_hand, this one
+    now also has a caller (cogs/casino.py's chess branch) that's
+    already deferred by the time it gets here, so deferring internally
+    here too would double-respond and crash."""
     if bet:
         await db_cog.add_chips(interaction.user.id, -bet)
     board = chess.Board()
@@ -401,6 +410,9 @@ class PlayAgainButton(discord.ui.Button):
                     ephemeral=True,
                 )
                 return
+        # Defer here (not inside start_game — see its docstring) since
+        # this is the first response-touching call on this interaction.
+        await interaction.response.defer()
         await start_game(interaction, db_cog, self.bet, already_public=True)
 
 
