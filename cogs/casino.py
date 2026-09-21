@@ -11,7 +11,7 @@ from .views.poker import StakeSelectView
 from .views.baccarat import create_table as create_baccarat_table
 from .views.slots import SlotsBetView, slots_bet_embed
 from .views.video_poker import VideoPokerBetView, video_poker_bet_embed
-from .views.chess import ChessBetView, chess_bet_embed, resume_game as resume_chess_game
+from .views.chess import start_game as start_chess_game, resume_game as resume_chess_game
 from data.weapons import WEAPON_CATALOG, STARTER_WEAPON, format_damage_range, trait_display, tier_display
 from data.permanent_stats import PERMANENT_STATS, MAX_STAT_LEVEL, cost_for_next_level, format_effect
 from data.casino_games import CASINO_GAMES
@@ -106,23 +106,23 @@ class CasinoSelect(discord.ui.Select):
             return
 
         if self.values[0] == "chess":
-            # Defer first — checking for an in-progress game, then (if
-            # there isn't one) fetching the wallet for the bet-picker,
-            # chains to two sequential DB calls before there's anything
-            # to respond with, same risk class as every other multi-call
-            # branch above.
+            # Defer first — checking for an in-progress game is a DB
+            # call before there's anything to respond with, same risk
+            # class as every other multi-call branch above.
             await interaction.response.defer()
             existing_game = await db_cog.get_chess_game(interaction.user.id)
             if existing_game:
                 # A deploy or a long think can outlast the old game
                 # view's lifetime — the game itself never stopped
-                # existing, so pick it back up instead of re-opening
-                # the bet picker (which would double-charge the bet).
+                # existing, so pick it back up instead of starting fresh.
                 await resume_chess_game(interaction, db_cog, existing_game)
                 return
-            wallet = await db_cog.get_or_create_wallet(interaction.user.id)
-            view = ChessBetView(wallet["balance"])
-            await interaction.edit_original_response(embed=chess_bet_embed(wallet["balance"]), view=view)
+            # Free for now — chess is a skill game, not a wager, so
+            # straight into a game with no bet picker and no chips
+            # deducted. start_game(bet=0) handles a free game correctly
+            # throughout (no deduction, no payout on a win, no "Change
+            # Bet" on the result screen).
+            await start_chess_game(interaction, db_cog, 0, already_public=False)
             return
 
         if self.values[0] == "armory":
