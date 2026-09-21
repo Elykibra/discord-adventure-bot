@@ -16,18 +16,19 @@ def render_board(board: chess.Board) -> str:
     White, which both sides play from in this v1 (the human is always
     White, see cogs/views/chess.py).
 
-    Pieces are plain ASCII letters (Piece.symbol() — uppercase White,
-    lowercase Black), not the Unicode chess glyphs (♔♞ etc.) used
-    earlier. Those glyphs render a full character wider than plain text
-    in Discord's monospace font, so any rank mixing pieces and empty
-    squares drifted out of column alignment with the file-letter row
-    below it. ASCII letters are guaranteed single-width everywhere."""
+    Pieces are the real Unicode chess glyphs (♔♞ etc. — Piece.
+    unicode_symbol()), by explicit request, even though these render a
+    character wider than plain text in most Discord clients' monospace
+    font, which can drift a rank's columns out of alignment with the
+    file-letter row below it (an earlier version used plain ASCII
+    letters specifically to avoid this — see git history/PR #79 if
+    alignment becomes a problem again)."""
     lines = []
     for rank_idx in range(7, -1, -1):
         squares = []
         for file_idx in range(8):
             piece = board.piece_at(chess.square(file_idx, rank_idx))
-            squares.append(piece.symbol() if piece else ".")
+            squares.append(piece.unicode_symbol() if piece else ".")
         lines.append(f"{rank_idx + 1}  " + " ".join(squares))
     lines.append("   a b c d e f g h")
     return "\n".join(lines)
